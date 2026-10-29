@@ -245,33 +245,13 @@ PanelWindow {
             }
         }
 
-        // кот: гифка матрицей в тон темы через шейдер обоев (как Wall в look 0). Танцует, только пока дом виден
+        // кот: гифка матрицей в тон темы через шейдер обоев (как Wall в look 0), какая — services/Gifs, сама плитка — Gif.
+        // Танцует, только пока дом виден
         Component {
             id: catW
             W {
                 id: cw
-                AnimatedImage { id: cat; anchors.fill: fx; opacity: 0; source: "cat.gif"; playing: root.home } // текстура для fx, см. Wall
-                ShaderEffect {
-                    id: fx
-                    anchors { fill: parent; margins: 12 }
-                    readonly property size size: Qt.size(width, height)
-                    readonly property point origin: Qt.point(0, 0)
-                    readonly property size cropA: Qt.size(1, 1)
-                    readonly property size cropB: cropA
-                    readonly property color lo: Theme.light ? Theme.fg : Theme.bg
-                    readonly property color hi: Theme.light ? Theme.bg : Theme.fg
-                    readonly property color bg: cw.color // прозрачное в гифке — в цвет плитки
-                    readonly property real pitch: 6
-                    readonly property real dots: 1
-                    readonly property real mono: 1
-                    readonly property real bright: 1
-                    readonly property real wave: 0
-                    readonly property real hasA: cat.status === Image.Ready ? 1 : 0
-                    readonly property real hasB: 0
-                    readonly property var srcA: cat
-                    readonly property var srcB: cat
-                    fragmentShader: Qt.resolvedUrl("../components/shaders/wall.frag.qsb")
-                }
+                Gif { anchors.fill: parent; playing: root.home; bg: cw.color }
             }
         }
 
