@@ -219,8 +219,12 @@ Scope {
                             Grid {
                                 id: cores
                                 readonly property int n: Math.max(1, SysStats.cores.length)
-                                readonly property real d: (width - (n - 1) * spacing) / n
-                                width: parent.width
+                                // высота в бюджете root.h=232: 109 кольца + 18 отступ + 19 подпись → сетке ≤86, иначе вылезает из панели
+                                // d от ширины колонки (126, стабильна), а не своей — иначе петля d↔width и сетка схлопывается в 0
+                                readonly property real d: Math.min((126 - (n - 1) * spacing) / n, (86 - 7 * spacing) / 8)
+                                width: n * d + (n - 1) * spacing
+                                // уже колонки — центрируем саму сетку: зазора справа нет, по бокам ровно
+                                anchors.horizontalCenter: parent.horizontalCenter
                                 columns: n
                                 spacing: 3
                                 Repeater {
