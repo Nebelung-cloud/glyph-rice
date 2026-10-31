@@ -1,7 +1,7 @@
 import QtQuick
 import qs
 
-// обои: картинка матрицей точек (look 0), серым фото в тон темы (1) или цветным (2) — см. shaders/wall.frag.
+// обои: картинка матрицей точек (look 0), серым фото в тон темы (1) или цветным (2), цветными точками (3) — см. shaders/wall.frag.
 // Две картинки: та, что на экране, и приходящая. Пришла — волна от origin, в конце меняются ролями, старая выгружается.
 // Пустой path — прозрачно: под обоями сетка и шар. opaque — картинка закрыла всё, то, что под ней, можно не рисовать
 Item {
@@ -87,7 +87,7 @@ Item {
         readonly property color bg: Theme.bg
         readonly property real pitch: root.pitch
         readonly property real bright: root.bright
-        property real dots: root.look === 0 ? 1 : 0
+        property real dots: root.look === 0 || root.look === 3 ? 1 : 0 // 3 — color dots
         property real mono: root.look < 2 ? 1 : 0
         property real wave: 0
         Behavior on dots { NumberAnimation { duration: 700; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }

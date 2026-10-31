@@ -26,7 +26,7 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Shot** | screenshots, editor, recording | `Print` |
 | **Clip** | clipboard history | `Super` `V` |
 | **Charms** | emoji, kaomoji, symbols | `Super` `.` |
-| **Walls** | wallpapers as dots | `Super` `Shift` `W` |
+| **Walls** | wallpapers as dots or a photo, mono or in color | `Super` `Shift` `W` |
 | **VPN** | Clash Verge panel | `Super` `P` |
 | **Cal** | calendar, focus timer | click the clock |
 | **Buds** | Nothing / CMF earbuds: battery, ANC | |

@@ -167,7 +167,7 @@ Singleton {
             // обои (пикер wall/Walls, рисует components/Wall): путь к картинке; пусто — сетка и шар. Папку пикера можно сменить здесь
             property string wall: ""
             property string wallDir: ""    // пусто — ~/Pictures/Wallpapers
-            property int wallLook: 0       // 0 точки, 1 серое фото, 2 цвет
+            property int wallLook: 0       // 0 точки, 1 серое фото, 2 цвет, 3 цветные точки
             property int wallPitch: 10     // шаг точек, px
             property int wallBright: 85    // %, от фона до картинки
             property string gif: ""        // гифка плитки-кота (services/Gifs), путь; пусто — первая в папке
