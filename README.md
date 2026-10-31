@@ -22,7 +22,7 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Launcher** | apps, style, windows, calculator | `Super` |
 | **Quick** | quick settings, game mode, media, notifications; also opens from the right edge | `Super` `A` |
 | **Deck** | dashboard from the bottom edge | `Super` `Space` |
-| **Prefs** | settings, bar and home layout | `Super` `I` |
+| **Prefs** | settings, bar and home layout, audio devices | `Super` `I` |
 | **Shot** | screenshots, editor, recording | `Print` |
 | **Clip** | clipboard history | `Super` `V` |
 | **Charms** | emoji, kaomoji, symbols | `Super` `.` |
