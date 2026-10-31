@@ -9,13 +9,17 @@ import "../prefs"
 // обои: Super+Shift+W или настройки → look. Не сетка картинок — экран целиком и есть превью: выбранная собирается точками
 // волной от ленты внизу. Лента — круги-миниатюры точками, выбранная по центру в кольце (оно горит долей пути по коллекции),
 // под живой сейчас — красная точка. Первый круг — NOTHING: без картинки, только сетка и шар.
-// ←→ / колесо — листать, tab — вид (точки / серое фото / цвет), ↑↓ — шаг точек, shift ↑↓ — яркость, ↵ или клик по
+// ←→ / колесо — листать, tab — вид (точки / фото), c — тон (серый / цвет), ↑↓ — шаг точек, shift ↑↓ — яркость, ↵ или клик по
 // выбранной — поставить, esc — как было. Картинки — из Theme.state.wallDir, копии под экран — в Theme.wallCache (один раз)
 PanelWindow {
     id: root
 
     readonly property string dir: Theme.state.wallDir || Quickshell.env("HOME") + "/Pictures/Wallpapers"
-    readonly property var looks: ["dots", "mono", "color"]
+    // look and tone are separate, so dots can be in color too. Stored as wallLook 0 dots, 1 grey photo,
+    // 2 color photo, 3 color dots (0-2 as before, so saved settings keep their look)
+    readonly property bool dotted: look === 0 || look === 3
+    readonly property bool colored: look >= 2
+    function setLook(d, c) { look = d ? (c ? 3 : 0) : (c ? 2 : 1); }
     // копии — в физических пикселях экрана, с запасом под обрезку
     readonly property string res: {
         const s = Quickshell.screens[0];
@@ -129,8 +133,8 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
             if (e.key === Qt.Key_Left || e.key === Qt.Key_H) root.go(-1);
             else if (e.key === Qt.Key_Right || e.key === Qt.Key_L) root.go(1);
             else if (e.key === Qt.Key_Home) root.pick = "";
-            else if (e.key === Qt.Key_Tab) root.look = (root.look + 1) % 3;
-            else if (e.key === Qt.Key_Backtab) root.look = (root.look + 2) % 3;
+            else if (e.key === Qt.Key_Tab || e.key === Qt.Key_Backtab) root.setLook(!root.dotted, root.colored);
+            else if (e.key === Qt.Key_C) root.setLook(root.dotted, !root.colored);
             else if ((up || down) && e.modifiers & Qt.ShiftModifier) root.bright = Math.max(10, Math.min(100, root.bright + (up ? 5 : -5)));
             else if (up || down) root.pitch = Math.max(4, Math.min(32, root.pitch + (up ? 1 : -1)));
             else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) root.apply();
@@ -214,7 +218,13 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
             anchors { right: parent.right; rightMargin: 150 - 30 * (1 - root.t) }
             y: 110
             spacing: 30
-            Pick { label: "look"; opts: root.looks; cur: root.look; onPicked: i => root.look = i }
+            // two picks: look (dots / photo) and tone (mono / color)
+            Column {
+                anchors.right: parent.right
+                spacing: 12
+                Pick { label: "look"; opts: ["dots", "photo"]; cur: root.dotted ? 0 : 1; onPicked: i => root.setLook(i === 0, root.colored) }
+                Pick { label: "tone"; opts: ["mono", "color"]; cur: root.colored ? 1 : 0; onPicked: i => root.setLook(root.dotted, i === 1) }
+            }
             Row {
                 anchors.right: parent.right
                 spacing: 36
@@ -286,6 +296,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
             spacing: 34
             Lb { text: "←→ browse" }
             Lb { text: "tab look" }
+            Lb { text: "c tone" }
             Lb { text: "↑↓ dot size" }
             Lb { text: "shift ↑↓ light" }
             Lb { text: "↵ set" }
