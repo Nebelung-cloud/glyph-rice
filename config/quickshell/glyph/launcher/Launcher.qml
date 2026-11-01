@@ -11,7 +11,7 @@ import qs.components
 // style — цвет, как scheme в caelestia: откуда (nothing, обои, палитра), под ним — тона обоев и варианты (tonal spot…) или палитры
 // (catppuccin, rosé pine…), тема (Theme.styles, те же, что STYLE в настройках). Кружки — образцы, точка — что стоит,
 // ↵ ставит и лаунчер не закрывает. При палитрах поиск — и по группе: «catppuccin».
-// Появляется как Charms и Clip: подъём на 24 и fade. Иконки — монохромные глифы в кругах, неизвестные — сама иконка точками; выбранная — белый круг
+// Появляется как Charms и Clip: подъём на 24 и fade. Иконки — иконки темы точками в кругах; выбранная — белый круг
 PanelWindow {
     id: root
 
@@ -21,16 +21,8 @@ PanelWindow {
     readonly property string query: input.text
     property var uses: ({}) // id приложения → сколько раз открыли
 
-    // глифы для известных приложений; ключ — кусок id/имени в нижнем регистре
-    readonly property var glyphs: [
-        ["zen", "\u{F0239}"], ["firefox", "\u{F0239}"], ["chrom", "\u{F059F}"], ["kitty", "\u{F018D}"], ["foot", "\u{F018D}"],
-        ["spotify", "\u{F04C7}"], ["telegram", "\u{F2C6}"], ["codium", "\u{F0A1E}"], ["code", "\u{F0A1E}"], ["steam", "\u{F04D3}"],
-        ["discord", "\u{F066F}"], ["vesktop", "\u{F066F}"], ["equibop", "\u{F066F}"], ["calculator", "\u{F00EC}"], ["calendar", "\u{F00ED}"],
-        ["camera", "\u{F0100}"], ["thunar", "\u{F024B}"], ["nautilus", "\u{F024B}"], ["files", "\u{F024B}"], ["gimp", "\u{F02E9}"],
-        ["mail", "\u{F01EE}"], ["btop", "\u{F035B}"], ["monitor", "\u{F035B}"], ["obsidian", "\u{F082E}"], ["settings", "\u{F0493}"],
-        ["pavucontrol", "\u{F057E}"], ["mpv", "\u{F040A}"], ["vlc", "\u{F040A}"], ["clash", "\u{F0483}"], ["torrent", "\u{F01DA}"]
-    ]
-    function glyph(key) { return glyphs.find(g => key.toLowerCase().includes(g[0]))?.[1] ?? ""; }
+    // иконка темы или путь из .desktop; нет её (или файла) — общий значок приложения, а не пустой круг
+    function icon(name) { return Quickshell.iconPath(name || "application-x-executable", "application-x-executable"); }
 
     // на старте DesktopEntries добавляет записи по одной (~160 valuesChanged): биндинг пересобирал бы сетку на каждую —
     // секунды фриза. Собираем раз, когда список затих
@@ -40,7 +32,7 @@ PanelWindow {
         interval: 300
         running: true
         onTriggered: root.apps = DesktopEntries.applications.values.filter(e => !e.noDisplay).map(e => ({
-            id: e.id, name: e.name, src: e.icon ? Quickshell.iconPath(e.icon, true) : "", glyph: root.glyph(`${e.id} ${e.name}`),
+            id: e.id, name: e.name, src: root.icon(e.icon),
             extra: `${e.id} ${e.genericName} ${(e.keywords ?? []).join(" ")}`.toLowerCase(), run: () => e.execute()
         })).sort((a, b) => a.name.localeCompare(b.name))
     }
@@ -51,8 +43,7 @@ PanelWindow {
     // окна — только пока открыт режим windows: иначе любая смена заголовка пересобирала бы список
     readonly property var wins: !visible || mode !== 2 ? [] : Hyprland.toplevels.values.map(t => {
         const cls = t.lastIpcObject?.class ?? "";
-        const icon = DesktopEntries.heuristicLookup(cls)?.icon;
-        return { name: t.title, src: icon ? Quickshell.iconPath(icon, true) : "", glyph: glyph(cls), extra: cls.toLowerCase(),
+        return { name: t.title, src: icon(DesktopEntries.heuristicLookup(cls)?.icon), extra: cls.toLowerCase(),
                  run: () => { focusT.addr = t.address; focusT.restart(); } };
     })
     // пока лаунчер держит клавиатуру (Exclusive), Hyprland переключит воркспейс, но фокус окну не даст — а отпустив
@@ -389,16 +380,9 @@ PanelWindow {
             Rectangle { visible: cell.on && !!cell.modelData.fill; anchors.centerIn: parent; width: 104; height: 104; radius: 52; color: "transparent"; border { width: 2; color: Theme.fg } }
             Rectangle { id: inner; visible: !!cell.modelData.dot; anchors.centerIn: parent; width: 40; height: 40; radius: 20; color: cell.modelData.dot ?? "transparent" }
             Rectangle { visible: !!cell.modelData.now; anchors.centerIn: parent; width: 14; height: 14; radius: 7; color: Theme.on(inner.visible ? inner.color : disc.color) }
-            Icon {
-                anchors.centerIn: parent
-                visible: !!cell.modelData.glyph
-                text: cell.modelData.glyph ?? ""
-                font.pixelSize: 36
-                color: cell.on ? Theme.ink : Theme.fg
-            }
             Image {
                 anchors.centerIn: parent
-                visible: !cell.modelData.glyph && status === Image.Ready
+                visible: status === Image.Ready
                 width: 44
                 height: 44
                 source: cell.near ? cell.modelData.src ?? "" : ""
