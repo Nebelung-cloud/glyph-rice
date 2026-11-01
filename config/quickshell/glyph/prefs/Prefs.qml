@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -41,6 +42,7 @@ PanelWindow {
     property real t: shown ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
     function open() {
+        pickMon = Hyprland.focusedMonitor?.name ?? "";
         shown = true;
         stage.forceActiveFocus();
     }
@@ -51,14 +53,19 @@ PanelWindow {
         stage.forceActiveFocus(); // фокус в скрытом разделе потерялся бы
     }
 
+    // экран, который настраивают DISPLAY и HOME: открылись — тот, где фокус; его отключили — первый
+    property string pickMon
+    readonly property var names: Quickshell.screens.map(s => s.name)
+    readonly property string mon: names.includes(pickMon) ? pickMon : names[0] ?? ""
+    readonly property bool multi: names.length > 1
+
     // ---- списки id в Theme.state: виджеты дома, секции deck, трей бара. Правим копию — JsonAdapter пишет файл на присваивание.
-    // Все возвращают новый курсор. Виджеты — того экрана, где открыты настройки, если у него свой набор (display), иначе общие ----
-    readonly property string scr: Theme.state.screens[screen?.name]?.widgets ? screen.name : ""
-    function list(key) { return key === "widgets" && scr ? Theme.state.screens[scr].widgets : Theme.state[key]; }
+    // Все возвращают новый курсор. Виджеты — экрана mon: экранов несколько — правка даёт ему свой набор, пока не правили — общий ----
+    function list(key) { return key === "widgets" ? Theme.scr(mon, "widgets") : Theme.state[key]; }
     function edit(key, f) {
         const a = list(key).slice();
         f(a);
-        if (key === "widgets" && scr) Theme.setScr(scr, "widgets", a);
+        if (key === "widgets" && (multi || Theme.state.screens[mon]?.widgets)) Theme.setScr(mon, "widgets", a);
         else Theme.state[key] = a;
     }
     function move(key, i, to) {
@@ -205,11 +212,13 @@ PanelWindow {
         }
 
         // ---- HOME: дом в масштабе 168/220 — те же виды, порядок и укладка. Клик — выбрать, ещё клик или ↵ — следующий вид,
-        // тянуть — встать на место того, на кого бросили. Что не влезло в 3 × 3 — справа бледным контуром ----
+        // тянуть — встать на место того, на кого бросили. Что не влезло в 3 × 3 — справа бледным контуром.
+        // Экранов несколько — сверху какой: у каждого свой набор ----
         Page {
             id: home
             k: 0
-            caption: `home${root.scr ? ` · ${root.scr.toLowerCase()} · own set` : ""} · bento 3 × 3 · ${used} of 9 cells`
+            caption: `home${root.multi ? ` · ${root.mon.toLowerCase()}${Theme.scr(root.mon, "home") ? "" : " · hidden there, display shows it"}` : ""}`
+                + ` · bento 3 × 3 · ${used} of 9 cells`
             readonly property var cells: root.pack(root.list("widgets"))
             readonly property var placed: cells.filter(c => c.fits)
             readonly property var off: cells.filter(c => !c.fits)
@@ -229,6 +238,8 @@ PanelWindow {
                 const n = placed.filter(c => c.row * 3 + c.col < at).length; // влезшие — всегда начало списка
                 cur = root.move("widgets", i, hit ? hit.i : i < n ? n - 1 : n);
             }
+
+            Pick { visible: root.multi; label: "screen"; opts: root.names.map(n => n.toLowerCase()); cur: root.names.indexOf(root.mon); onPicked: i => root.pickMon = root.names[i] }
 
             Row {
                 spacing: 60
@@ -928,76 +939,105 @@ PanelWindow {
             }
         }
 
-        // ---- DISPLAY: яркость большим кольцом (живая, из sysfs), экран точками — с масштабом точки крупнее и реже ----
+        // ---- DISPLAY: экраны, как их расставил hypr (клик или ←→ — выбрать); всё ниже — выбранного: яркость (у встроенного),
+        // логические px, масштаб и герцы, бар и дом на нём. Ночник — на все ----
         Page {
+            id: disp
             k: 6
-            caption: `display · ${Rules.mon.name.toLowerCase()} · ${Rules.hz} hz`
+            readonly property var m: Rules.mons.find(x => x.name === root.mon) ?? Rules.mon
+            readonly property var w: Rules.want(m)
+            caption: `display · ${m.name.toLowerCase()} · ${m.w} × ${m.h} · ${m.hz} hz`
 
             Row {
                 spacing: 60
                 Column {
-                    visible: Sys.hasBri
                     spacing: 22
-                    Dial { anchors.horizontalCenter: parent.horizontalCenter; size: 340; n: 60; live: true; label: "brightness"; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
-                    // шаг клавиш яркости: делений на шкалу (Backlight.steps)
-                    Pick { anchors.horizontalCenter: parent.horizontalCenter; label: "step"; opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 22
-                    Rectangle {
-                        width: 420
-                        height: 262
-                        radius: 24
-                        color: Theme.bg
-                        border { width: 1; color: Theme.s3 }
-                        Image {
-                            readonly property real p: 5 * Rules.scale
-                            anchors { fill: parent; margins: 14 }
-                            fillMode: Image.Tile
-                            source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${p}" height="${p}"><circle cx="${p / 2}" cy="${p / 2}" r="${p * 0.2}" fill="#${Theme.hex(Theme.mute)}"/></svg>`)
+                    Item {
+                        id: map
+                        readonly property var ms: Rules.mons
+                        readonly property real x0: Math.min(...ms.map(m => m.x))
+                        readonly property real y0: Math.min(...ms.map(m => m.y))
+                        readonly property real bw: Math.max(...ms.map(m => m.x + m.lw)) - x0
+                        readonly property real bh: Math.max(...ms.map(m => m.y + m.lh)) - y0
+                        readonly property real k: Math.min(width / bw, height / bh)
+                        width: 560
+                        height: 320
+                        activeFocusOnTab: true
+                        Keys.onPressed: e => {
+                            const d = e.key === Qt.Key_Left ? -1 : e.key === Qt.Key_Right ? 1 : 0, n = root.names.length;
+                            if (!d || !n) return;
+                            root.pickMon = root.names[(root.names.indexOf(root.mon) + d + n) % n];
+                            e.accepted = true;
+                        }
+                        Repeater {
+                            model: map.ms
+                            Rectangle {
+                                id: sc
+                                required property var modelData
+                                readonly property bool on: modelData.name === root.mon
+                                x: (map.width - map.bw * map.k) / 2 + (modelData.x - map.x0) * map.k + 5
+                                y: (map.height - map.bh * map.k) / 2 + (modelData.y - map.y0) * map.k + 5
+                                width: modelData.lw * map.k - 10
+                                height: modelData.lh * map.k - 10
+                                radius: Theme.corner(18)
+                                color: Theme.bg
+                                border { width: sc.on && map.activeFocus ? 2 : 1; color: sc.on ? Theme.fg : Theme.s3 }
+                                Behavior on border.color { ColorAnimation { duration: Theme.t } }
+                                Image {
+                                    anchors { fill: parent; margins: 12 }
+                                    fillMode: Image.Tile
+                                    source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="1.5" fill="#${Theme.hex(sc.on ? Theme.mute : Theme.s2)}"/></svg>`)
+                                }
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+                                    Lb { anchors.horizontalCenter: parent.horizontalCenter; text: sc.modelData.name; color: sc.on ? Theme.fg : Theme.grey }
+                                    Lb { anchors.horizontalCenter: parent.horizontalCenter; text: `${sc.modelData.w} × ${sc.modelData.h}`; px: 10 }
+                                }
+                                TapHandler {
+                                    onTapped: {
+                                        root.pickMon = sc.modelData.name;
+                                        map.forceActiveFocus();
+                                    }
+                                }
+                                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                            }
                         }
                     }
                     Row {
                         spacing: 14
-                        Num { id: resW; text: Math.round(Rules.mon.w / Rules.scale); font.pixelSize: 72 }
+                        Num { id: resW; text: disp.m.lw; font.pixelSize: 72 }
                         Num { anchors.baseline: resW.baseline; text: "×"; font.pixelSize: 40; color: Theme.mute }
-                        Num { anchors.baseline: resW.baseline; text: Math.round(Rules.mon.h / Rules.scale); font.pixelSize: 72 }
+                        Num { anchors.baseline: resW.baseline; text: disp.m.lh; font.pixelSize: 72 }
                     }
                     Lb { text: "logical pixels" }
+                }
+                // подсветка — у встроенного; внешние по DDC — нет (services/Backlight)
+                Column {
+                    visible: Sys.hasBri && disp.m.name === Rules.mon.name
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 22
+                    Dial { anchors.horizontalCenter: parent.horizontalCenter; size: 300; n: 60; live: true; label: "brightness"; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
+                    // шаг клавиш яркости: делений на шкалу (Backlight.steps)
+                    Pick { anchors.horizontalCenter: parent.horizontalCenter; label: "step"; opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
                 }
             }
             Row {
                 spacing: 24
-                Pick { label: "scale"; opts: Rules.scales; cur: Rules.scaleIdx; onPicked: i => Rules.setScale(i) }
-                Pick { label: "hz"; opts: Rules.rates.map(String); cur: Rules.rates.indexOf(Rules.refreshHz); onPicked: i => { root.r.refresh = Rules.rates[i]; Rules.monitor(); } }
+                Pick { label: "scale"; opts: Rules.scales; cur: disp.w.scale ? Rules.scales.indexOf(String(disp.w.scale)) : 0; onPicked: i => Rules.set(disp.m.name, "scale", i ? +Rules.scales[i] : 0) }
+                Pick { label: "hz"; opts: disp.m.rates.map(String); cur: disp.m.rates.indexOf(disp.w.refresh); onPicked: i => Rules.set(disp.m.name, "refresh", disp.m.rates[i]) }
             }
-            // экраны по одному: бар, дом и свой набор виджетов (его правит HOME, открытый на этом экране). Свои обои — в пикере
-            Flow {
-                visible: Quickshell.screens.length > 1
-                width: 1100
-                spacing: 40
-                Repeater {
-                    model: Quickshell.screens
-                    Row {
-                        required property var modelData
-                        readonly property string n: modelData.name
-                        spacing: 14
-                        Lb { anchors.verticalCenter: parent.verticalCenter; width: 90; text: parent.n.toLowerCase() }
-                        Toggle { text: "bar"; on: Theme.scr(parent.n, "bar"); onFlip: Theme.setScr(parent.n, "bar", !on) }
-                        Toggle { text: "home"; on: Theme.scr(parent.n, "home"); onFlip: Theme.setScr(parent.n, "home", !on) }
-                        Toggle {
-                            text: "own widgets"
-                            on: !!Theme.state.screens[parent.n]?.widgets
-                            onFlip: Theme.setScr(parent.n, "widgets", on ? undefined : Theme.state.widgets.slice())
-                        }
-                    }
-                }
+            Row {
+                visible: root.multi
+                spacing: 20
+                Toggle { text: "bar"; on: Theme.scr(root.mon, "bar"); onFlip: Theme.setScr(root.mon, "bar", !on) }
+                Toggle { text: "home"; on: Theme.scr(root.mon, "home"); onFlip: Theme.setScr(root.mon, "home", !on) }
+                Lb { anchors.verticalCenter: parent.verticalCenter; leftPadding: 10; text: "on this screen · its widgets — in home" }
             }
             Row {
                 spacing: 40
                 Toggle { anchors.verticalCenter: parent.verticalCenter; text: "night light"; on: Sys.night; onFlip: Sys.toggleNight() }
-                Dial { label: "warmth · k"; from: 2500; to: 6500; step: 100; value: root.r.warmth; onMoved: v => { root.r.warmth = v; if (root.r.night) Rules.night(); } }
+                Dial { label: "warmth · k · all screens"; from: 2500; to: 6500; step: 100; value: root.r.warmth; onMoved: v => { root.r.warmth = v; if (root.r.night) Rules.night(); } }
             }
         }
 

@@ -80,6 +80,11 @@ ShellRoot {
         target: Hyprland
         function onRawEvent(e) { if (e.name === "configreloaded") shell.hypr(); }
     }
+    // подключили экран — его масштаб и герцы из prefs → display (Rules.store.outs)
+    Connections {
+        target: Quickshell
+        function onScreensChanged() { Rules.monitor(true); }
+    }
     Connections {
         target: Theme
         function onGreysChanged() { paint.restart(); }

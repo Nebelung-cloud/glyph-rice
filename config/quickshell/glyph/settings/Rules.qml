@@ -45,6 +45,7 @@ Singleton {
             // Display
             property real monScale: 0      // 0 — auto, решает hypr
             property int refresh: 120
+            property var outs: ({})        // остальные экраны, если их крутили в prefs: { "HDMI-A-1": { scale: 1, refresh: 144 } }
             property int brightness: 62
             property bool night: false
             property int warmth: 4300
@@ -90,9 +91,11 @@ Singleton {
 
     function hypr(lua) { Quickshell.execDetached(["hyprctl", "eval", lua]); }
 
-    // монитор не зашит, как в caelestia: из hyprctl monitors — встроенный (eDP), а нет его — первый; родной режим — самый
-    // большой из его режимов, частоты — те, что у родного. ponytail: настройки на один экран, остальные — по строке в hyprland.lua
-    property var mon: ({ name: "", w: 0, h: 0, scale: 1, rates: [] })
+    // мониторы из hyprctl monitors: родной режим — самый большой из режимов экрана, частоты — те, что у родного; x, y, lw × lh —
+    // где он сейчас и сколько в нём логических px. mon не зашит, как в caelestia: встроенный (eDP), а нет его — первый; его ставят
+    // monScale и refresh (их читает и demonshot), остальные — outs, а пока их там нет — как поставил hypr (user.lua)
+    property var mons: []
+    readonly property var mon: mons.find(m => m.name.startsWith("eDP")) ?? mons[0] ?? { name: "", w: 0, h: 0, x: 0, y: 0, lw: 0, lh: 0, scale: 1, hz: 0, rates: [] }
     property bool monWanted: false // monitor() позвали раньше, чем пришёл ответ hyprctl
     Process {
         id: monProc
@@ -100,30 +103,57 @@ Singleton {
         command: ["hyprctl", "monitors", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const all = JSON.parse(text), m = all.find(x => x.name.startsWith("eDP")) ?? all[0];
-                if (!m) return;
-                const modes = m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s)).filter(Boolean).map(r => [+r[1], +r[2], Math.round(+r[3])]);
-                const [w, h] = modes.reduce((a, b) => b[0] * b[1] > a[0] * a[1] ? b : a, [m.width, m.height]);
-                const rates = [...new Set(modes.filter(r => r[0] === w && r[1] === h).map(r => r[2]))].sort((a, b) => a - b);
-                root.mon = { name: m.name, w, h, scale: m.scale, rates: rates.length ? rates : [Math.round(m.refreshRate)] };
+                root.mons = JSON.parse(text).map(m => {
+                    const modes = m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s)).filter(Boolean).map(r => [+r[1], +r[2], Math.round(+r[3])]);
+                    const [w, h] = modes.reduce((a, b) => b[0] * b[1] > a[0] * a[1] ? b : a, [m.width, m.height]);
+                    const rates = [...new Set(modes.filter(r => r[0] === w && r[1] === h).map(r => r[2]))].sort((a, b) => a - b);
+                    return { name: m.name, w, h, x: m.x, y: m.y, lw: Math.round(m.width / m.scale), lh: Math.round(m.height / m.scale),
+                             scale: m.scale, hz: Math.round(m.refreshRate), rates: rates.length ? rates : [Math.round(m.refreshRate)] };
+                });
                 if (root.monWanted) root.monitor();
             }
         }
     }
     // auto — масштаб выбирает hypr; какой вышел, узнаём, перечитав мониторы
     Timer { id: monReread; interval: 500; onTriggered: monProc.running = true }
-    function monitor() {
-        if (!mon.name) { monWanted = true; return; }
+    // что выбрано у экрана: scale (0 — auto) и refresh
+    function want(m) {
+        if (m.name === mon.name) return { scale: store.monScale, refresh: refreshHz };
+        const o = store.outs[m.name];
+        return { scale: o?.scale ?? m.scale, refresh: o?.refresh ?? m.hz };
+    }
+    // встать — у края встроенного, где стоит сейчас: координатами hypr не подвинул бы его, сменись масштаб встроенного.
+    // ponytail: явную позицию из user.lua это превращает в auto-center-…; понадобится — хранить позицию в outs
+    function put(m) {
+        const own = m.name === mon.name, w = want(m);
+        const at = own ? "auto" : m.y + m.lh <= mon.y ? "auto-center-up" : m.y >= mon.y + mon.lh ? "auto-center-down"
+            : m.x < mon.x ? "auto-center-left" : "auto-center-right";
+        hypr(`hl.monitor({ output = "${m.name}", mode = "${m.w}x${m.h}@${own ? hz : w.refresh}", position = "${at}", scale = ${w.scale || '"auto"'} })`);
+    }
+    // fresh — сперва перечитать мониторы: подключили экран, ставим и его outs (зовёт shell.qml; лок ничего не ставит)
+    function monitor(fresh) {
+        if (fresh || !mon.name) {
+            monWanted = true;
+            if (fresh) monProc.running = true;
+            return;
+        }
         monWanted = false;
-        hypr(`hl.monitor({ output = "${mon.name}", mode = "${mon.w}x${mon.h}@${hz}", position = "auto", scale = ${store.monScale || '"auto"'} })`);
+        for (const m of mons) if (m.name === mon.name || store.outs[m.name]) put(m);
+        monReread.restart();
+    }
+    // prefs → display: scale (0 — auto) или refresh экрана name. Ставим только его: перенастройка вывода мигает экраном
+    function set(name, key, v) {
+        const m = mons.find(x => x.name === name);
+        if (!m) return;
+        if (name === mon.name) store[key === "scale" ? "monScale" : "refresh"] = v;
+        else store.outs = Object.assign({}, store.outs, { [name]: Object.assign({}, store.outs[name], { [key]: v }) });
+        put(m);
         monReread.restart();
     }
     readonly property var rates: mon.rates.length ? mon.rates : [60, 120]
     readonly property int refreshHz: rates.reduce((a, b) => Math.abs(b - store.refresh) < Math.abs(a - store.refresh) ? b : a)
     readonly property real scale: store.monScale || mon.scale || 1 // что стоит на деле, и при auto
     readonly property var scales: ["auto", "1", "1.25", "1.5", "2"]
-    readonly property int scaleIdx: store.monScale ? scales.indexOf(String(store.monScale)) : 0
-    function setScale(i) { store.monScale = i ? +scales[i] : 0; monitor(); }
     function windows() {
         const s = store;
         hypr(`hl.config({ general = { gaps_in = ${s.gapsIn}, gaps_out = ${s.gapsOut}, border_size = ${s.border} }, `
@@ -206,8 +236,12 @@ Singleton {
         const hz0 = hz, moving0 = moving;
         store.ultra = i === 0;
         PowerProfiles.profile = i === 0 ? PowerProfile.PowerSaver : i - 1;
-        // монитор — только если герцы правда другие: перенастройка вывода мигает экраном и сбрасывает наведение (панели гаснут)
-        if (hz !== hz0) monitor();
+        // монитор — только встроенный и если герцы правда другие: перенастройка вывода мигает экраном и сбрасывает наведение
+        // (панели гаснут)
+        if (hz !== hz0 && mon.name) {
+            put(mon);
+            monReread.restart();
+        }
         if (moving !== moving0) motion();
     }
     // что стоит на деле: ultra перекрывает настройки — самые низкие герцы экрана, иначе ближайшие к выбранным
