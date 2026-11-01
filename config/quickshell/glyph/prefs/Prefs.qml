@@ -23,7 +23,7 @@ PanelWindow {
     readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", ""]
+    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, "drag a screen to move it · " + rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", ""]
     readonly property var r: Rules.store
 
     // глифы видов дома, секций deck и трея бара
@@ -111,6 +111,30 @@ PanelWindow {
     }
     // укладка бенто, как у дома (и как grid-auto-flow в концепте): слева направо, сверху вниз; не влез в ряд — со следующего,
     // дыра остаётся; рядов три, дальше — мимо
+    // куда встанет экран r ({ x, y, w, h }, логические px hypr), если бросить его так: вплотную к стороне соседа, без нахлёста,
+    // общий край — не меньше четверти меньшего из двух; вдоль края — где бросили, но липнет к краям и центру соседа ближе near.
+    // Из всех таких мест — ближайшее; нет ни одного — null
+    function dock(r, others, near) {
+        const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+        const stick = (v, lo, hi, to) => {
+            v = Math.max(lo, Math.min(hi, v));
+            return to.find(t => Math.abs(t - v) < near) ?? v;
+        };
+        let best = null, bd = Infinity;
+        for (const o of others) {
+            const kx = Math.min(r.w, o.w) / 4, ky = Math.min(r.h, o.h) / 4;
+            const x = stick(r.x, o.x - r.w + kx, o.x + o.w - kx, [o.x, o.x + o.w - r.w, o.x + (o.w - r.w) / 2]);
+            const y = stick(r.y, o.y - r.h + ky, o.y + o.h - ky, [o.y, o.y + o.h - r.h, o.y + (o.h - r.h) / 2]);
+            for (const c of [{ x: o.x - r.w, y }, { x: o.x + o.w, y }, { x, y: o.y - r.h }, { x, y: o.y + o.h }]) {
+                const p = { x: Math.round(c.x), y: Math.round(c.y), w: r.w, h: r.h }, d = Math.hypot(p.x - r.x, p.y - r.y);
+                if (d < bd && !others.some(q => hit(p, q))) {
+                    best = p;
+                    bd = d;
+                }
+            }
+        }
+        return best;
+    }
     function pack(ids) {
         let row = 0, col = 0;
         return ids.map((w, i) => {
@@ -145,7 +169,8 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // по требованию, не Exclusive: клик в окно на другом мониторе забирает клавиатуру, клик сюда — возвращает
+    WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     WlrLayershell.namespace: "glyph-prefs"
 
     Rectangle {
@@ -955,6 +980,10 @@ PanelWindow {
                     Item {
                         id: map
                         readonly property var ms: Rules.mons
+                        // тянут экран held: at — куда он встанет (логические px); держим там, пока hypr не ответит новыми мониторами
+                        property string held: ""
+                        property var at: null
+                        onMsChanged: held = ""
                         readonly property real x0: Math.min(...ms.map(m => m.x))
                         readonly property real y0: Math.min(...ms.map(m => m.y))
                         readonly property real bw: Math.max(...ms.map(m => m.x + m.lw)) - x0
@@ -975,8 +1004,10 @@ PanelWindow {
                                 id: sc
                                 required property var modelData
                                 readonly property bool on: modelData.name === root.mon
-                                x: (map.width - map.bw * map.k) / 2 + (modelData.x - map.x0) * map.k + 5
-                                y: (map.height - map.bh * map.k) / 2 + (modelData.y - map.y0) * map.k + 5
+                                readonly property var p: map.held === modelData.name && map.at ? map.at : modelData
+                                x: (map.width - map.bw * map.k) / 2 + (p.x - map.x0) * map.k + 5
+                                y: (map.height - map.bh * map.k) / 2 + (p.y - map.y0) * map.k + 5
+                                z: map.held === modelData.name ? 1 : 0
                                 width: modelData.lw * map.k - 10
                                 height: modelData.lh * map.k - 10
                                 radius: Theme.corner(18)
@@ -1000,7 +1031,31 @@ PanelWindow {
                                         map.forceActiveFocus();
                                     }
                                 }
-                                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                HoverHandler { cursorShape: root.multi ? Qt.OpenHandCursor : Qt.PointingHandCursor }
+                                // тянуть — к соседу встаёт вплотную (root.dock); бросили — Rules.place. Без target сдвиг — в px сцены,
+                                // а Stage масштабирован
+                                DragHandler {
+                                    target: null
+                                    enabled: root.multi
+                                    cursorShape: Qt.ClosedHandCursor
+                                    onActiveTranslationChanged: {
+                                        if (!active) return;
+                                        const m = sc.modelData, k = Theme.s * map.k;
+                                        map.at = root.dock({ x: m.x + activeTranslation.x / k, y: m.y + activeTranslation.y / k, w: m.lw, h: m.lh },
+                                                           map.ms.filter(o => o.name !== m.name), 16 / map.k);
+                                    }
+                                    onActiveChanged: {
+                                        const m = sc.modelData;
+                                        if (active) {
+                                            root.pickMon = m.name;
+                                            map.at = null;
+                                            map.held = m.name;
+                                            return;
+                                        }
+                                        if (map.at && (map.at.x !== m.x || map.at.y !== m.y)) Rules.place(m.name, map.at.x, map.at.y);
+                                        else map.held = "";
+                                    }
+                                }
                             }
                         }
                     }

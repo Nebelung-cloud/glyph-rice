@@ -45,7 +45,9 @@ Singleton {
             // Display
             property real monScale: 0      // 0 — auto, решает hypr
             property int refresh: 120
-            property var outs: ({})        // остальные экраны, если их крутили в prefs: { "HDMI-A-1": { scale: 1, refresh: 144 } }
+            // остальные экраны, если их крутили в prefs: { "HDMI-A-1": { scale: 1, refresh: 144, pos: [-560, -1440] } }; pos — от
+            // встроенного, он тогда в 0x0
+            property var outs: ({})
             property int brightness: 62
             property bool night: false
             property int warmth: 4300
@@ -122,11 +124,13 @@ Singleton {
         const o = store.outs[m.name];
         return { scale: o?.scale ?? m.scale, refresh: o?.refresh ?? m.hz };
     }
-    // встать — у края встроенного, где стоит сейчас: координатами hypr не подвинул бы его, сменись масштаб встроенного.
-    // ponytail: явную позицию из user.lua это превращает в auto-center-…; понадобится — хранить позицию в outs
+    // где встать: перетаскивали в prefs — pos от встроенного в 0x0 (встроенный на auto ушёл бы правее явных). Нет — у края
+    // встроенного, где стоит сейчас: координатами hypr не подвинул бы его, сменись масштаб встроенного; явная позиция из
+    // user.lua при этом становится auto-center-…. ponytail: с явными pos масштаб соседа может дать нахлёст — перетащить заново
     function put(m) {
-        const own = m.name === mon.name, w = want(m);
-        const at = own ? "auto" : m.y + m.lh <= mon.y ? "auto-center-up" : m.y >= mon.y + mon.lh ? "auto-center-down"
+        const own = m.name === mon.name, w = want(m), pos = store.outs[m.name]?.pos;
+        const at = own ? (Object.values(store.outs).some(o => o.pos) ? "0x0" : "auto") : pos ? `${pos[0]}x${pos[1]}`
+            : m.y + m.lh <= mon.y ? "auto-center-up" : m.y >= mon.y + mon.lh ? "auto-center-down"
             : m.x < mon.x ? "auto-center-left" : "auto-center-right";
         hypr(`hl.monitor({ output = "${m.name}", mode = "${m.w}x${m.h}@${own ? hz : w.refresh}", position = "${at}", scale = ${w.scale || '"auto"'} })`);
     }
@@ -138,7 +142,8 @@ Singleton {
             return;
         }
         monWanted = false;
-        for (const m of mons) if (m.name === mon.name || store.outs[m.name]) put(m);
+        put(mon); // первым: остальные встают от него
+        for (const m of mons) if (m.name !== mon.name && store.outs[m.name]) put(m);
         monReread.restart();
     }
     // prefs → display: scale (0 — auto) или refresh экрана name. Ставим только его: перенастройка вывода мигает экраном
@@ -149,6 +154,17 @@ Singleton {
         else store.outs = Object.assign({}, store.outs, { [name]: Object.assign({}, store.outs[name], { [key]: v }) });
         put(m);
         monReread.restart();
+    }
+    // prefs → display: экран name перетащили в x, y (логические px hypr). Позиции всех внешних — явные, от встроенного
+    function place(name, x, y) {
+        const b = name === mon.name ? { x, y } : mon, o = Object.assign({}, store.outs);
+        for (const m of mons) {
+            if (m.name === mon.name) continue;
+            const p = m.name === name ? { x, y } : m;
+            o[m.name] = Object.assign({}, o[m.name], { pos: [p.x - b.x, p.y - b.y] });
+        }
+        store.outs = o;
+        monitor();
     }
     readonly property var rates: mon.rates.length ? mon.rates : [60, 120]
     readonly property int refreshHz: rates.reduce((a, b) => Math.abs(b - store.refresh) < Math.abs(a - store.refresh) ? b : a)
