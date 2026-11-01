@@ -47,14 +47,16 @@ Scope {
             Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
             screen: modelData
-            visible: Theme.state.deckHover && root.ids.length > 0 || t > 0
+            // в фулскрине Top не рисуется, Qt не коммитит кадры и смену слоя Hyprland не видит — полосы там нет,
+            // Super+Space создаёт окно заново, уже в Overlay. ponytail: hasFullscreen — и maximized (Super+Alt+F), край там тоже молчит
+            visible: Theme.state.deckHover && root.ids.length > 0 && !Hyprland.monitorFor(modelData)?.activeWorkspace?.hasFullscreen || t > 0
             anchors.bottom: true
             implicitWidth: Math.ceil(panel.width * Theme.s)
             implicitHeight: Math.ceil((panel.height + 14) * Theme.s)
             exclusionMode: ExclusionMode.Ignore
             color: "transparent"
-            // ponytail: Top, not Overlay — under a fullscreen window the edge doesn't catch; the Glyph progress bar is drawn on top
-            WlrLayershell.layer: WlrLayer.Top
+            // closed — Top: the Glyph progress bar on top; open — Overlay, visible over a fullscreen window too
+            WlrLayershell.layer: t > 0 ? WlrLayer.Overlay : WlrLayer.Top
             WlrLayershell.namespace: "glyph-deck"
             // closed — the mouse is caught only by the strip at the edge (the screen corners are free), open — the whole window along with the gap under the panel
             mask: Region { y: win.open ? 0 : win.height - 2; width: win.width; height: win.open ? win.height : 2 }
