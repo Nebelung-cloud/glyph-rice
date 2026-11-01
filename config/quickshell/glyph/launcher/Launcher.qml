@@ -11,7 +11,7 @@ import qs.components
 // style — color, like scheme in caelestia: where from (nothing, wallpaper, palette), under it — the wallpaper's tones and variants (tonal spot…) or palettes
 // (catppuccin, rosé pine…), the theme (Theme.styles, the same as STYLE in settings). Circles — swatches, a dot — what's set,
 // ↵ sets it and the launcher stays open. With palettes the search also covers the group: «catppuccin».
-// Appears like Charms and Clip: a 24 rise and a fade. Icons — monochrome glyphs in circles, unknown ones — the icon itself as dots; the selected — a white circle
+// Appears like Charms and Clip: a 24 rise and a fade. Icons — the theme's icons as dots in circles; the selected — a white circle
 PanelWindow {
     id: root
 
@@ -21,16 +21,8 @@ PanelWindow {
     readonly property string query: input.text
     property var uses: ({}) // app id → how many times it was opened
 
-    // glyphs for known apps; the key — a piece of the id/name in lowercase
-    readonly property var glyphs: [
-        ["zen", "\u{F0239}"], ["firefox", "\u{F0239}"], ["chrom", "\u{F059F}"], ["kitty", "\u{F018D}"], ["foot", "\u{F018D}"],
-        ["spotify", "\u{F04C7}"], ["telegram", "\u{F2C6}"], ["codium", "\u{F0A1E}"], ["code", "\u{F0A1E}"], ["steam", "\u{F04D3}"],
-        ["discord", "\u{F066F}"], ["vesktop", "\u{F066F}"], ["equibop", "\u{F066F}"], ["calculator", "\u{F00EC}"], ["calendar", "\u{F00ED}"],
-        ["camera", "\u{F0100}"], ["strata", "\u{F024B}"], ["thunar", "\u{F024B}"], ["nautilus", "\u{F024B}"], ["files", "\u{F024B}"], ["gimp", "\u{F02E9}"],
-        ["mail", "\u{F01EE}"], ["btop", "\u{F035B}"], ["monitor", "\u{F035B}"], ["obsidian", "\u{F082E}"], ["settings", "\u{F0493}"],
-        ["pavucontrol", "\u{F057E}"], ["mpv", "\u{F040A}"], ["vlc", "\u{F040A}"], ["clash", "\u{F0483}"], ["torrent", "\u{F01DA}"]
-    ]
-    function glyph(key) { return glyphs.find(g => key.toLowerCase().includes(g[0]))?.[1] ?? ""; }
+    // the theme's icon or a path from .desktop; none (or no file) — the generic app icon, not an empty circle
+    function icon(name) { return Quickshell.iconPath(name || "application-x-executable", "application-x-executable"); }
 
     // at startup DesktopEntries adds entries one at a time (~160 valuesChanged): a binding would rebuild the grid for each —
     // seconds of freeze. We build once, when the list quiets down
@@ -40,7 +32,7 @@ PanelWindow {
         interval: 300
         running: true
         onTriggered: root.apps = DesktopEntries.applications.values.filter(e => !e.noDisplay).map(e => ({
-            id: e.id, name: e.name, src: e.icon ? Quickshell.iconPath(e.icon, true) : "", glyph: root.glyph(`${e.id} ${e.name}`),
+            id: e.id, name: e.name, src: root.icon(e.icon),
             extra: `${e.id} ${e.genericName} ${(e.keywords ?? []).join(" ")}`.toLowerCase(), run: () => e.execute()
         })).sort((a, b) => a.name.localeCompare(b.name))
     }
@@ -51,8 +43,7 @@ PanelWindow {
     // windows — only while the windows mode is open: otherwise any title change would rebuild the list
     readonly property var wins: !visible || mode !== 2 ? [] : Hyprland.toplevels.values.map(t => {
         const cls = t.lastIpcObject?.class ?? "";
-        const icon = DesktopEntries.heuristicLookup(cls)?.icon;
-        return { name: t.title, src: icon ? Quickshell.iconPath(icon, true) : "", glyph: glyph(cls), extra: cls.toLowerCase(),
+        return { name: t.title, src: icon(DesktopEntries.heuristicLookup(cls)?.icon), extra: cls.toLowerCase(),
                  run: () => { focusT.addr = t.address; focusT.restart(); } };
     })
     // while the launcher holds the keyboard (Exclusive), Hyprland switches workspace but won't focus the window — and once it lets
@@ -394,16 +385,9 @@ PanelWindow {
             Rectangle { visible: cell.on && !!cell.modelData.fill; anchors.centerIn: parent; width: 104; height: 104; radius: 52; color: "transparent"; border { width: 2; color: Theme.fg } }
             Rectangle { id: inner; visible: !!cell.modelData.dot; anchors.centerIn: parent; width: 40; height: 40; radius: 20; color: cell.modelData.dot ?? "transparent" }
             Rectangle { visible: !!cell.modelData.now; anchors.centerIn: parent; width: 14; height: 14; radius: 7; color: Theme.on(inner.visible ? inner.color : disc.color) }
-            Icon {
-                anchors.centerIn: parent
-                visible: !!cell.modelData.glyph
-                text: cell.modelData.glyph ?? ""
-                font.pixelSize: 36
-                color: cell.on ? Theme.ink : Theme.fg
-            }
             Image {
                 anchors.centerIn: parent
-                visible: !cell.modelData.glyph && status === Image.Ready
+                visible: status === Image.Ready
                 width: 44
                 height: 44
                 source: cell.near ? cell.modelData.src ?? "" : ""

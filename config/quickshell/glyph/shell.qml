@@ -1,3 +1,5 @@
+//@ pragma IconTheme Rice
+// тема значков своя, а не из qtengine: не загрузился он — Qt ищет только в hicolor, и у kcalc и т.п. пустые круги (#11)
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
