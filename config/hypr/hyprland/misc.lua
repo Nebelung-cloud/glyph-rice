@@ -20,6 +20,12 @@ hl.config({
         background_color             = "rgb(" .. scheme.void .. ")",
     },
 
+    -- без авто-HDR: окно Chromium/Electron в fullscreen переключало панель в HDR — модсет (экран моргает, ~1 с
+    -- компоновщик стоит) и SDR в HDR темнее
+    render = {
+        cm_auto_hdr = 0,
+    },
+
     debug = {
         error_position = 1
     }
