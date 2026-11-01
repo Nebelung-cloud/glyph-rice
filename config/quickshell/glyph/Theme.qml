@@ -47,14 +47,24 @@ Singleton {
         const sc = Quickshell.screens[0];
         return sc ? Math.min(sc.width / 1920, sc.height / 1080) : 1;
     }
-    // настройка экрана по имени вывода: своя (state.screens), иначе общая; bar и home — по умолчанию есть
-    function scr(name, key) { return st.screens[name]?.[key] ?? { wall: st.wall, widgets: st.widgets }[key] ?? true; }
-    // undefined — снять своё, экран берёт общее
+    // своё у экрана — в state.screens по модели монитора: это сам монитор, а не порт (тот же монитор в другом порту или через
+    // док — со своим). Два одинаковых или без модели — по имени порта. Модель та же, что в hyprctl (Rules.key)
+    function sid(name) {
+        const m = Quickshell.screens.find(s => s.name === name)?.model.trim();
+        return m && Quickshell.screens.filter(s => s.model.trim() === m).length === 1 ? m : name;
+    }
+    // по имени — старая запись (до моделей) или двойника, оставшегося одним
+    function own(name) { return st.screens[sid(name)] ?? st.screens[name]; }
+    // настройка экрана по имени вывода: своя, иначе общая; bar и home — по умолчанию есть
+    function scr(name, key) { return own(name)?.[key] ?? { wall: st.wall, widgets: st.widgets }[key] ?? true; }
+    // undefined — снять своё, экран берёт общее. Запись по имени порта переезжает под модель
     function setScr(name, key, v) {
-        const o = Object.assign({}, st.screens[name]);
+        const o = Object.assign({}, own(name)), all = Object.assign({}, st.screens);
         if (v === undefined) delete o[key];
         else o[key] = v;
-        st.screens = Object.assign({}, st.screens, { [name]: o });
+        delete all[name];
+        all[sid(name)] = o;
+        st.screens = all;
     }
 
     // glide: ease-out-quart, без перелёта — как bezier glide в hypr
@@ -194,7 +204,7 @@ Singleton {
             property var bar: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"] // трей бара сверху вниз, см. bars
             property bool barTitle: true   // заголовок окна столбиком в баре
             property string barAt: "left" // left или top; за баром едут календарь, карточка батареи, дом, остров и вспышка Glyph
-            // свои у монитора, по имени вывода: { "HDMI-A-1": { bar: false, home: false, wall: "…", widgets: […] } }; нет — общие (Theme.scr)
+            // свои у монитора, по модели (Theme.sid): { "TS2700-S6-1": { bar: false, home: false, wall: "…", widgets: […] } }; нет — общие (Theme.scr)
             property var screens: ({})
             // запись (quick/Rec, Sys.recArgs)
             property int recArea: 0        // 0 весь монитор, 1 область (slurp)

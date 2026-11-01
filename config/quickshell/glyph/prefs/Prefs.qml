@@ -66,7 +66,7 @@ PanelWindow {
     function edit(key, f) {
         const a = list(key).slice();
         f(a);
-        if (key === "widgets" && (multi || Theme.state.screens[mon]?.widgets)) Theme.setScr(mon, "widgets", a);
+        if (key === "widgets" && (multi || Theme.own(mon)?.widgets)) Theme.setScr(mon, "widgets", a);
         else Theme.state[key] = a;
     }
     function move(key, i, to) {

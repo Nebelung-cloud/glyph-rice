@@ -46,7 +46,7 @@ Singleton {
             property real monScale: 0      // 0 — auto, решает hypr
             property int refresh: 120
             property string main: ""       // чей monScale и refresh (Rules.mon); пусто — решит первое чтение мониторов
-            // остальные экраны, если их крутили в prefs, по Rules.key: { "TSU TS2700-S6-1": { scale: 1, refresh: 144, pos: [-560, -1440] } };
+            // остальные экраны, если их крутили в prefs, по Rules.key: { "TS2700-S6-1": { scale: 1, refresh: 144, pos: [-560, -1440] } };
             // pos — от главного, он тогда в 0x0
             property var outs: ({})
             property int brightness: 62
@@ -116,7 +116,7 @@ Singleton {
                     const rates = [...new Set(m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s))
                         .filter(r => r && +r[1] === m.width && +r[2] === m.height).map(r => Math.round(+r[3])))].sort((a, b) => a - b);
                     const t = m.transform % 2, lw = Math.round(m.width / m.scale), lh = Math.round(m.height / m.scale);
-                    return { name: m.name, desc: m.description, w: m.width, h: m.height, x: m.x, y: m.y, lw: t ? lh : lw, lh: t ? lw : lh,
+                    return { name: m.name, model: m.model.trim(), w: m.width, h: m.height, x: m.x, y: m.y, lw: t ? lh : lw, lh: t ? lw : lh,
                              transform: m.transform, scale: m.scale, hz: Math.round(m.refreshRate), rates: rates.length ? rates : [Math.round(m.refreshRate)] };
                 });
                 if (root.monWanted) root.monitor();
@@ -126,21 +126,23 @@ Singleton {
     }
     // auto — масштаб выбирает hypr; какой вышел, узнаём, перечитав мониторы
     Timer { id: monReread; interval: 500; onTriggered: monProc.running = true }
-    // чем экран записан в outs: описанием — это сам монитор, а не порт (в тот же HDMI воткнули проектор — он не возьмёт место и
-    // герцы домашнего); у двух одинаковых без серийника описание одно — тогда именем порта
-    function key(m) { return m.desc && mons.filter(x => x.desc === m.desc).length === 1 ? m.desc : m.name; }
+    // чем экран записан в outs: моделью — это сам монитор, а не порт (в тот же HDMI воткнули проектор — он не возьмёт место и
+    // герцы домашнего; домашний в другом порту — со своими); два одинаковых или без модели — именем порта. Как Theme.sid
+    function key(m) { return m.model && mons.filter(x => x.model === m.model).length === 1 ? m.model : m.name; }
+    // своё у экрана; по имени — запись двойника, оставшегося одним (ключ стал моделью)
+    function out(m) { return store.outs[key(m)] ?? store.outs[m.name]; }
     // что выбрано у экрана: scale (0 — auto) и refresh
     function want(m) {
         if (m.name === mon.name) return { scale: store.monScale, refresh: refreshHz };
-        const o = store.outs[key(m)];
+        const o = out(m);
         return { scale: o?.scale ?? m.scale, refresh: o?.refresh ?? m.hz };
     }
     // правило hypr для экрана. Оно заменяет правило из конфига целиком — режим (текущее разрешение) и поворот несём как есть.
     // Внешние встают по pos от главного, главный тогда в 0x0: на auto hypr поставил бы его правее явных.
     // ponytail: vrr, 10 бит и hdr из user.lua правило шелла снимает; понадобятся — нести из hyprctl, как transform
     function rule(m) {
-        const own = m.name === mon.name, w = want(m), pos = store.outs[key(m)]?.pos;
-        const at = own ? (mons.some(x => x.name !== m.name && store.outs[key(x)]?.pos) ? "0x0" : "auto") : pos ? `${pos[0]}x${pos[1]}` : "auto";
+        const own = m.name === mon.name, w = want(m), pos = out(m)?.pos;
+        const at = own ? (mons.some(x => x.name !== m.name && out(x)?.pos) ? "0x0" : "auto") : pos ? `${pos[0]}x${pos[1]}` : "auto";
         return `hl.monitor({ output = "${m.name}", mode = "${m.w}x${m.h}@${own ? hz : w.refresh}", position = "${at}", `
              + `scale = ${w.scale || '"auto"'}, transform = ${m.transform} })`;
     }
@@ -155,7 +157,7 @@ Singleton {
         }
         monWanted = false;
         if (!store.main && first) store.main = first;
-        const ms = mons.filter(m => m.name === mon.name || store.outs[key(m)]).sort((a, b) => (b.name === mon.name) - (a.name === mon.name));
+        const ms = mons.filter(m => m.name === mon.name || out(m)).sort((a, b) => (b.name === mon.name) - (a.name === mon.name));
         if (ms.length) hypr(ms.map(rule).join("\n"));
         monReread.restart();
     }
@@ -175,7 +177,8 @@ Singleton {
         for (const m of mons) {
             if (m.name === mon.name) continue;
             const p = m.name === name ? { x, y } : m;
-            o[key(m)] = Object.assign({}, o[key(m)], m.name === name ? extra : null, { pos: [p.x - b.x, p.y - b.y] });
+            o[key(m)] = Object.assign({}, out(m), m.name === name ? extra : null, { pos: [p.x - b.x, p.y - b.y] });
+            if (key(m) !== m.name) delete o[m.name];
         }
         store.outs = o;
         monitor();
@@ -220,7 +223,7 @@ Singleton {
         const touch = (a, b) => (near(a.x + a.w, b.x) || near(b.x + b.w, a.x)) && a.y < b.y + b.h && b.y < a.y + a.h
                              || (near(a.y + a.h, b.y) || near(b.y + b.h, a.y)) && a.x < b.x + b.w && b.x < a.x + a.w;
         for (const m of mons) {
-            const pos = store.outs[key(m)]?.pos;
+            const pos = out(m)?.pos;
             if (m.name === mon.name || !pos) continue;
             const r = box(m), rest = mons.filter(x => x !== m).map(box);
             if (!rest.some(o => hits({ x: r.x + 2, y: r.y + 2, w: r.w - 4, h: r.h - 4 }, o)) && rest.some(o => touch(r, o))) continue;
