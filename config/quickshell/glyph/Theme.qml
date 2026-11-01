@@ -41,10 +41,20 @@ Singleton {
     readonly property string mono: "Space Mono"            // метки капсом
     readonly property string nf: "JetBrainsMono Nerd Font" // иконки
 
-    // холст макета 1920×1080 → экран. ponytail: по первому экрану; мониторы разного размера — считать от screen окна
+    // холст макета 1920×1080 → экран. ponytail: по первому экрану, на втором раскладка та же (масштаб — hypr), дом лишь тянет
+    // бенто к правому краю
     readonly property real s: {
         const sc = Quickshell.screens[0];
         return sc ? Math.min(sc.width / 1920, sc.height / 1080) : 1;
+    }
+    // настройка экрана по имени вывода: своя (state.screens), иначе общая; bar и home — по умолчанию есть
+    function scr(name, key) { return st.screens[name]?.[key] ?? { wall: st.wall, widgets: st.widgets }[key] ?? true; }
+    // undefined — снять своё, экран берёт общее
+    function setScr(name, key, v) {
+        const o = Object.assign({}, st.screens[name]);
+        if (v === undefined) delete o[key];
+        else o[key] = v;
+        st.screens = Object.assign({}, st.screens, { [name]: o });
     }
 
     // glide: ease-out-quart, без перелёта — как bezier glide в hypr
@@ -182,6 +192,8 @@ Singleton {
             property var bar: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"] // трей бара сверху вниз, см. bars
             property bool barTitle: true   // заголовок окна столбиком в баре
             property string barAt: "left" // left или top; за баром едут календарь, карточка батареи, дом, остров и вспышка Glyph
+            // свои у монитора, по имени вывода: { "HDMI-A-1": { bar: false, home: false, wall: "…", widgets: […] } }; нет — общие (Theme.scr)
+            property var screens: ({})
             // запись (quick/Rec, Sys.recArgs)
             property int recArea: 0        // 0 весь монитор, 1 область (slurp)
             property int recAudio: 0       // 0 без звука, 1 система, 2 микрофон, 3 оба одной дорожкой

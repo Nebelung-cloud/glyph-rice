@@ -20,9 +20,12 @@ PanelWindow {
     WlrLayershell.namespace: "glyph-home"
 
     readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
-    Binding { target: SysStats; property: "detailed"; value: root.home || Sys.deckOpen }
-    // не в делегате: уничтоженный Binding значение не возвращает — убрал виджет, а cava работала бы вечно
-    Binding { target: Cava; property: "active"; value: root.home && bento.model.some(w => w.id === "cava") }
+    // значения — общие для всех домов (по экранам, где дом есть): иначе Binding'и соседних домов перетирали бы друг друга.
+    // Не в делегате: уничтоженный Binding значение не возвращает — убрал виджет, а cava работала бы вечно.
+    // ponytail: cava — если стоит в списке, даже не влезшей в 3 × 3
+    readonly property var homes: Quickshell.screens.filter(s => Theme.scr(s.name, "home"))
+    Binding { target: SysStats; property: "detailed"; value: root.home && root.homes.length > 0 || Sys.deckOpen }
+    Binding { target: Cava; property: "active"; value: root.home && root.homes.some(s => Theme.scr(s.name, "widgets").includes("cava")) }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var en: Qt.locale("en_US")
@@ -81,27 +84,28 @@ PanelWindow {
             Meta { visible: !!root.buds; icon: "\u{F02CB}"; text: `${root.buds?.name ?? ""} · ${Math.round((root.buds?.battery ?? 0) * 100)}%` }
         }
 
-        // бенто: ячейки 220, зазор 20, сетка 3×3. Какие виджеты и в каком порядке — Theme.state.widgets (настройки), ширины —
-        // Theme.kinds. Кладём слева направо: не влез в ряд — со следующего, в три ряда не влез — не показывается.
+        // бенто: ячейки 220, зазор 20, сетка 3×3, правый край — в 80 от края экрана (на 1920 — с 1140, на широком — правее).
+        // Какие виджеты и в каком порядке — Theme.state.widgets (настройки; у экрана могут быть свои), ширины — Theme.kinds.
+        // Кладём слева направо: не влез в ряд — со следующего, в три ряда не влез — не показывается.
         // Квадрат со скруглением 40 или круг — других форм нет
         Repeater {
             id: bento
             model: {
                 const out = [];
                 let r = 0, c = 0;
-                for (const id of Theme.state.widgets ?? []) {
+                for (const id of Theme.scr(root.screen?.name, "widgets") ?? []) {
                     const w = Theme.kinds[id];
                     if (!w) continue;
                     if (c + w > 3) { r++; c = 0; }
                     if (r > 2) break;
-                    out.push({ id, x: 1140 + c * 240, y: 150 + r * 240 });
+                    out.push({ id, x: c * 240, y: 150 + r * 240 });
                     c += w;
                 }
                 return out;
             }
             Loader {
                 required property var modelData
-                x: modelData.x
+                x: stage.width - 780 + modelData.x
                 y: modelData.y
                 sourceComponent: ({ weather: weatherW, calendar: calendarW, cpu: cpuW, ram: ramW, gpu: gpuW, disk: diskW,
                                     battery: batteryW, buds: budsW, player: playerW, system: systemW, cat: catW, cava: cavaW })[modelData.id] ?? null

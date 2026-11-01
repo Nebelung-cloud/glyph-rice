@@ -31,6 +31,6 @@ PanelWindow {
             source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="1.5" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
         }
         Orb { id: orb; visible: Theme.state.orb && !wall.opaque; x: stage.width - 720; y: stage.height - 580; phase: root.phase }
-        Wall { id: wall; anchors.fill: parent; path: Theme.wallSrc(Theme.state.wall); animate: !Sys.wallOpen }
+        Wall { id: wall; anchors.fill: parent; path: Theme.wallSrc(Theme.scr(root.screen?.name, "wall")); animate: !Sys.wallOpen }
     }
 }

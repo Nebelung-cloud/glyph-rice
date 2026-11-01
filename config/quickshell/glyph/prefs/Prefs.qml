@@ -52,26 +52,29 @@ PanelWindow {
     }
 
     // ---- списки id в Theme.state: виджеты дома, секции deck, трей бара. Правим копию — JsonAdapter пишет файл на присваивание.
-    // Все возвращают новый курсор ----
+    // Все возвращают новый курсор. Виджеты — того экрана, где открыты настройки, если у него свой набор (display), иначе общие ----
+    readonly property string scr: Theme.state.screens[screen?.name]?.widgets ? screen.name : ""
+    function list(key) { return key === "widgets" && scr ? Theme.state.screens[scr].widgets : Theme.state[key]; }
     function edit(key, f) {
-        const a = Theme.state[key].slice();
+        const a = list(key).slice();
         f(a);
-        Theme.state[key] = a;
+        if (key === "widgets" && scr) Theme.setScr(scr, "widgets", a);
+        else Theme.state[key] = a;
     }
     function move(key, i, to) {
-        if (to < 0 || to >= Theme.state[key].length || to === i) return i;
+        if (to < 0 || to >= list(key).length || to === i) return i;
         edit(key, a => a.splice(to, 0, a.splice(i, 1)[0]));
         return to;
     }
     function cut(key, i) {
-        const n = Theme.state[key].length;
+        const n = list(key).length;
         if (i >= n) return i;
         edit(key, a => a.splice(i, 1));
         return Math.max(0, Math.min(i, n - 2));
     }
     // ↵ на выбранном: следующий из all, которого ещё нет. В пустом списке — первый свободный
     function cycle(key, i, all) {
-        const a = Theme.state[key];
+        const a = list(key);
         if (all.every(k => a.includes(k))) return i;
         i = Math.min(i, a.length);
         let j = all.indexOf(a[i]);
@@ -81,7 +84,7 @@ PanelWindow {
     }
     // лоток: есть — убрать, нет — поставить за выбранным
     function flip(key, w, cur) {
-        const a = Theme.state[key], i = a.indexOf(w);
+        const a = list(key), i = a.indexOf(w);
         if (i >= 0) {
             edit(key, b => b.splice(i, 1));
             return Math.max(0, Math.min(i < cur ? cur - 1 : cur, a.length - 2));
@@ -92,7 +95,7 @@ PanelWindow {
     }
     // клавиши списка в фокусе: ←→ выбрать, shift ←→ переставить, ↵/пробел — сменить вид, del — убрать. -1 — клавиша не наша
     function nav(e, key, cur, all) {
-        const n = Theme.state[key].length, d = e.key === Qt.Key_Left ? -1 : e.key === Qt.Key_Right ? 1 : 0;
+        const n = list(key).length, d = e.key === Qt.Key_Left ? -1 : e.key === Qt.Key_Right ? 1 : 0;
         if (d && (e.modifiers & Qt.ShiftModifier)) return move(key, cur, cur + d);
         if (d) return n ? (cur + d + n) % n : 0;
         if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) return cycle(key, cur, all);
@@ -206,8 +209,8 @@ PanelWindow {
         Page {
             id: home
             k: 0
-            caption: `home · bento 3 × 3 · ${used} of 9 cells`
-            readonly property var cells: root.pack(Theme.state.widgets)
+            caption: `home${root.scr ? ` · ${root.scr.toLowerCase()} · own set` : ""} · bento 3 × 3 · ${used} of 9 cells`
+            readonly property var cells: root.pack(root.list("widgets"))
             readonly property var placed: cells.filter(c => c.fits)
             readonly property var off: cells.filter(c => !c.fits)
             readonly property int used: placed.reduce((a, c) => a + c.span, 0)
@@ -341,7 +344,7 @@ PanelWindow {
             Tray {
                 ids: Object.keys(Theme.kinds)
                 icons: root.icons
-                used: Theme.state.widgets
+                used: root.list("widgets")
                 dim: home.off.map(c => c.id)
                 widths: Theme.kinds
                 onToggled: key => home.cur = root.flip("widgets", key, home.cur)
@@ -968,6 +971,28 @@ PanelWindow {
                 spacing: 24
                 Pick { label: "scale"; opts: Rules.scales; cur: Rules.scaleIdx; onPicked: i => Rules.setScale(i) }
                 Pick { label: "hz"; opts: Rules.rates.map(String); cur: Rules.rates.indexOf(Rules.refreshHz); onPicked: i => { root.r.refresh = Rules.rates[i]; Rules.monitor(); } }
+            }
+            // экраны по одному: бар, дом и свой набор виджетов (его правит HOME, открытый на этом экране). Свои обои — в пикере
+            Flow {
+                visible: Quickshell.screens.length > 1
+                width: 1100
+                spacing: 40
+                Repeater {
+                    model: Quickshell.screens
+                    Row {
+                        required property var modelData
+                        readonly property string n: modelData.name
+                        spacing: 14
+                        Lb { anchors.verticalCenter: parent.verticalCenter; width: 90; text: parent.n.toLowerCase() }
+                        Toggle { text: "bar"; on: Theme.scr(parent.n, "bar"); onFlip: Theme.setScr(parent.n, "bar", !on) }
+                        Toggle { text: "home"; on: Theme.scr(parent.n, "home"); onFlip: Theme.setScr(parent.n, "home", !on) }
+                        Toggle {
+                            text: "own widgets"
+                            on: !!Theme.state.screens[parent.n]?.widgets
+                            onFlip: Theme.setScr(parent.n, "widgets", on ? undefined : Theme.state.widgets.slice())
+                        }
+                    }
+                }
             }
             Row {
                 spacing: 40

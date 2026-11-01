@@ -44,10 +44,13 @@ ShellRoot {
             id: s
             required property var modelData
             Back { screen: s.modelData }
-            Home { screen: s.modelData }
+            // бар и дом можно снять с экрана (настройки → display), обои остаются. Здесь, а не в окне: visible от своего
+            // screen — петля (окно пересоздаётся, screen меняется)
+            Home { screen: s.modelData; visible: Theme.scr(s.modelData.name, "home") }
             Hot { screen: s.modelData; onTriggered: quick.peek() }
             Bar {
                 screen: s.modelData
+                visible: Theme.scr(s.modelData.name, "bar")
                 onMarkClicked: launcher.toggle()
                 onTrayClicked: quick.toggle()
                 onPowerClicked: power.visible ? power.close() : power.open()
