@@ -19,13 +19,15 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.namespace: "glyph-home"
 
-    readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
-    // значения — общие для всех домов (по экранам, где дом есть): иначе Binding'и соседних домов перетирали бы друг друга.
-    // Не в делегате: уничтоженный Binding значение не возвращает — убрал виджет, а cava работала бы вечно.
+    // дом виден, когда пуст воркспейс своего экрана, а не того, где фокус: работаешь на втором — дом первого живой
+    function idle(s) { return (Hyprland.monitorFor(s)?.activeWorkspace?.toplevels.values.length ?? 0) === 0; }
+    readonly property bool home: visible && idle(screen)
+    // значения — общие для всех домов (по экранам, где дом есть и виден): иначе Binding'и соседних домов перетирали бы друг
+    // друга. Не в делегате: уничтоженный Binding значение не возвращает — убрал виджет, а cava работала бы вечно.
     // ponytail: cava — если стоит в списке, даже не влезшей в 3 × 3
-    readonly property var homes: Quickshell.screens.filter(s => Theme.scr(s.name, "home"))
-    Binding { target: SysStats; property: "detailed"; value: root.home && root.homes.length > 0 || Sys.deckOpen }
-    Binding { target: Cava; property: "active"; value: root.home && root.homes.some(s => Theme.scr(s.name, "widgets").includes("cava")) }
+    readonly property var homes: Quickshell.screens.filter(s => Theme.scr(s.name, "home") && idle(s))
+    Binding { target: SysStats; property: "detailed"; value: root.homes.length > 0 || Sys.deckOpen }
+    Binding { target: Cava; property: "active"; value: root.homes.some(s => Theme.scr(s.name, "widgets").includes("cava")) }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var en: Qt.locale("en_US")
@@ -51,7 +53,8 @@ PanelWindow {
 
     Stage {
         id: stage
-        x: Theme.state.barAt === "top" ? -39 * Theme.s : 0 // раскладка под бар слева; бар сверху — на его полширины влево, по центру
+        // раскладка под бар слева; бар сверху или снят с экрана — на его полширины влево, по центру
+        x: Theme.state.barAt === "top" || !Theme.scr(root.screen?.name, "bar") ? -39 * Theme.s : 0
 
         Row {
             x: 182

@@ -69,7 +69,9 @@ Singleton {
 
     // ---- тона обоев: до четырёх на выбор, как в android. Они в glyph.json: лок (отдельный процесс) берёт готовые и не мигает
     // красным ----
-    readonly property var tones: st.wall ? st.tones : []
+    // обои, с которых цвет: первого экрана — свои или общие (свои у всех экранов — общих не видно нигде)
+    readonly property string wall: scr(Quickshell.screens[0]?.name, "wall")
+    readonly property var tones: wall ? st.tones : []
     function hueName(c) {
         const h = Qt.color(c).hslHue * 360;
         return ["red", "orange", "yellow", "green", "teal", "blue", "violet", "pink", "red"][[15, 40, 65, 160, 195, 250, 290, 335, 361].findIndex(x => h < x)];

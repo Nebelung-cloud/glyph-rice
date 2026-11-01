@@ -18,7 +18,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Background
     WlrLayershell.namespace: "glyph-back"
 
-    readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
+    readonly property bool home: (Hyprland.monitorFor(screen)?.activeWorkspace?.toplevels.values.length ?? 0) === 0 // пуст свой экран
     property real phase: 0
     Timer { running: root.home && orb.visible; interval: 100; repeat: true; onTriggered: root.phase += 0.1 }
 

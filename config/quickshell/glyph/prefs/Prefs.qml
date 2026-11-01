@@ -58,6 +58,7 @@ PanelWindow {
     readonly property var names: Quickshell.screens.map(s => s.name)
     readonly property string mon: names.includes(pickMon) ? pickMon : names[0] ?? ""
     readonly property bool multi: names.length > 1
+    onMonChanged: home.cur = 0 // у другого экрана свой набор — курсор с прошлого мимо
 
     // ---- списки id в Theme.state: виджеты дома, секции deck, трей бара. Правим копию — JsonAdapter пишет файл на присваивание.
     // Все возвращают новый курсор. Виджеты — экрана mon: экранов несколько — правка даёт ему свой набор, пока не правили — общий ----
@@ -111,30 +112,6 @@ PanelWindow {
     }
     // укладка бенто, как у дома (и как grid-auto-flow в концепте): слева направо, сверху вниз; не влез в ряд — со следующего,
     // дыра остаётся; рядов три, дальше — мимо
-    // куда встанет экран r ({ x, y, w, h }, логические px hypr), если бросить его так: вплотную к стороне соседа, без нахлёста,
-    // общий край — не меньше четверти меньшего из двух; вдоль края — где бросили, но липнет к краям и центру соседа ближе near.
-    // Из всех таких мест — ближайшее; нет ни одного — null
-    function dock(r, others, near) {
-        const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-        const stick = (v, lo, hi, to) => {
-            v = Math.max(lo, Math.min(hi, v));
-            return to.find(t => Math.abs(t - v) < near) ?? v;
-        };
-        let best = null, bd = Infinity;
-        for (const o of others) {
-            const kx = Math.min(r.w, o.w) / 4, ky = Math.min(r.h, o.h) / 4;
-            const x = stick(r.x, o.x - r.w + kx, o.x + o.w - kx, [o.x, o.x + o.w - r.w, o.x + (o.w - r.w) / 2]);
-            const y = stick(r.y, o.y - r.h + ky, o.y + o.h - ky, [o.y, o.y + o.h - r.h, o.y + (o.h - r.h) / 2]);
-            for (const c of [{ x: o.x - r.w, y }, { x: o.x + o.w, y }, { x, y: o.y - r.h }, { x, y: o.y + o.h }]) {
-                const p = { x: Math.round(c.x), y: Math.round(c.y), w: r.w, h: r.h }, d = Math.hypot(p.x - r.x, p.y - r.y);
-                if (d < bd && !others.some(q => hit(p, q))) {
-                    best = p;
-                    bd = d;
-                }
-            }
-        }
-        return best;
-    }
     function pack(ids) {
         let row = 0, col = 0;
         return ids.map((w, i) => {
@@ -169,8 +146,9 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
-    // по требованию, не Exclusive: клик в окно на другом мониторе забирает клавиатуру, клик сюда — возвращает
-    WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    // экранов несколько — по требованию: клик в окно на другом мониторе забирает клавиатуру, клик сюда — возвращает. Один —
+    // Exclusive: иначе новое окно забрало бы клавиатуру под сплошным фоном, и стрелки и esc ушли бы в невидимое
+    WlrLayershell.keyboardFocus: shown ? multi ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.namespace: "glyph-prefs"
 
     Rectangle {
@@ -827,17 +805,17 @@ PanelWindow {
                             height: 105
                             radius: Theme.corner(14)
                             color: "transparent"
-                            border { width: Theme.state.wall ? 0 : 1; color: Theme.s3 }
+                            border { width: Theme.wall ? 0 : 1; color: Theme.s3 }
                             Image {
                                 anchors.fill: parent
-                                source: visible ? Theme.url(Theme.wallSrc(Theme.state.wall)) : "" // не видно — без текстуры
+                                source: visible ? Theme.url(Theme.wallSrc(Theme.wall)) : "" // не видно — без текстуры
                                 fillMode: Image.PreserveAspectCrop
                                 sourceSize: Qt.size(336, 210)
                                 asynchronous: true
                                 layer.enabled: true
                                 layer.effect: Dm { step: 4 }
                             }
-                            Lb { visible: !Theme.state.wall; anchors.centerIn: parent; px: 10; text: "no wallpaper" }
+                            Lb { visible: !Theme.wall; anchors.centerIn: parent; px: 10; text: "no wallpaper" }
                             TapHandler {
                                 onTapped: {
                                     root.close();
@@ -976,6 +954,7 @@ PanelWindow {
             Row {
                 spacing: 60
                 Column {
+                    z: 1 // тянут экран за край схемы — поверх кольца яркости
                     spacing: 22
                     Item {
                         id: map
@@ -1032,16 +1011,17 @@ PanelWindow {
                                     }
                                 }
                                 HoverHandler { cursorShape: root.multi ? Qt.OpenHandCursor : Qt.PointingHandCursor }
-                                // тянуть — к соседу встаёт вплотную (root.dock); бросили — Rules.place. Без target сдвиг — в px сцены,
-                                // а Stage масштабирован
+                                // тянуть — к соседу встаёт вплотную (Rules.dock); бросили — Rules.place. Пока hypr не ответил на
+                                // прошлый бросок, не тянется: расчёт шёл бы от старых мест. Без target сдвиг — в px сцены, а Stage
+                                // масштабирован
                                 DragHandler {
                                     target: null
-                                    enabled: root.multi
+                                    enabled: root.multi && (!map.held || active)
                                     cursorShape: Qt.ClosedHandCursor
                                     onActiveTranslationChanged: {
                                         if (!active) return;
                                         const m = sc.modelData, k = Theme.s * map.k;
-                                        map.at = root.dock({ x: m.x + activeTranslation.x / k, y: m.y + activeTranslation.y / k, w: m.lw, h: m.lh },
+                                        map.at = Rules.dock({ x: m.x + activeTranslation.x / k, y: m.y + activeTranslation.y / k, w: m.lw, h: m.lh },
                                                            map.ms.filter(o => o.name !== m.name), 16 / map.k);
                                     }
                                     onActiveChanged: {
@@ -1080,14 +1060,17 @@ PanelWindow {
             Row {
                 spacing: 24
                 Pick { label: "scale"; opts: Rules.scales; cur: disp.w.scale ? Rules.scales.indexOf(String(disp.w.scale)) : 0; onPicked: i => Rules.set(disp.m.name, "scale", i ? +Rules.scales[i] : 0) }
-                Pick { label: "hz"; opts: disp.m.rates.map(String); cur: disp.m.rates.indexOf(disp.w.refresh); onPicked: i => Rules.set(disp.m.name, "refresh", disp.m.rates[i]) }
+                // частот бывает и пять, и восемь (телевизор, 165 Гц) — уже сегменты, чтобы строка не ушла за край холста
+                Pick { label: "hz"; seg: Math.min(104, 416 / opts.length); opts: disp.m.rates.map(String); cur: disp.m.rates.indexOf(disp.w.refresh); onPicked: i => Rules.set(disp.m.name, "refresh", disp.m.rates[i]) }
             }
+            // и на одном экране: бар сняли с ноутбука в доке, отстыковали — вернуть его можно только здесь
             Row {
-                visible: root.multi
                 spacing: 20
                 Toggle { text: "bar"; on: Theme.scr(root.mon, "bar"); onFlip: Theme.setScr(root.mon, "bar", !on) }
                 Toggle { text: "home"; on: Theme.scr(root.mon, "home"); onFlip: Theme.setScr(root.mon, "home", !on) }
                 Lb { anchors.verticalCenter: parent.verticalCenter; leftPadding: 10; text: "on this screen · its widgets — in home" }
+                // свои места, масштаб и герцы внешних — забыть, снова как в конфиге hypr (Rules.forget)
+                Act { visible: Object.keys(Rules.store.outs).length > 0; icon: "\u{F0450}"; text: "hypr config"; onHit: Rules.forget() }
             }
             Row {
                 spacing: 40

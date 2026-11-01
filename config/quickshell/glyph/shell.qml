@@ -95,7 +95,7 @@ ShellRoot {
     // тона обоев (Theme.pick) — здесь, не в Theme: его грузит и лок, ему хватает готовых из glyph.json. Пусто — копия обоев не
     // загрузилась (серые дают 16 цветов): старые тона остаются. Новые обои — с первого тона
     ColorQuantizer {
-        source: Theme.url(Theme.wallSrc(Theme.state.wall))
+        source: Theme.url(Theme.wallSrc(Theme.wall))
         depth: 4
         rescaleSize: 64
         onColorsChanged: {

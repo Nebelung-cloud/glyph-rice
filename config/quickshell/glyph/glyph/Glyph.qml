@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -12,6 +13,9 @@ import qs.components
 // снизу — прогресс долгих задач (уведомления с hint value) или фокус-таймера (Focus). Гаснут через 3 с
 Scope {
     id: root
+
+    // вспышка и остров — под баром, если он сверху и есть на экране в фокусе (там они и встают)
+    readonly property bool underBar: Theme.state.barAt === "top" && Theme.scr(Hyprland.focusedMonitor?.name, "bar")
 
     // ---- справа: громкость и яркость ----
     property string kind: "vol"
@@ -100,7 +104,7 @@ Scope {
         id: top
         shown: !!root.note && Theme.state.edges
         anchors.top: true
-        margins.top: Theme.state.barAt === "top" ? Math.ceil(78 * Theme.s) : 0 // под баром
+        margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
         implicitWidth: Math.ceil(640 * Theme.s)
         implicitHeight: Math.ceil(30 * Theme.s)
         Seg {
@@ -129,7 +133,7 @@ Scope {
     PanelWindow {
         visible: stack.count > 0
         anchors.top: true
-        margins.top: Theme.state.barAt === "top" ? Math.ceil(78 * Theme.s) : 0 // под баром
+        margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
         implicitWidth: Math.ceil(600 * Theme.s)
         implicitHeight: Math.ceil((24 + root.most * 132) * Theme.s)
         exclusionMode: ExclusionMode.Ignore

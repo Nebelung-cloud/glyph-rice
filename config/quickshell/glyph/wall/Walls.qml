@@ -69,7 +69,8 @@ PanelWindow {
     function open() {
         const s = Theme.state;
         mon = Hyprland.focusedMonitor?.name ?? "";
-        own = s.screens[mon]?.wall !== undefined; // "" — своё «без обоев»
+        // "" — своё «без обоев». Экран один (второй отключили) — переключателя нет, обои общие, и своё «all» снимет
+        own = Quickshell.screens.length > 1 && s.screens[mon]?.wall !== undefined;
         pick = Theme.scr(mon, "wall");
         view = pick;
         look = s.wallLook;
