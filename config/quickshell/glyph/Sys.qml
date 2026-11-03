@@ -40,6 +40,12 @@ Singleton {
     readonly property real bri: Backlight.value
     readonly property bool hasBri: !!Backlight.dev // нет подсветки (ПК с монитором) — регуляторов яркости нет
     function setBri(v) { Backlight.set(v); }
+    // яркость того монитора, где открыли панель: встроенный — подсветка, внешний — DDC. Панель живёт на
+    // одном экране, но Super+A и peek с горячего края открывают её «на» фокусе Hyprland
+    property string panelMon: ""
+    readonly property bool panelBriExternal: panelMon !== "" && !panelMon.startsWith("eDP")
+    readonly property real panelBri: panelBriExternal ? Backlight.ddc : Backlight.value
+    function setPanelBri(v) { panelBriExternal ? Backlight.setDdc(v) : Backlight.set(v); }
     Binding { target: Backlight; property: "steps"; value: Theme.state.briSteps }
 
     // ---- раскладка: старт — main-клавиатура из hyprctl, дальше событие activelayout ----
