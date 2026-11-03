@@ -40,6 +40,25 @@ PanelWindow {
     // hyprland 0.56 с lua: dispatch принимает lua-выражение
     function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
 
+    // скролл воркспейсов: навёл на точки — крутишь колесо, идёшь по столам. Одна засечка колеса = один стол;
+    // копим дельту и гасим накоп за 300 мс без событий, чтобы тачпад и высокоточные колёса (много мелких
+    // событий за свайп) не пролетали через несколько столов разом. WheelHandler на layer-shell поверхности
+    // колесо не получает, поэтому MouseArea у точек
+    property real wheelAcc: 0
+    Timer { id: wheelIdle; interval: 300; onTriggered: root.wheelAcc = 0 }
+    function nudge(d) {
+        if (!d)
+            return;
+        wheelAcc += d;
+        wheelIdle.restart();
+        if (Math.abs(wheelAcc) >= 120) {
+            const dir = wheelAcc > 0 ? "-1" : "+1";
+            wheelAcc = 0;
+            wheelIdle.stop();
+            root.go(dir);
+        }
+    }
+
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
     Stage {
@@ -52,8 +71,6 @@ PanelWindow {
             radius: Theme.corner(32)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
-
-            WheelHandler { onWheel: e => root.go(e.angleDelta.y > 0 ? "-1" : "+1") }
 
             // знак: кольцо из точек, центр — красный, пока что-то пишет
             Item {
@@ -97,6 +114,26 @@ PanelWindow {
                         Behavior on color { ColorAnimation { duration: Theme.t } }
                         MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.go(parent.n) }
                     }
+                }
+            }
+
+            // колесо над точками — ход по столам. Область — sibling стопки (в positioner якорить детей нельзя,
+            // ломает раскладку точек). Засечка колеса — угол ±120, один стол; тачпад шлёт pixelDelta по нескольку
+            // пикселей за событие — множим на 0,4, иначе один свайп щёлкает по три стола
+            MouseArea {
+                anchors {
+                    left: ws.left; right: ws.right; top: ws.top; bottom: ws.bottom
+                    margins: -12
+                }
+                acceptedButtons: Qt.NoButton
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onWheel: wheel => {
+                    const a = wheel.angleDelta.y || wheel.angleDelta.x;
+                    if (a)
+                        root.nudge(a);
+                    else
+                        root.nudge((wheel.pixelDelta.y || wheel.pixelDelta.x) * 0.4);
                 }
             }
 
