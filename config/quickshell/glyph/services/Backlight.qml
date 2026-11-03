@@ -57,6 +57,75 @@ Singleton {
             }
         }
     }
+
+    // ---- внешний монитор по DDC (ddcutil): шина ищем парами «I2C bus → DRM_connector», внешняя — коннектор без eDP.
+    // udev-правило logind даёт активному пользователю rw на /dev/i2c-*, sudo не нужен. Событий смены нет —
+    // значение держим своё, раз в 5 с сверяем getvcp, при drag'е панели ставим сразу ----
+    property string ddcBus: ""      // /dev/i2c-N, пусто — внешнего с DDC нет
+    property real ddc: 0.5          // последнее известное 0…1
+    property bool ddcOk: false
+    signal ddcMoved()
+    Timer {
+        running: !!root.ddcBus
+        interval: 5000
+        repeat: true
+        onTriggered: root.ddcRead()
+    }
+    function ddcRead() {
+        ddcGet.exec(["ddcutil", "--noverify", "--sleep-multiplier", "0.05", "--brief", "getvcp", "10"]);
+    }
+    Process {
+        id: ddcGet
+        stdout: StdioCollector {
+            onStreamFinished: {
+                // «VCP 10 C 50 100» — код, тип, текущее, максимум
+                const p = text.trim().split(/\s+/);
+                const v = parseFloat(p[3]), m = parseFloat(p[4]);
+                if (!isNaN(v) && m > 0) {
+                    root.ddc = v / m;
+                    root.ddcOk = true;
+                    root.ddcMoved();
+                }
+            }
+        }
+    }
+    function setDdc(v) {
+        if (!ddcBus)
+            return;
+        const val = Math.round(Math.max(0, Math.min(1, v)) * 100);
+        ddc = val / 100;
+        ddcOk = true;
+        ddcMoved();
+        // ddcutil сам вешает flock на шину — сливаю writes: последний за 80 мс побеждает, спам при drag'е
+        // не плодит процессы и не дерётся с опросом (flock wait до 3 с). Проц дс: 80 мс ≈ 12 шагов/с — глазом плавно
+        const cmd = ["ddcutil", "--noverify", "--sleep-multiplier", "0.05", "setvcp", "10", String(val)];
+        ddcSetQueued = cmd;
+        if (!ddcSetTimer.running)
+            ddcSetTimer.restart();
+    }
+    property var ddcSetQueued: null
+    Timer {
+        id: ddcSetTimer
+        interval: 80
+        onTriggered: {
+            if (root.ddcSetQueued)
+                Quickshell.execDetached(root.ddcSetQueued);
+            root.ddcSetQueued = null;
+        }
+    }
+    Process {
+        running: true
+        command: ["sh", "-c", "ddcutil detect 2>/dev/null | awk '/I2C bus/{b=$NF} /DRM_connector/{c=$NF} /EDID synopsis/{if (b && c && index(c, \"eDP\") == 0) {print b; exit}}'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const bus = text.trim();
+                if (bus.startsWith("/dev/i2c")) {
+                    root.ddcBus = bus;
+                    root.ddcRead();
+                }
+            }
+        }
+    }
     Process {
         running: !!root.dev
         command: ["udevadm", "monitor", "--udev", "--subsystem-match=backlight"]
