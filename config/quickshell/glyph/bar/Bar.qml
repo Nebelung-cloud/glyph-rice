@@ -44,6 +44,26 @@ PanelWindow {
     // hyprland 0.56 with lua: dispatch takes a lua expression
     function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
 
+    // скролл воркспейсов: навёл на точки — крутишь колесо, идёшь по столам. Одна засечка колеса = один стол;
+    // копим дельту и гасим накоп за 300 мс без событий, чтобы тачпад и высокоточные колёса (много мелких
+    // событий за свайп) не пролетали через несколько столов разом. WheelHandler на layer-shell поверхности
+    // колесо не получает, поэтому MouseArea у точек
+    property real wheelAcc: 0
+    Timer { id: wheelIdle; interval: 300; onTriggered: root.wheelAcc = 0 }
+    function nudge(d) {
+        if (!d)
+            return;
+        wheelAcc += d;
+        wheelIdle.restart();
+        if (Math.abs(wheelAcc) >= 120) {
+            const d = wheelAcc > 0 ? -1 : 1, slot = active + d; // within the workspace limit, wrapping like the Super+wheel bind
+            wheelAcc = 0;
+            wheelIdle.stop();
+            if (slot >= 1 && slot <= lim) root.go(slot);
+            else if (Theme.state.wsWrap) root.go(d > 0 ? 1 : lim);
+        }
+    }
+
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
     Stage {
@@ -56,8 +76,6 @@ PanelWindow {
             radius: Theme.corner(32)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
-
-            WheelHandler { onWheel: e => root.go(e.angleDelta.y > 0 ? "-1" : "+1") }
 
             // the mark: a ring of dots, the center — red while something is recording
             Item {
@@ -101,6 +119,26 @@ PanelWindow {
                         Behavior on color { ColorAnimation { duration: Theme.t } }
                         MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.go(parent.n) }
                     }
+                }
+            }
+
+            // the wheel over the dots moves through workspaces. The area is the stack's sibling (anchoring children in a positioner
+            // breaks the dot layout). A wheel notch is ±120, one workspace; a touchpad sends pixelDelta a few pixels per event —
+            // multiply by 0.4, otherwise one swipe clicks through three
+            MouseArea {
+                anchors {
+                    left: ws.left; right: ws.right; top: ws.top; bottom: ws.bottom
+                    margins: -12
+                }
+                acceptedButtons: Qt.NoButton
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onWheel: wheel => {
+                    const a = wheel.angleDelta.y || wheel.angleDelta.x;
+                    if (a)
+                        root.nudge(a);
+                    else
+                        root.nudge((wheel.pixelDelta.y || wheel.pixelDelta.x) * 0.4);
                 }
             }
 
