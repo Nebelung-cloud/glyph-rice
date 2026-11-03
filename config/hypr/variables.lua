@@ -20,7 +20,7 @@ return {
     lockCmd                    = rice .. " lock", -- the current shell's lock; doesn't start a second one
 
     -- Apps
-    terminal                   = "kitty -1", -- single-instance: new windows from the live process, ~40 ms instead of ~400
+    terminal                   = "kitty", -- not -1: the shared process, once its GL broke after a sleep (AMD and Intel), turned every new window white until a reboot (#12); the cost — ~230 ms instead of ~20
     browser                    = "zen-browser",
     fileExplorer               = home .. "/.local/bin/strata", -- installed in ~/.local/bin, which isn't in hypr's PATH; thunar — the fallback
     audioSettings              = "pavucontrol",

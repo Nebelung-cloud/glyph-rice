@@ -33,10 +33,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("mpris-proxy")
 
     -- the shell starts hypridle (Rules.idle): timings from house rules → ~/.config/demonshot/hypridle.conf
-
-    -- a background kitty with no window: the first Super+Q opens instantly too. A few seconds after login, so it doesn't
-    -- compete with the shell starting; skipped in glyph's Lite mode (the shell keeps the flag file)
-    hl.exec_cmd("sh -c 'sleep 4; [ -e \"${XDG_STATE_HOME:-$HOME/.local/state}/rice/lite\" ] || exec " .. vars.terminal .. " --start-as=hidden'")
 end)
 
 -- Resizer listener
