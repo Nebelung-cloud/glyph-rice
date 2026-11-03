@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Bluetooth
+import Quickshell.Hyprland
 import Quickshell.Networking
 import Quickshell.Services.Notifications
 import Quickshell.Wayland
@@ -31,7 +32,9 @@ PanelWindow {
     }
     // открытый список: "wifi" | "bt" — под пилюлями (Picker), "rec" — под плитками (Rec), "" — ничего
     property string pick: ""
-    onOpenChanged: if (open) Sys.earRun([]); else pick = ""
+    // при открытии запоминаем фокус Hyprland: Super+A бьёт по фокусу, peek с горячего края — там, где курсор.
+    // Яркость дальше меняет именно этот монитор (Sys.panelMon)
+    onOpenChanged: if (open) { Sys.panelMon = Hyprland.focusedMonitor?.name ?? ""; Sys.earRun([]); } else pick = ""
     // курсор 500мс вне панели и полосы Hot — закрываем. seen: Hyprland не отдаёт курсор свежей поверхности, пока мышь не сдвинется —
     // до первого движения неизвестно, где он, и панель ждёт (иначе у неподвижного курсора открывалась и тут же закрывалась)
     Timer { interval: 500; running: root.open && root.peeked && seen.hovered && !keep.hovered && !edge.hovered; onTriggered: root.close() }
@@ -201,7 +204,14 @@ PanelWindow {
 
                     Rec { width: parent.width; visible: root.pick === "rec"; onTouched: root.pin(); onStart: { root.close(); Sys.toggleRec(); } }
 
-                    Slider { icon: "\u{F00E0}"; visible: Sys.hasBri; value: Sys.bri; onMoved: v => Sys.setBri(v) }
+                    // яркость — того монитора, где панель открыли: фокус запоминаем при открытии (open change ниже).
+                    // Встроенный — подсветка, внешний — DDC (ddcutil). Нет подсветки и нет DDC — слайдера нет
+                    Slider {
+                        icon: "\u{F00E0}"
+                        visible: Sys.panelBriExternal ? Sys.ddcOk : Sys.hasBri
+                        value: Sys.panelBri
+                        onMoved: v => Sys.setPanelBri(v)
+                    }
                     Slider { icon: Sys.muted ? "\u{F075F}" : "\u{F057E}"; value: Sys.muted ? 0 : Sys.vol; onMoved: v => Sys.setVol(v) }
 
                     // режим питания, как в caelestia: четыре клетки, белая заливка переезжает к выбранной; засечки — сила.
@@ -510,11 +520,31 @@ PanelWindow {
         MouseArea {
             id: area
             property real v
+            // колесо на слайдере: засечка — шаг 5%, тачпад — по пикселям с множителем. Мелкие доли копим
+            // и применяем от 2% — громкость и яркость хранят целые проценты, дробный шаг иначе съедается
+            property real wacc: 0
+            Timer { id: widle; interval: 300; onTriggered: area.wacc = 0 }
             anchors.fill: parent
             preventStealing: true
             function set(x) { v = Math.max(0, Math.min(1, x / width)); sl.moved(v); }
-            onPressed: e => { root.pin(); set(e.x); }
+            // pin только на отпускание: он снимает peek, а это пересборка keyboardFocus слоя — посреди нажатия
+            // она рвёт неявный захват мыши, и первый после открытия панели зажим доезжает до точки клика и умирает.
+            // За время drag'а фокус не трогаем, на release догоняем — как раньше, но уже без живого захвата
+            onPressed: e => set(e.x)
             onPositionChanged: e => set(e.x)
+            onReleased: root.pin()
+            onWheel: e => {
+                // колесо не держит неявный захват — pin здесь безопасен
+                root.pin();
+                const a = e.angleDelta.y || e.angleDelta.x;
+                wacc += a ? a / 120 * 0.05 : (e.pixelDelta.y || e.pixelDelta.x) * 0.001;
+                widle.restart();
+                if (Math.abs(wacc) >= 0.02) {
+                    sl.moved(Math.max(0, Math.min(1, (area.pressed ? area.v : sl.value) + wacc)));
+                    wacc = 0;
+                    widle.stop();
+                }
+            }
         }
     }
 }
