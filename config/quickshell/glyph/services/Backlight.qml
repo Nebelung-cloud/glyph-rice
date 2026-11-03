@@ -60,11 +60,16 @@ Singleton {
 
     // ---- внешний монитор по DDC (ddcutil): шина ищем парами «I2C bus → DRM_connector», внешняя — коннектор без eDP.
     // udev-правило logind даёт активному пользователю rw на /dev/i2c-*, sudo не нужен. Событий смены нет —
-    // значение держим своё, раз в 5 с сверяем getvcp, при drag'е панели ставим сразу ----
+    // значение держим своё, раз в 5 с сверяем getvcp, при drag'е панели ставим через один процесс ----
     property string ddcBus: ""      // /dev/i2c-N, пусто — внешнего с DDC нет
     property real ddc: 0.5          // последнее известное 0…1
     property bool ddcOk: false
     signal ddcMoved()
+    // setvcp уходит через один процесс: на медленных мониторах запись занимает сотни мс, и параллельные вызовы
+    // (execDetached) заканчиваются не по порядку — итог прилипал к случайной яркости из середины drag'а и мигал.
+    // Всегда ставим последнее значение (ddcWant), а опрос после нашей записи молчит, пока она не отыгралась
+    property int ddcWant: -1        // что ставим, −1 — нечего
+    property real ddcSetAt: 0       // когда ушла последняя запись: сразу после неё читать нельзя
     Timer {
         running: !!root.ddcBus
         interval: 5000
@@ -72,6 +77,9 @@ Singleton {
         onTriggered: root.ddcRead()
     }
     function ddcRead() {
+        // свою же запись читаем только когда она успела примениться (медленным панелям нужно время)
+        if (ddcWant >= 0 || (ddcSetAt && Date.now() - ddcSetAt < 1200))
+            return;
         ddcGet.exec(["ddcutil", "--noverify", "--sleep-multiplier", "0.05", "--brief", "getvcp", "10"]);
     }
     Process {
@@ -96,22 +104,21 @@ Singleton {
         ddc = val / 100;
         ddcOk = true;
         ddcMoved();
-        // ddcutil сам вешает flock на шину — сливаю writes: последний за 80 мс побеждает, спам при drag'е
-        // не плодит процессы и не дерётся с опросом (flock wait до 3 с). Проц дс: 80 мс ≈ 12 шагов/с — глазом плавно
-        const cmd = ["ddcutil", "--noverify", "--sleep-multiplier", "0.05", "setvcp", "10", String(val)];
-        ddcSetQueued = cmd;
-        if (!ddcSetTimer.running)
-            ddcSetTimer.restart();
+        ddcWant = val;
+        ddcSetAt = Date.now();
+        ddcPump();
     }
-    property var ddcSetQueued: null
-    Timer {
-        id: ddcSetTimer
-        interval: 80
-        onTriggered: {
-            if (root.ddcSetQueued)
-                Quickshell.execDetached(root.ddcSetQueued);
-            root.ddcSetQueued = null;
-        }
+    function ddcPump() {
+        if (ddcWant < 0 || ddcSet.running)
+            return;
+        const val = ddcWant;
+        ddcWant = -1;
+        ddcSetAt = Date.now();
+        ddcSet.exec(["ddcutil", "--noverify", "--sleep-multiplier", "0.05", "setvcp", "10", String(val)]);
+    }
+    Process {
+        id: ddcSet
+        onExited: root.ddcPump()   // пока писали, могли накидать новое значение — ставим следом
     }
     Process {
         running: true
