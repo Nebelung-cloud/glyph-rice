@@ -77,7 +77,7 @@ PanelWindow {
     property var kept: ["System Proxy", "TUN Mode"] // что вернуть при включении
     property int want: -1                           // пока verge не догнал: 1 — включаем, 0 — выключаем
     readonly property bool connected: want >= 0 ? want === 1 : live
-    onLiveChanged: want = -1
+    onLiveChanged: { want = -1; wall(); }
     Timer { id: wantT; interval: 5000; onTriggered: root.want = -1 } // verge промолчал — показываем как есть
     function flip() {
         if (!verge) return Quickshell.execDetached(["clash-verge"]); // спит — разбудить
@@ -96,22 +96,24 @@ PanelWindow {
     onConnectedChanged: if (connected) since = new Date()
 
     // публичная сеть со страницей входа: туннель её не пропустит (dns-hijack, MATCH,PROXY) — выключаем и открываем портал;
-    // сеть пустила (Full) — включаем обратно. NM проверяет связь мимо туннеля (привязан к wlan0), так что Portal он видит честно
-    property bool portal: false
+    // сеть пустила (Full) — включаем обратно. NM проверяет связь мимо туннеля (привязан к wlan0), так что Portal он видит честно.
+    // Туннель, поднятый уже за порталом (verge стартует позже шелла), снимаем так же; включённый руками после этого — не трогаем
+    property bool portal: false // туннель снят из-за портала — вернуть, когда сеть пустит
+    function wall() {
+        if (Networking.connectivity === NetworkConnectivity.Portal && live && !portal) {
+            portal = true;
+            flip();
+            Quickshell.execDetached(["notify-send", "-a", "vpn", "Portal", "туннель снят до входа в сеть"]);
+        } else if (Networking.connectivity === NetworkConnectivity.Full && portal) {
+            portal = false;
+            if (!connected) flip();
+        }
+    }
     Connections {
         target: Networking
         function onConnectivityChanged() {
-            if (Networking.connectivity === NetworkConnectivity.Portal && !root.portal) {
-                root.portal = root.connected;
-                if (root.connected) {
-                    root.flip();
-                    Quickshell.execDetached(["notify-send", "-a", "vpn", "Portal", "туннель снят до входа в сеть"]);
-                }
-                gate.restart(); // браузер — когда verge уже снял system proxy
-            } else if (Networking.connectivity === NetworkConnectivity.Full && root.portal) {
-                root.portal = false;
-                if (!root.connected) root.flip();
-            }
+            root.wall();
+            if (Networking.connectivity === NetworkConnectivity.Portal) gate.restart(); // браузер — когда verge уже снял system proxy
         }
     }
     Timer { id: gate; interval: 1500; onTriggered: Qt.openUrlExternally("http://neverssl.com") }
