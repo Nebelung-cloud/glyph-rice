@@ -6,8 +6,8 @@ import qs
 import qs.components
 import qs.services
 
-// меню питания: Super+Esc. Экран почти чёрный, слева столбец слов Doto: выбранное крупно с красной точкой, остальные Mute.
-// ↑↓ — слово плавно растёт и сжимается. Справа кольцо из 60 точек: аптайм (доля шестичасовой смены)
+// power menu: Super+Esc. The screen almost black, a column of Doto words on the left: the selected one large with a red dot, the rest Mute.
+// ↑↓ — a word grows and shrinks smoothly. On the right a ring of 60 dots: uptime (a fraction of a six-hour shift)
 PanelWindow {
     id: root
 
@@ -22,7 +22,7 @@ PanelWindow {
 
     function open() {
         sel = 2;
-        SysStats.sample(); // свежий аптайм
+        SysStats.sample(); // fresh uptime
         visible = true;
     }
     function close() { visible = false; }
@@ -77,13 +77,7 @@ PanelWindow {
                         radius: 15
                         color: Theme.red
                     }
-                    Num {
-                        text: it.modelData[0]
-                        font.pixelSize: it.on ? 168 : 66
-                        color: it.on ? Theme.fg : Theme.mute
-                        Behavior on font.pixelSize { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-                        Behavior on color { ColorAnimation { duration: Theme.t } }
-                    }
+                    Grow { text: it.modelData[0]; on: it.on; big: 168; small: 66; anchors.verticalCenter: parent.verticalCenter }
                     HoverHandler { onHoveredChanged: if (hovered) root.sel = it.index }
                     TapHandler { onTapped: { root.sel = it.index; root.accept(); } }
                 }

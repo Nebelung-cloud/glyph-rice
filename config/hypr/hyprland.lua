@@ -1,7 +1,7 @@
--- Monitor: масштаб решает hypr (его же потом ставит шелл, Rules.monitor)
+-- Monitor: hypr decides the scale (the shell sets it later too, Rules.monitor)
 hl.monitor({ output = "", mode = "highres", position = "auto", scale = "auto" })
 
--- XWayland масштабирует hypr: на HiDPI мыльно, зато размер верный при любом масштабе. Чётко на целом масштабе — в user.lua:
+-- hypr scales XWayland: blurry on HiDPI, but the size is right at any scale. Sharp at an integer scale — in user.lua:
 --   hl.config({ xwayland = { force_zero_scaling = true } }); hl.env("GDK_SCALE", "2")
 
 -- Configs
@@ -17,6 +17,6 @@ require("hyprland.rules")
 require("hyprland.gestures")
 require("hyprland.keybinds")
 
--- свои бинды и правки поверх риса: hypr/user.lua (в .gitignore, обновления репо его не трогают)
+-- your own binds and tweaks on top of the rice: hypr/user.lua (in .gitignore, repo updates don't touch it)
 local user = io.open(os.getenv("HOME") .. "/.config/hypr/user.lua")
 if user then user:close(); require("user") end

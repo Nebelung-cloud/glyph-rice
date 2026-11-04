@@ -1,3 +1,3 @@
-# личное: свои бинды hypr и фото наушников (buds/<устройство>.png, рендер с nothing.tech)
+# personal: your own hypr binds and earbud photos (buds/<device>.png, renders from nothing.tech)
 config/hypr/user.lua
 config/quickshell/glyph/buds/*.png

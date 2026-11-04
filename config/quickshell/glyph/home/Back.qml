@@ -5,10 +5,10 @@ import Quickshell.Wayland
 import qs
 import qs.components
 
-// подложка дома, отдельным окном на слое background: сетка точек, полутоновый шар, обои. Сам дом (часы, бенто) — слоем
-// выше, прозрачный: он перерисовывается часто (двоеточие, кольца, крутящаяся обложка), а обои — полноэкранный шейдер,
-// и в одном окне считались бы на каждый его кадр. Здесь кадр — только на волну, смену вида и дыхание шара.
-// Картинка закрыла всё — сетку и шар не рисуем, шар не дышит: окно стоит
+// home's underlay, a separate window on the background layer: the dot grid, the halftone orb, the wallpaper. Home itself (clock, bento) — a layer
+// above, transparent: it repaints often (the colon, the rings, the spinning cover), and the wallpaper is a fullscreen shader,
+// in one window it would be computed on every one of its frames. Here a frame happens only for the wave, a look change and the orb breathing.
+// The image covered everything — we don't draw the grid and orb, the orb doesn't breathe: the window stands still
 PanelWindow {
     id: root
 
@@ -20,7 +20,7 @@ PanelWindow {
 
     readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
     property real phase: 0
-    Timer { running: root.home && orb.visible; interval: 100; repeat: true; onTriggered: root.phase += 0.1 }
+    Timer { running: root.home && orb.visible && !Theme.state.lite; interval: 100; repeat: true; onTriggered: root.phase += 0.1 }
 
     Stage {
         id: stage
@@ -31,6 +31,6 @@ PanelWindow {
             source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="1.5" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
         }
         Orb { id: orb; visible: Theme.state.orb && !wall.opaque; x: stage.width - 720; y: stage.height - 580; phase: root.phase }
-        Wall { id: wall; anchors.fill: parent; path: Theme.wallSrc(Theme.state.wall); animate: !Sys.wallOpen }
+        Wall { id: wall; anchors.fill: parent; path: Theme.wallSrc(Theme.state.wall); animate: !Sys.wallOpen && !Theme.state.lite }
     }
 }

@@ -5,8 +5,8 @@ import qs
 import qs.components
 import "charms.js" as Data
 
-// чары: каомодзи, эмодзи и символы. Панель из семьи буфера: поиск-пилюля, вкладки чипами (Tab),
-// слева сетка плиток, справа выбранное крупно. Выбранная плитка — белая. ⏎ — в буфер, вставляешь сам Ctrl+V
+// charms: kaomoji, emoji and symbols. A panel from the clipboard family: a search pill, tabs as chips (Tab),
+// a grid of tiles on the left, the selected one large on the right. The selected tile — white. ⏎ — to the clipboard, you paste with Ctrl+V
 PanelWindow {
     id: root
 
@@ -14,17 +14,21 @@ PanelWindow {
     readonly property var cols: [2, 8, 8]
     property int tab: 0
     property int sel: 0
-    // ё → е: в словах CLDR «черный», а пишут и так и так
-    readonly property string query: input.text.toLowerCase().replace(/ё/g, "е")
+    readonly property string query: input.text.toLowerCase()
 
     readonly property var lists: [Data.KAOMOJI, Data.EMOJI, Data.SYMBOLS]
-    // слова в charms.js уже строчные — без toLowerCase и деструктуризации: по 1900 эмодзи это кадр на каждую букву.
-    // Сам символ («Ω», «Ψ») — строчными, но только если слова не совпали
+    // the words in charms.js are already lowercase — no toLowerCase or destructuring: over 1900 emoji that's a frame per letter.
+    // The symbol itself («Ω», «Ψ») — in lowercase, but only if the words didn't match
     readonly property var view: query ? lists[tab].filter(e => e[1].includes(query) || e[0].toLowerCase().includes(query)) : lists[tab]
     readonly property var cur: view[sel] ?? null
 
     property bool shown: false
-    property real t: shown ? 1 : 0
+    // the window appears a moment before it moves: its first frame (creating the surface) is the slow one, so it lands
+    // while nothing is moving yet
+    property bool mapped: false
+    Timer { running: root.visible && !root.mapped; interval: 20; onTriggered: root.mapped = true }
+    Connections { target: root; function onVisibleChanged() { if (!root.visible) root.mapped = false; } }
+    property real t: shown && mapped ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
     function open() {
@@ -47,7 +51,7 @@ PanelWindow {
     onSelChanged: grids.itemAt(tab)?.positionViewAtIndex(sel, GridView.Contain)
     onVisibleChanged: if (visible) input.forceActiveFocus()
 
-    visible: t > 0
+    visible: t > 0 || shown
     anchors { left: true; right: true; top: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
@@ -107,7 +111,7 @@ PanelWindow {
                         font: input.font
                         color: Theme.mute
                     }
-                    // ponytail: ←→ ходят по сетке, а не по тексту — запросы тут в одно слово
+                    // ponytail: ←→ move through the grid, not the text — queries here are one word
                     Keys.onPressed: e => {
                         const n = root.cols[root.tab];
                         if (e.key === Qt.Key_Escape) root.close();
@@ -151,8 +155,8 @@ PanelWindow {
                 Lb { id: hlab; text: root.tabs[root.tab] }
             }
 
-            // по сетке на вкладку, живут все три: Tab только прячет — пересборка плиток стоила кадры. Без запроса у всех
-            // полный список и от tab модели не зависят; поиск фильтрует только видимую
+            // a grid per tab, all three live: Tab only hides — rebuilding the tiles cost frames. Without a query all have
+            // the full list and don't depend on the tab model; search filters only the visible one
             Item {
                 id: grid
                 anchors { left: parent.left; leftMargin: 34; top: head.bottom; topMargin: 18; bottom: parent.bottom; bottomMargin: 34 }
@@ -184,8 +188,8 @@ PanelWindow {
                                 anchors { fill: parent; margins: 3 }
                                 radius: Math.min(width, height) / 2
                                 color: d.on ? Theme.fg : Theme.s2
-                                // Fit — лишние раскладки на каждой плитке; нужен длинным каомодзи и ZWJ-эмодзи: шрифт постарше
-                                // не склеит последовательность, и она развалится на 2–4 глифа шире клетки
+                                // Fit — extra layouts on every tile; needed for long kaomoji and ZWJ emoji: an older font
+                                // won't join the sequence, and it falls apart into 2–4 glyphs wider than the cell
                                 Text {
                                     anchors { fill: parent; margins: 8 }
                                     text: d.modelData[0]
@@ -198,7 +202,7 @@ PanelWindow {
                                     color: d.on ? Theme.ink : Theme.fg
                                 }
                             }
-                            // клик — выбрать, по выбранной — скопировать
+                            // a click — select, on the selected one — copy
                             TapHandler { onTapped: d.on ? root.fire() : root.sel = d.index }
                             HoverHandler { cursorShape: Qt.PointingHandCursor }
                         }
@@ -206,7 +210,7 @@ PanelWindow {
                 }
             }
 
-            // выбранное крупно
+            // the selected one, large
             Rectangle {
                 id: card
                 anchors { left: grid.right; leftMargin: 24; right: parent.right; rightMargin: 34; top: head.top; bottom: parent.bottom; bottomMargin: 34 }

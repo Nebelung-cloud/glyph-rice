@@ -6,32 +6,32 @@ import qs
 import qs.components
 import qs.services
 
-// deck: дашборд снизу по центру, как у caelestia, только из-под нижнего края. Курсор у края (полоса 2 px) 150 мс —
-// панель выезжает, ушёл с неё — через 300 мс прячется. Секции — Theme.state.deck по порядку (id из Theme.decks), колонками.
-// Без scrim и клавиатуры: подсмотреть и уйти. Окно на каждом экране, открыто не больше одного
+// deck: a bottom-center dashboard, like caelestia's, only from under the bottom edge. The cursor at the edge (a 2 px strip) for 150 ms —
+// the panel slides out, left it — it hides after 300 ms. Sections — Theme.state.deck in order (ids from Theme.decks), in columns.
+// No scrim or keyboard: peek and leave. A window on every screen, no more than one open
 Scope {
     id: root
 
-    property var on: null // экран, где открыта
+    property var on: null // the screen where it's open
     function toggle() { on = on ? null : Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0]; }
 
     readonly property var ids: Theme.state.deck.filter(id => Theme.decks.includes(id))
-    readonly property int h: 232 // высота секций в пикселях макета
+    readonly property int h: 232 // section height in layout pixels
 
-    // открыта — подробный опрос (detailed ставит Home по deckOpen) и процессы с частотой
+    // open — detailed polling (Home sets detailed from deckOpen) and processes with frequency
     Binding { target: Sys; property: "deckOpen"; value: root.on !== null }
     Binding { target: SysStats; property: "perf"; value: root.on !== null }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var en: Qt.locale("en_US")
     function hm(d) { return Qt.formatTime(d, Theme.state.clock24 ? "hh:mm" : "h:mm ap"); }
-    function week(d) { // ISO-неделя, как в Home
+    function week(d) { // ISO week, like in Home
         const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
         t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
         return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
     }
 
-    // сеть за 40 с — столбцы матрицы, [rx, tx]. Свой такт: SysStats пишет rx/tx раз в те же 2 с
+    // network over 40 s — matrix columns, [rx, tx]. Its own clock: SysStats writes rx/tx every same 2 s
     property var net: []
     Timer { running: root.on !== null; interval: 2000; repeat: true; onTriggered: root.net = root.net.concat([[SysStats.rx, SysStats.tx]]).slice(-20) }
 
@@ -53,17 +53,17 @@ Scope {
             implicitHeight: Math.ceil((panel.height + 14) * Theme.s)
             exclusionMode: ExclusionMode.Ignore
             color: "transparent"
-            // ponytail: Top, не Overlay — под полноэкранным окном край не ловит; Glyph-полоса прогресса рисуется поверх
+            // ponytail: Top, not Overlay — under a fullscreen window the edge doesn't catch; the Glyph progress bar is drawn on top
             WlrLayershell.layer: WlrLayer.Top
             WlrLayershell.namespace: "glyph-deck"
-            // закрыта — мышь ловит только полоса у края (углы экрана свободны), открыта — всё окно вместе со щелью под панелью
+            // closed — the mouse is caught only by the strip at the edge (the screen corners are free), open — the whole window along with the gap under the panel
             mask: Region { y: win.open ? 0 : win.height - 2; width: win.width; height: win.open ? win.height : 2 }
 
             Timer { id: dwell; interval: 150; onTriggered: root.on = win.modelData }
             Timer { id: leave; interval: 300; onTriggered: if (win.open) root.on = null }
 
             Stage {
-                // полоса и панель — одно окно: курсор не перескакивает между поверхностями, hovered не мигает
+                // the strip and the panel — one window: the cursor doesn't jump between surfaces, hovered doesn't flicker
                 HoverHandler {
                     onHoveredChanged: {
                         if (hovered) {
@@ -79,10 +79,10 @@ Scope {
                 Rectangle {
                     id: panel
                     anchors.horizontalCenter: parent.horizontalCenter
-                    y: (1 - win.t) * (height + 14) // выезжает из-под края
+                    y: (1 - win.t) * (height + 14) // slides out from under the edge
                     width: row.width + 52
                     height: root.h + 52
-                    opacity: win.t // не visible: у скрытого Row ширина 0, а по ней меряется окно
+                    opacity: win.t // not visible: a hidden Row has width 0, and the window is measured by it
                     radius: 40
                     color: Theme.s1
                     border { width: 1; color: Theme.s2 }
@@ -99,7 +99,7 @@ Scope {
                                 required property string modelData
                                 required property int index
                                 spacing: 16
-                                // между секциями — столбик точек
+                                // between sections — a column of dots
                                 Image {
                                     visible: cell.index > 0
                                     width: 4
@@ -114,7 +114,7 @@ Scope {
                 }
             }
 
-            // часы, дата, неделя; световой день сегментами от восхода до заката
+            // clock, date, week; daylight as segments from sunrise to sunset
             Component {
                 id: clockC
                 Column {
@@ -137,7 +137,7 @@ Scope {
                 }
             }
 
-            // сейчас крупно и четыре дня вперёд, глифы через маску точек
+            // now large and four days ahead, glyphs through the dot mask
             Component {
                 id: weatherC
                 Column {
@@ -182,7 +182,7 @@ Scope {
                 }
             }
 
-            // кольца cpu/mem/gpu с температурами, топ процессов сегментами, ядра матрицей
+            // cpu/mem/gpu rings with temperatures, top processes as segments, cores as a matrix
             Component {
                 id: perfC
                 Column {
@@ -215,7 +215,7 @@ Scope {
                             width: 126
                             spacing: 6
                             Lb { text: `cores · ${SysStats.cpuFreq.toFixed(1)} ghz`; px: 10 }
-                            // столбец на ядро: верхняя точка белая, под ней серые — как график cpu в Home
+                            // a column per core: the top dot white, greys under it — like the cpu graph in Home
                             Grid {
                                 id: cores
                                 readonly property int n: Math.max(1, SysStats.cores.length)
@@ -227,7 +227,7 @@ Scope {
                                     model: cores.n * 8
                                     Rectangle {
                                         required property int index
-                                        readonly property int up: 8 - Math.floor(index / cores.n) // 8 сверху … 1 снизу
+                                        readonly property int up: 8 - Math.floor(index / cores.n) // 8 at the top … 1 at the bottom
                                         readonly property int lvl: Math.round(1 + 7 * (SysStats.cores[index % cores.n] ?? 0))
                                         width: cores.d
                                         height: cores.d
@@ -241,7 +241,7 @@ Scope {
                 }
             }
 
-            // приём/отдача Doto и 40 с матрицей: приём растёт вверх от середины, отдача (серая) — вниз
+            // download/upload in Doto and 40 s as a matrix: download grows up from the middle, upload (grey) — down
             Component {
                 id: netC
                 Column {
@@ -254,7 +254,7 @@ Scope {
                     Item { width: 1; height: 18 }
                     Grid {
                         id: hist
-                        // шкала — пик окна, но не меньше 10 kb/s: тишина не рисует шум
+                        // the scale — the window's peak, but not below 10 kb/s: silence doesn't draw noise
                         readonly property real peak: Math.max(10240, ...root.net.map(p => Math.max(p[0], p[1])))
                         readonly property real d: (width - 19 * spacing) / 20
                         width: parent.width
@@ -264,7 +264,7 @@ Scope {
                             model: 20 * 10
                             Rectangle {
                                 required property int index
-                                readonly property int r: Math.floor(index / 20) // 0…9 сверху вниз
+                                readonly property int r: Math.floor(index / 20) // 0…9 top to bottom
                                 readonly property bool tx: r >= 5
                                 readonly property var p: root.net[index % 20 - 20 + root.net.length] ?? [0, 0]
                                 readonly property bool lit: (tx ? r - 4 : 5 - r) <= Math.ceil(5 * (tx ? p[1] : p[0]) / hist.peak)
@@ -278,7 +278,7 @@ Scope {
                 }
             }
 
-            // плеер: обложка точками крутится, пока играет и deck открыта
+            // player: the dot cover spins while playing and the deck is open
             Component {
                 id: mediaC
                 Column {
@@ -292,7 +292,7 @@ Scope {
                             width: 84
                             height: 84
                             property real turn: 0
-                            Timer { running: win.open && Media.playing; interval: 33; repeat: true; onTriggered: art.turn = (art.turn + 360 / 14 / 30) % 360 }
+                            Timer { running: win.open && Media.playing && !Theme.state.lite; interval: 33; repeat: true; onTriggered: art.turn = (art.turn + 360 / 14 / 30) % 360 }
                             Art { anchors.fill: parent; rotation: art.turn; url: Media.player?.trackArtUrl ?? ""; step: 5 }
                         }
                         Column {
@@ -311,7 +311,7 @@ Scope {
                         }
                     }
                     Item { width: 1; height: 16 }
-                    // firefox длину не шлёт
+                    // firefox doesn't send the length
                     Seg { width: parent.width; height: 6; n: 20; f: Media.player?.lengthSupported && Media.player.length > 0 ? Media.position / Media.player.length : 0 }
                     Item {
                         width: parent.width
@@ -327,7 +327,7 @@ Scope {
         }
     }
 
-    // кольцо с числом внутри и подписью; on — точки загораются волной при открытии
+    // a ring with a number inside and a label; on — the dots light up in a wave on open
     component Gauge: Column {
         id: g
         property real f
@@ -343,7 +343,7 @@ Scope {
         }
         Lb { anchors.horizontalCenter: parent.horizontalCenter; text: g.label; px: 10 }
     }
-    // скорость: стрелка, число Doto, единица меткой
+    // speed: an arrow, a Doto number, the unit as a label
     component Speed: Row {
         id: sp
         property string icon

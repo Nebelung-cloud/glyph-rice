@@ -2,7 +2,7 @@ import QtQuick
 import qs
 import qs.services
 
-// назад · play (красный круг — «живое») · вперёд
+// back · play (a red circle — «live») · forward
 Row {
     id: root
 
@@ -23,7 +23,7 @@ Row {
         height: root.play
         radius: root.play / 2
         color: Theme.red
-        Icon { anchors.centerIn: parent; text: Media.playing ? "\u{F03E4}" : "\u{F040A}"; color: "#FFFFFF"; font.pixelSize: root.play * 0.46 }
+        Icon { anchors.centerIn: parent; text: Media.playing ? "\u{F03E4}" : "\u{F040A}"; color: Theme.light ? Theme.ink : Theme.fg; font.pixelSize: root.play * 0.46 } // the palette's white: with the wallpaper — with its tint
         TapHandler { onTapped: Media.player?.togglePlaying() }
     }
     Icon {

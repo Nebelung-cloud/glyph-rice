@@ -5,23 +5,23 @@ import Quickshell.Wayland
 import qs
 import qs.components
 
-// подключились наушники Nothing / CMF (Sys.buds) — карточка снизу, как у AirPods: выезжает с пружиной, устройство светится
-// силуэтом из точек Glyph и проявляется в фото, кольца заряда загораются волной. Клик — убрать, сама уходит через 6 с,
-// наведение держит. Фото — buds/<имя-устройства>.png (официальный рендер с nothing.tech), нет файла — иконка
+// Nothing / CMF earbuds connected (Sys.buds) — a card at the bottom, like AirPods: slides out with a spring, the device glows
+// as a silhouette of Glyph dots and develops into the photo, the battery rings light up in a wave. A click — dismiss, it leaves by itself after 6 s,
+// hovering keeps it. Photo — buds/<device-name>.png (the official render from nothing.tech), no file — an icon
 PanelWindow {
     id: root
 
     property string name
     readonly property string art: Quickshell.shellPath("buds/" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".png")
 
-    // ход показа: t — карточка, lit — силуэт из точек, pop — устройство встаёт на место, res — точки → фото
+    // the show's progress: t — the card, lit — the dot silhouette, pop — the device settles into place, res — dots → photo
     property real t: 0
     property real lit: 0
     property real pop: 0
     property real res: 0
     property bool shown: false
 
-    // на старте шелла наушники уже подключены — не показывать
+    // at shell startup the earbuds are already connected — don't show
     property bool armed: false
     Timer { running: true; interval: 3000; onTriggered: root.armed = true }
     Connections {
@@ -61,7 +61,7 @@ PanelWindow {
     NumberAnimation { id: outA; target: root; property: "t"; to: 0; duration: 380; easing.type: Easing.InCubic }
     Timer { interval: 6000; running: root.shown && !hov.hovered; onTriggered: root.hide() }
 
-    // лёгкое покачивание, пока видно
+    // a light sway while visible
     property real bob: 0
     SequentialAnimation on bob {
         running: root.visible
@@ -84,7 +84,7 @@ PanelWindow {
         Rectangle {
             id: card
             x: 20
-            // окно с запасом сверху (40) под перелёт пружины; t = 0 — карточка целиком под краем экрана
+            // the window has spare room on top (40) for the spring's overshoot; t = 0 — the card is entirely below the screen edge
             y: 40 + (1 - root.t) * 480
             width: 420
             height: 456
@@ -122,7 +122,8 @@ PanelWindow {
                     scale: 0.7 + 0.3 * root.pop
                     rotation: -10 * (1 - root.pop)
 
-                    // силуэт: белые точки-светодиоды (в светлой теме чёрные), уходят, пока проявляется фото
+                    // silhouette: LED dots in fg (light in dark, deep in light; with the wallpaper — its tones), they fade out
+                    // as the photo develops. The shape — the photo's alpha as a mask, the fill — fg itself
                     Item {
                         anchors.fill: parent
                         visible: photo.status === Image.Ready && opacity > 0
@@ -130,12 +131,19 @@ PanelWindow {
                         layer.enabled: visible
                         layer.effect: Dm { step: 6 }
                         Image {
+                            id: shape
                             anchors.fill: parent
                             source: photo.source
                             fillMode: Image.PreserveAspectFit
                             mipmap: true
+                            opacity: 0 // not visible: false — the scene doesn't update the mask texture of an invisible item (like in Wall)
                             layer.enabled: true
-                            layer.effect: MultiEffect { brightness: Theme.light ? -1 : 1 }
+                        }
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Theme.fg
+                            layer.enabled: true
+                            layer.effect: MultiEffect { maskEnabled: true; maskSource: shape }
                         }
                     }
                     Image {
@@ -156,7 +164,7 @@ PanelWindow {
                 }
             }
 
-            // заряд: левый, правый, кейс (кейс — только когда наушники в нём). Пока ear не ответил — пусто
+            // battery: left, right, case (the case — only when the earbuds are in it). Until ear answers — empty
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 330
@@ -167,7 +175,7 @@ PanelWindow {
                         id: bat
                         required property string modelData
                         readonly property real v: Sys.ear?.[modelData] ?? 0
-                        // своя волна у каждого кольца: от нуля до заряда, цифры считают следом
+                        // each ring has its own wave: from zero to the charge, the numbers count along
                         property real k: 0
                         NumberAnimation on k { from: 0; to: 1; duration: 900; easing.type: Easing.OutCubic }
                         spacing: 8

@@ -2,15 +2,17 @@ local vars = require("variables")
 local fn   = require("hyprland.functions")
 
 hl.on("hyprland.start", function()
-    -- Shell: тот, что выбран в rice
+    -- Shell: whichever one is picked in rice
     hl.exec_cmd(vars.rice .. " start")
 
-    -- во вложенной сессии системные демоны уже работают снаружи
+    -- in a nested session the system daemons already run outside
     if vars.nested then return end
 
     -- Keyring and auth
     hl.exec_cmd("gnome-keyring-daemon --start --components=secrets")
-    hl.exec_cmd("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
+    -- the password prompt: glyph has its own (system/Auth.qml, above its panels), other shells — polkit-gnome.
+    -- glyph starts polkit-gnome itself if its agent can't register
+    hl.exec_cmd("sh -c '[ \"$(cat \"${XDG_STATE_HOME:-$HOME/.local/state}/rice/shell\" 2>/dev/null)\" = glyph ] || exec /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1'")
 
     -- Clipboard history
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
@@ -30,10 +32,11 @@ hl.on("hyprland.start", function()
     -- Forward bluetooth media commands to MPRIS
     hl.exec_cmd("mpris-proxy")
 
-    -- hypridle поднимает шелл (Rules.idle): тайминги из house rules → ~/.config/demonshot/hypridle.conf
+    -- the shell starts hypridle (Rules.idle): timings from house rules → ~/.config/demonshot/hypridle.conf
 
-    -- фоновый kitty без окна: первый Super+Q тоже открывается мгновенно
-    hl.exec_cmd(vars.terminal .. " --start-as=hidden")
+    -- a background kitty with no window: the first Super+Q opens instantly too. A few seconds after login, so it doesn't
+    -- compete with the shell starting; skipped in glyph's Lite mode (the shell keeps the flag file)
+    hl.exec_cmd("sh -c 'sleep 4; [ -e \"${XDG_STATE_HOME:-$HOME/.local/state}/rice/lite\" ] || exec " .. vars.terminal .. " --start-as=hidden'")
 end)
 
 -- Resizer listener

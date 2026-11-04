@@ -2,11 +2,11 @@ import QtQuick
 import qs
 import qs.components
 
-// настройки записи под плитками (правый клик по record): область, звук, fps, качество, курсор.
-// Живут в Theme.state, их же берёт запись из скриншотилки (Sys.recArgs)
+// recording settings under the tiles (right click on record): area, sound, fps, quality, cursor.
+// They live in Theme.state, recording from the screenshot tool uses them too (Sys.recArgs)
 Rectangle {
     id: root
-    signal touched // любой клик внутри — панель приколота
+    signal touched // any click inside — the panel is pinned
     signal start
 
     readonly property var st: Theme.state
@@ -30,7 +30,7 @@ Rectangle {
         Choice { label: "quality"; opts: ["med", "high", "max", "ultra"]; cur: root.st.recQuality; onPicked: i => root.st.recQuality = i }
         Choice { label: "cursor"; opts: ["on", "off"]; cur: root.st.recCursor ? 0 : 1; onPicked: i => root.st.recCursor = i === 0 }
 
-        // старт/стоп; идёт запись — красная точка, единственное красное на панели
+        // start/stop; recording — a red dot, the only red thing on the panel
         Rectangle {
             width: list.width
             height: 54
@@ -47,7 +47,7 @@ Rectangle {
         }
     }
 
-    // ряд выбора: метка слева, белая заливка переезжает к выбранной клетке — как режим питания
+    // a choice row: a label on the left, the white fill slides to the selected cell — like the power mode
     component Choice: Item {
         id: ch
         property string label

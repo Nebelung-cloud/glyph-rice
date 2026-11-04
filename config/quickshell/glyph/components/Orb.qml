@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Shapes
 import qs
 
-// полутоновый шар с обоев: точки одного размера, яркость задаёт радиальный градиент. phase (с) — медленное дыхание
+// the halftone orb on the wallpaper: dots of one size, a radial gradient sets the brightness. phase (s) — slow breathing
 Shape {
     property real phase: 0
 
@@ -10,7 +10,7 @@ Shape {
     height: 1100
     opacity: 0.18 + 0.06 * Math.sin(phase * 2 * Math.PI / 8)
     layer.enabled: true
-    layer.textureSize: Qt.size(320, 320) // градиент гладкий, точки берут цвет из центра клетки — лишние пиксели не нужны
+    layer.textureSize: Qt.size(320, 320) // the gradient is smooth, dots take their color from the cell center — extra pixels aren't needed
     layer.effect: Dm { step: 14 }
 
     ShapePath {

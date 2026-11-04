@@ -4,7 +4,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// cava в фоне, пока кто-то смотрит (active): 8 полос моно 0…1, от баса к верхам (число — в cava.conf)
+// cava in the background while someone is watching (active): 8 mono bars 0…1, from bass to highs (the count — in cava.conf)
 Singleton {
     id: root
 

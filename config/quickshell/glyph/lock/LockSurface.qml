@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Networking
 import Quickshell.Services.UPower
@@ -7,12 +8,12 @@ import qs
 import qs.components
 import qs.services
 
-// блокировка: часы Doto на всю ширину, дата и погода метками, по углам раскладка/сеть/батарея и счёт уведомлений.
-// Внизу аватар в кольце точек, имя и поле-пилюля: введённое — белые точки, каретка красная. Неверный пароль — всё красное, поле трясётся
+// lock: a full-width Doto clock, the date and weather as labels, the layout/network/battery and the notification count in the corners.
+// At the bottom an avatar in a ring of dots, the name and a pill field: what's typed — white dots, the caret red. A wrong password — everything red, the field shakes
 WlSessionLockSurface {
     id: root
 
-    required property var auth // { buffer, fail, busy, leaving, submit() } из lock.qml
+    required property var auth // { buffer, fail, busy, leaving, submit() } from lock.qml
     property string layout: "en"
 
     color: Theme.bg
@@ -23,13 +24,19 @@ WlSessionLockSurface {
     property bool blink: true
     Timer { running: true; interval: 500; repeat: true; onTriggered: root.blink = !root.blink }
 
-    // появление: t 0→1 линейно, у каждого элемента своя фаза с ease-out-quart (как glide): шар и часы, метки, аватар —
-    // кольцо загорается волной, поле вырастает из точки. Пароль принят (auth.leaving) — t назад и быстрее, лок снимает lock.qml
+    // appearance: t 0→1 linear, each element has its own phase with ease-out-quart (like glide): orb and clock, labels, avatar —
+    // the ring lights up in a wave, the field grows from a dot. Password accepted (auth.leaving) — t back and faster, lock.qml removes the lock
     property real t: 0
     Behavior on t { NumberAnimation { duration: root.auth.leaving ? 450 : 1100 } }
-    Component.onCompleted: t = Qt.binding(() => root.auth.leaving ? 0 : 1)
+    Component.onCompleted: t = Qt.binding(() => root.auth.leaving ? 0 : root.ready ? 1 : 0)
+    // the intro waits for the wallpaper to be decoded, then a frame more (600 ms at most): right after boot the disk is cold
+    // (the login screen especially), and an intro that plays while images and fonts are still loading stutters. The screen is
+    // covered by the background color from the first frame, so waiting doesn't show anything behind the lock
+    property bool ready: false
+    Timer { running: !root.ready && (wall.opaque || !Theme.state.wall); interval: 30; onTriggered: root.ready = true }
+    Timer { running: !root.ready; interval: 600; onTriggered: root.ready = true }
     function ph(a, b) { const x = Math.max(0, Math.min(1, (t - a) / (b - a))); return 1 - Math.pow(1 - x, 4); }
-    // проверка пароля: по введённым точкам бежит волна
+    // password check: a wave runs over the typed dots
     property real wave: 0
     NumberAnimation on wave { running: root.auth.busy; from: 0; to: 1; duration: 700; loops: Animation.Infinite }
 
@@ -50,7 +57,26 @@ WlSessionLockSurface {
         Item {
             opacity: root.ph(0, 0.6)
             Orb { visible: Theme.state.orb; x: stage.width - 720; y: stage.height - 580 }
-            Wall { width: stage.width; height: stage.height; path: Theme.wallSrc(Theme.state.wall) }
+            // Atmosphere (Theme.state.atmosphere, like in Nothing OS): while locked — the wallpaper in a haze, a little closer and slowly
+            // breathing; password accepted — sharpness and scale return as the lock leaves
+            Wall {
+                id: wall
+                width: stage.width
+                height: stage.height
+                path: Theme.wallSrc(Theme.state.wall)
+                property real haze: Theme.state.atmosphere && !Theme.state.lite && !root.auth.leaving ? 1 : 0
+                Behavior on haze { NumberAnimation { duration: 450; easing.type: Easing.OutCubic } }
+                property real breathe: 0
+                SequentialAnimation on breathe {
+                    running: wall.haze > 0
+                    loops: Animation.Infinite
+                    NumberAnimation { to: 1; duration: 8000; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0; duration: 8000; easing.type: Easing.InOutSine }
+                }
+                scale: 1 + wall.haze * (0.05 + 0.03 * wall.breathe)
+                layer.enabled: wall.haze > 0
+                layer.effect: MultiEffect { blurEnabled: true; blurMax: 64; blur: wall.haze }
+            }
         }
 
         Lb {
@@ -118,8 +144,8 @@ WlSessionLockSurface {
                 height: 96
                 opacity: root.ph(0.3, 0.7)
                 transform: Translate { y: 24 * (1 - root.ph(0.3, 0.7)) }
-                Ring { anchors.fill: parent; n: 32; f: root.t > 0.35 ? 1 : 0 } // загорается и гаснет волной по кругу
-                // ~/.face точками, как обложки; нет файла — градиент Art
+                Ring { anchors.fill: parent; n: 32; f: root.t > 0.35 ? 1 : 0 } // lights up and dims in a wave around the circle
+                // ~/.face as dots, like covers; no file — the Art gradient
                 Art { anchors { fill: parent; margins: 18 } url: `file://${Quickshell.env("HOME")}/.face`; step: 3 }
             }
             Text {
@@ -131,11 +157,11 @@ WlSessionLockSurface {
                 transform: Translate { y: 16 * (1 - root.ph(0.4, 0.75)) }
             }
 
-            // поле: введённые — точки, после каретки — погасшие до шести
+            // the field: typed — dots, after the caret — dimmed ones up to six
             Rectangle {
                 id: pwd
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: 58 + (380 - 58) * root.ph(0.5, 0.9) // вырастает из точки в пилюлю
+                width: 58 + (380 - 58) * root.ph(0.5, 0.9) // grows from a dot into a pill
                 height: 58
                 radius: 29
                 opacity: root.ph(0.45, 0.6)
@@ -149,7 +175,7 @@ WlSessionLockSurface {
                     Repeater {
                         id: typed
                         model: Math.min(root.auth.buffer.length, 16)
-                        // новая точка выщёлкивается; пока pam думает — по точкам бежит волна
+                        // a new dot pops out; while pam thinks — a wave runs over the dots
                         Rectangle {
                             required property int index
                             anchors.verticalCenter: parent.verticalCenter

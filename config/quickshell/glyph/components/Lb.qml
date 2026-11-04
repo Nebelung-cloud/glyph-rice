@@ -1,7 +1,7 @@
 import QtQuick
 import qs
 
-// метка: Space Mono капсом, трекинг .14em, серая. Размер — px (а не font.pixelSize: трекинг считается от него)
+// a label: Space Mono in caps, .14em tracking, grey. Size — px (not font.pixelSize: the tracking is computed from it)
 Text {
     property real px: 12
     font { family: Theme.mono; pixelSize: px; letterSpacing: px * 0.14; capitalization: Font.AllUppercase }

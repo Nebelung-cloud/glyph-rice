@@ -1,7 +1,7 @@
 import QtQuick
 import qs
 
-// холст в пикселях макета 1920×1080: растянут на родителя, внутри всё меряется как в concept.html
+// a canvas in 1920×1080 layout pixels: stretched over the parent, everything inside is measured like in concept.html
 Item {
     width: parent.width / Theme.s
     height: parent.height / Theme.s

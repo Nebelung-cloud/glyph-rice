@@ -4,14 +4,14 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// погода open-meteo раз в 30 мин. Место: DEMONSHOT_LATLON="52.52,13.40", иначе по IP (ipinfo.io)
+// open-meteo weather every 30 min. Location: DEMONSHOT_LATLON="52.52,13.40", otherwise by IP (ipinfo.io)
 Singleton {
     id: root
 
     property string loc: Quickshell.env("DEMONSHOT_LATLON") ?? ""
     property var now: null     // { temp, feels, code, wind, windDir, gusts, humidity, pressure, rain, day }
     property var days: []      // [{ date, code, max, min, rain }]
-    property var sun: null     // { rise, set } — Date сегодня
+    property var sun: null     // { rise, set } — today's Date
     readonly property bool ok: now !== null
 
     readonly property var names: ({ 0: "clear", 1: "mostly clear", 2: "cloudy", 3: "overcast", 45: "fog", 48: "fog",
@@ -31,13 +31,13 @@ Singleton {
     function name(code) { return names[code] ?? "omens"; }
     function compass(deg) { return ["n", "ne", "e", "se", "s", "sw", "w", "nw"][Math.round(deg / 45) % 8]; }
 
-    // фаза луны: 0 — новолуние, 0.5 — полнолуние
+    // moon phase: 0 — new moon, 0.5 — full moon
     function moonPhase(d) {
-        const p = ((d.getTime() / 86400000 - 10962.76) / 29.530588) % 1; // от новолуния 2000-01-06 18:14 UTC
+        const p = ((d.getTime() / 86400000 - 10962.76) / 29.530588) % 1; // from the new moon of 2000-01-06 18:14 UTC
         return p < 0 ? p + 1 : p;
     }
 
-    // место — из refresh(): сети на старте ещё может не быть, тогда повтор, как у погоды
+    // the location — from refresh(): the network may not be up yet at startup, then a retry, like the weather
     Process {
         id: where
         command: ["curl", "-sf", "--max-time", "10", "https://ipinfo.io/loc"]
@@ -45,7 +45,7 @@ Singleton {
         stdout: StdioCollector { onStreamFinished: if (text.trim().match(/^-?[\d.]+,-?[\d.]+$/)) root.loc = text.trim() }
     }
 
-    // open-meteo бывает перегружен — тогда повтор через 2 мин
+    // open-meteo is sometimes overloaded — then a retry after 2 min
     function refresh() {
         if (!loc) return where.running = true;
         const [lat, lon] = loc.split(",");

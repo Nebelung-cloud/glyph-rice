@@ -5,7 +5,7 @@ import Quickshell.Io
 import Quickshell.Services.Mpris
 import QtQuick
 
-// активный плеер (играющий или первый) и текст песни из lrclib.net
+// the active player (the playing one or the first) and the song lyrics from lrclib.net
 Singleton {
     id: root
 
@@ -14,7 +14,7 @@ Singleton {
     readonly property bool playing: player?.isPlaying ?? false
     property real position: 0
 
-    property var lyrics: []   // [[секунды, строка], …], пусто — нет синхронного текста
+    property var lyrics: []   // [[seconds, line], …], empty — no synced lyrics
     readonly property int line: {
         let i = -1;
         for (let k = 0; k < lyrics.length && lyrics[k][0] <= position; k++) i = k;
@@ -26,7 +26,7 @@ Singleton {
         return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
     }
 
-    // позицию mpris надо опрашивать
+    // the mpris position has to be polled
     Timer {
         running: root.playing
         interval: 500

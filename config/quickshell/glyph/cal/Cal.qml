@@ -4,23 +4,28 @@ import Quickshell.Wayland
 import qs
 import qs.components
 
-// календарь и фокус-таймер: клик по часам бара. Панель 440 справа от бара, по центру — напротив часов, выезжает слева.
-// Месяц сеткой 7×6 (сегодня — белый круг), стрелки и ←→ листают, клик по месяцу — обратно к сегодня. Ниже таймер:
-// кольцо точек заполняется по часовой, пресеты минут, старт/пауза (и пробел), сброс. Пока идёт — Glyph заливает нижнюю полосу.
-// Esc или клик мимо — закрыть
+// calendar and focus timer: a click on the bar clock. A 440 panel to the right of the bar, centered — opposite the clock, slides out from the left.
+// The month as a 7×6 grid (today — a white circle), the arrows and ←→ page through, a click on the month — back to today. Below, the timer:
+// a ring of dots fills clockwise, minute presets, start/pause (and space), reset. While running — Glyph fills the bottom bar.
+// Esc or a click outside — close
 PanelWindow {
     id: root
 
     property bool open: false
     function toggle() { open = !open; }
     function close() { open = false; }
-    property int shift: 0 // месяцев от текущего
+    property int shift: 0 // months from the current one
     onOpenChanged: if (open) shift = 0
 
-    property real t: open ? 1 : 0
+    // the window appears a moment before it moves: its first frame (creating the surface) is the slow one, so it lands
+    // while nothing is moving yet
+    property bool mapped: false
+    Timer { running: root.visible && !root.mapped; interval: 20; onTriggered: root.mapped = true }
+    Connections { target: root; function onVisibleChanged() { if (!root.visible) root.mapped = false; } }
+    property real t: open && mapped ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
-    visible: t > 0
+    visible: t > 0 || open
     anchors { left: true; right: true; top: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
@@ -31,11 +36,11 @@ PanelWindow {
     SystemClock { id: clock; precision: SystemClock.Hours }
     readonly property var en: Qt.locale("en_US")
     readonly property var month: new Date(clock.date.getFullYear(), clock.date.getMonth() + shift, 1)
-    readonly property int lead: (month.getDay() + 6) % 7 // дней прошлого месяца до понедельника
+    readonly property int lead: (month.getDay() + 6) % 7 // days of the previous month before Monday
 
     Rectangle {
         anchors.fill: parent
-        color: "#000000"
+        color: Theme.dim
         opacity: 0.35 * root.t
         MouseArea { anchors.fill: parent; onClicked: root.close() }
     }
@@ -43,7 +48,7 @@ PanelWindow {
     Stage {
         Rectangle {
             id: panel
-            x: 92 - 24 * (1 - root.t) // правый край пилюли бара (14 + 64) и зазор 14
+            x: 92 - 24 * (1 - root.t) // the right edge of the bar pill (14 + 64) and a 14 gap
             anchors.verticalCenter: parent.verticalCenter
             width: 440
             height: col.height + 52
@@ -60,7 +65,7 @@ PanelWindow {
                 else return;
                 e.accepted = true;
             }
-            MouseArea { anchors.fill: parent } // клик по панели не закрывает
+            MouseArea { anchors.fill: parent } // a click on the panel doesn't close it
 
             Column {
                 id: col

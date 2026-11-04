@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# cava точками, как Glyph Matrix у Nothing: терминальный cava рисует только столбики, поэтому берём у него
-# сырые числа (raw) и сами печатаем матрицу «●». Звук и сглаживание — из config рядом. Выход — Ctrl+C
+# cava as dots, like Nothing's Glyph Matrix: terminal cava draws only bars, so we take its
+# raw numbers (raw) and print the «●» matrix ourselves. Sound and smoothing — from the config next to it. Exit — Ctrl+C
 import configparser, os, shutil, subprocess, sys, tempfile
 
 CONFIG = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config")
-ON, OFF = "●", "\x1b[90m●\x1b[39m"  # погашенная — серым color8 темы (в светлой он светлый), как светодиод выключенной матрицы
+ON, OFF = "●", "\x1b[90m●\x1b[39m"  # a dimmed one — in the theme's grey color8 (light in the light theme), like an LED of a switched-off matrix
 
 
 def run(cols, rows):
@@ -12,8 +12,8 @@ def run(cols, rows):
     cfg.read(CONFIG)
     cfg.remove_section("output")
     cfg.read_dict({
-        # точка + пробел: клетка терминала вдвое уже строки, так сетка выходит квадратной
-        # чётное: стерео cava (по умолчанию) нечётное число столбиков не берёт
+        # dot + space: a terminal cell is half as wide as it is tall, so the grid comes out square
+        # even: stereo cava (the default) doesn't accept an odd number of bars
         "general": {"bars": str(cols // 4 * 2)},
         "output": {"method": "raw", "raw_target": "/dev/stdout", "data_format": "ascii",
                    "ascii_max_range": str(rows), "bar_delimiter": "59", "frame_delimiter": "10"},
@@ -22,25 +22,25 @@ def run(cols, rows):
         cfg.write(f)
         f.flush()
         with subprocess.Popen(["cava", "-p", f.name], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as p:
-            sys.stdout.write("\x1b[2J")  # окно уменьшили — без этого справа и снизу остался бы старый кадр
+            sys.stdout.write("\x1b[2J")  # the window shrank — without this the old frame would stay on the right and bottom
             for line in p.stdout:
                 if shutil.get_terminal_size() != (cols, rows):
                     p.terminate()
-                    return True  # окно поменялось — заново под новый размер
+                    return True  # the window changed — start again for the new size
                 try:
                     v = [int(x) for x in line.strip().split(";") if x]
                 except ValueError:
-                    continue  # перед ошибкой cava пишет в stdout заголовок окна (\e]0;cava\a) — не кадр, ошибка будет ниже
+                    continue  # before an error cava writes the window title to stdout (\e]0;cava\a) — not a frame, the error comes below
                 rows_out = (" ".join(ON if h >= r else OFF for h in v) for r in range(rows, 0, -1))
                 sys.stdout.write("\x1b[H" + "\n".join(rows_out))
                 sys.stdout.flush()
-            sys.exit(p.stderr.read() or None)  # cava упал — покажем почему, когда вернём экран
+            sys.exit(p.stderr.read() or None)  # cava crashed — show why once the screen is restored
 
 
 if sys.argv[1:]:
-    os.execvp("cava", ["cava", *sys.argv[1:]])  # с флагами (cava -v, -p …) — обычный cava
+    os.execvp("cava", ["cava", *sys.argv[1:]])  # with flags (cava -v, -p …) — plain cava
 
-sys.stdout.write("\x1b[?1049h\x1b[?25l")  # свой экран, без курсора
+sys.stdout.write("\x1b[?1049h\x1b[?25l")  # our own screen, no cursor
 try:
     while run(*shutil.get_terminal_size()):
         pass
