@@ -334,6 +334,20 @@ Singleton {
             ["inactive_tab_foreground", grey], ["inactive_tab_background", s1], ["tab_bar_background", bg]
         ].concat(pal.ansi.map((c, i) => ["color" + i, c])).map(([k, v]) => `${k} ${typeof v === "string" ? v : v.toString().slice(0, 7).toUpperCase()}`).join("\n") + "\n");
         Quickshell.execDetached(["pkill", "-USR1", "-x", "kitty"]);
+
+        // tmux, if it's installed: tmux.conf sources this file (the installer can add that line); running servers re-read it. From Isaqdn03/glyph-rice
+        const accent = hex(pal.accent), tmux = `# glyph: written by Theme.apply(), don't edit by hand
+set -g status-style "bg=#${hex(s1)},fg=#${hex(grey)}"
+set -g status-left-style "fg=#${accent}"
+set -g window-status-current-style "fg=#${hex(fg)},bold"
+set -g pane-border-style "fg=#${hex(s3)}"
+set -g pane-active-border-style "fg=#${accent}"
+set -g message-style "bg=#${hex(s2)},fg=#${hex(fg)}"
+set -g mode-style "bg=#${hex(s3)},fg=#${hex(fg)}"
+setw -g clock-mode-colour "#${accent}"
+`;
+        Quickshell.execDetached(["sh", "-c", 'command -v tmux >/dev/null || exit 0; d=$HOME/.config/tmux; mkdir -p "$d" && printf "%s" "$1" > "$d/theme.conf"; '
+            + 'tmux source-file -q "$d/theme.conf" 2>/dev/null; tmux refresh-client -S 2>/dev/null; true', "sh", tmux]);
     }
     // at login apps() waits a moment — the bar and home come first, re-theming the apps can be a couple of seconds late
     property bool warm: false
@@ -390,5 +404,23 @@ for f in gtk-3.0/gtk.css gtk-4.0/gtk.css qtengine.colors; do
     if [ $# -gt 0 ]; then mkdir -p "$(dirname "$o/$f")" && sed "$@" "$t/$f" > "$o/$f" && ln -sfn "$o/$f" "$l"; else ln -sfn "$t/$f" "$l"; fi
 done`,
             "bash", Quickshell.shellPath("term"), riceState + "/glyph"].concat(sed));
+        fox();
+    }
+
+    // Firefox through Pywalfox (AUR python-pywalfox + its add-on), which themes the browser live from pywal's colors.json. Its default template
+    // reads a few slots: dark — frame 0, toolbar and field are 0 lightened, text 15, icons and highlight pills 10, attention 13; light — frame 7, toolbar
+    // white, text 0, icons 3, attention 5. Frame is s1 like the bar, icons and pills fg, the accent only what wants attention. Firefox closed — pywalfox
+    // can't connect, quietly. Not installed — nothing is written. The AUR package registers the native host in /usr/lib/mozilla: never `pywalfox install`
+    // as the user, it makes ~/.mozilla and that sends Firefox back to a fresh, empty profile. From Isaqdn03/glyph-rice
+    function fox() {
+        const h = c => "#" + hex(c), a = pal.ansi.map(h), [bg, s1, , , , , fg] = greys;
+        Object.assign(a, pal.light ? { 0: h(fg), 3: h(fg), 5: h(pal.accent), 7: h(bg) } : { 0: h(s1), 10: h(fg), 13: h(pal.accent), 15: h(fg) });
+        const colors = {};
+        a.forEach((c, i) => colors["color" + i] = c);
+        const json = JSON.stringify({ wallpaper: st.wall, alpha: "100", special: { background: h(bg), foreground: h(fg), cursor: h(fg) }, colors }, null, 2);
+        Quickshell.execDetached(["sh", "-c", `command -v pywalfox >/dev/null || exit 0
+mkdir -p "$1" && printf '%s\\n' "$2" > "$1/colors.json.tmp" && mv -f "$1/colors.json.tmp" "$1/colors.json" || exit
+{ pywalfox "$3"; pywalfox update; } >/dev/null 2>&1; true`,
+            "sh", (Quickshell.env("XDG_CACHE_HOME") || Quickshell.env("HOME") + "/.cache") + "/wal", json, pal.light ? "light" : "dark"]);
     }
 }
