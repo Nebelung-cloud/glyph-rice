@@ -1,46 +1,40 @@
 #!/usr/bin/env bash
-# Glyph: installs everything on a clean Arch and links the configs from this repo.
-#   ./install.sh                   packages + services + symlinks; asks what else from EXTRA to install
-#   ./install.sh --with telegram   the same without asking (--with "" — just the rice itself)
-#   ./install.sh --links           symlinks only (on an already set-up system)
-#   ./install.sh --sddm            only the sddm login theme (sudo); run again after edits in config/sddm
+# Glyph installer: walks a first-time user through the choices, shows a summary, and only then changes anything.
+#   ./install.sh               the guided install
+#   ./install.sh --dry-run     the same questions, prints what it would do and changes nothing
+#   ./install.sh --yes         no questions, the Recommended setup
+#   ./install.sh --uninstall   takes the links away and puts your old files and login screen back
+#   ./install.sh --links       symlinks only, on any distro (the packages are then your own, see the README)
+#   ./install.sh --sddm        only the SDDM login theme; run again after edits in config/sddm
 set -euo pipefail
 
 DOTS="$(cd "$(dirname "$0")" && pwd)"
 BACKUP="$HOME/.dots-backup-$(date +%F_%H-%M-%S)"
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/rice"
+DRY=0 YES=0
+MIN_HYPRLAND=0.56
 
 PACMAN=(
     # base
     base-devel git curl jq python
     # session
     hyprland hypridle hyprsunset hyprpicker xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
-    sddm quickshell polkit-gnome gnome-keyring geoclue upower xdg-user-dirs
+    quickshell polkit-gnome gnome-keyring geoclue upower xdg-user-dirs xdg-utils
     # sound, network, bluetooth
     pipewire pipewire-pulse pipewire-alsa wireplumber networkmanager bluez bluez-utils power-profiles-daemon
     # System: the bluetooth code and network password window (system/agent.py), the update count in about
     python-dbus python-gobject pacman-contrib
-    # utilities called by the binds and the shell
+    # utilities called by the binds and the shell; gtk3 for gtk-launch, the file manager and browser binds use it
     brightnessctl playerctl wl-clipboard cliphist grim slurp swappy imagemagick libvips libqalculate
-    gpu-screen-recorder ydotool libnotify trash-cli
+    gpu-screen-recorder ydotool libnotify trash-cli gtk3
     # terminal and console
-    kitty fish starship fastfetch btop cava eza zoxide direnv
-    # apps from variables.lua
-    thunar pavucontrol
+    kitty fish starship fastfetch btop eza zoxide direnv
+    # the sound settings bind
+    pavucontrol
     # fonts (cjk — kaomoji in Charms), icons (Papirus-Dark — the base of the Rice folder theme), a dark base for gtk.css
     ttf-jetbrains-mono-nerd noto-fonts noto-fonts-cjk noto-fonts-emoji papirus-icon-theme adw-gtk-theme
 )
-
-AUR=(
-    qtengine darkly-bin bibata-cursor-theme-bin
-    zen-browser-bin
-)
-
-# optional, like caelestia's optional components. What the special workspace binds open — apps in hypr/variables.lua
-declare -A EXTRA=(
-    [telegram]="telegram-desktop"                                        # Super+D
-    [spotify]="spotify-launcher spicetify-cli spicetify-marketplace-bin" # Super+M
-    [clash]="clash-verge-rev-bin"                                        # VPN panel, Super+P
-)
+AUR=(qtengine darkly-bin bibata-cursor-theme-bin)
 
 G=config/quickshell/glyph
 # repo path → path in $HOME
@@ -58,113 +52,444 @@ LINKS=(
     "$G/term/cava                               .config/cava"
     "$G/term/gtk-3.0/gtk.css                    .config/gtk-3.0/gtk.css"
     "$G/term/gtk-4.0/gtk.css                    .config/gtk-4.0/gtk.css"
+    "$G/term/glyph-progress.fish                .config/fish/conf.d/glyph-progress.fish"
     "config/fish/config.fish                    .config/fish/config.fish"
     "config/fish/functions/fish_greeting.fish   .config/fish/functions/fish_greeting.fish"
     "config/fonts                               .local/share/fonts/glyph"
 )
 
-say() { printf '\e[38;2;215;25;33m●\e[0m %s\n' "$*"; }
+# ---- output ----
+RED=$'\e[38;2;215;25;33m' DIM=$'\e[2m' BOLD=$'\e[1m' OFF=$'\e[0m'
+say() { printf '%s●%s %s\n' "$RED" "$OFF" "$*"; }
+note() { printf '  %s%s%s\n' "$DIM" "$*" "$OFF"; }
+head1() { printf '\n%s%s%s\n\n' "$BOLD" "$*" "$OFF"; }
+# everything that changes the machine goes through here, so --dry-run can't touch it
+run() {
+    if [ "$DRY" = 1 ]; then printf '  %swould run:%s %s\n' "$DIM" "$OFF" "$*"; else "$@"; fi
+}
 
-extras() { # --with or a question → into EXT, installs yay (and from the repo) separately from AUR
-    local w; EXT=()
-    if [ -z "${WITH+x}" ]; then
-        say "what else to install? space-separated, Enter — nothing"
-        for w in "${!EXTRA[@]}"; do printf '  %-9s %s\n' "$w" "${EXTRA[$w]}"; done
-        read -rp "  > " WITH || true
+# ---- menus: arrows or j/k move, space ticks, enter confirms. No extra packages, so they work before anything is installed ----
+key() {
+    local k rest
+    IFS= read -rsn1 k </dev/tty || { REPLY=enter; return; }
+    if [ "$k" = $'\e' ]; then
+        IFS= read -rsn2 -t 0.05 rest </dev/tty || rest=""
+        case "$rest" in '[A') REPLY=up ;; '[B') REPLY=down ;; *) REPLY=esc ;; esac
+        return
     fi
-    for w in ${WITH//,/ }; do
-        [ -n "${EXTRA[$w]-}" ] || { echo "no such thing: $w (there is: ${!EXTRA[*]})"; exit 1; }
-        EXT+=(${EXTRA[$w]})
+    case "$k" in
+        '') REPLY=enter ;;
+        ' ') REPLY=space ;;
+        k) REPLY=up ;;
+        j) REPLY=down ;;
+        a) REPLY=all ;;
+        *) REPLY=other ;;
+    esac
+}
+interactive() { [ "$YES" = 0 ] && [ -r /dev/tty ] && [ -w /dev/tty ] && { : </dev/tty; } 2>/dev/null; }
+
+# pick one: pick "question" default "id|label|what it does"… → PICKED
+pick() {
+    local q=$1 def=$2 at=0 i n id label what; shift 2
+    local items=("$@")
+    n=${#items[@]}
+    for i in "${!items[@]}"; do [ "${items[$i]%%|*}" = "$def" ] && at=$i; done
+    if ! interactive; then PICKED=$def; return; fi
+    printf '%s%s%s\n%s↑↓ move · enter choose%s\n\n' "$BOLD" "$q" "$OFF" "$DIM" "$OFF" >/dev/tty
+    while :; do
+        for i in "${!items[@]}"; do
+            IFS='|' read -r id label what <<<"${items[$i]}"
+            if [ "$i" = "$at" ]; then printf '\e[2K  %s●%s %s%s%s\n' "$RED" "$OFF" "$BOLD" "$label" "$OFF" >/dev/tty
+            else printf '\e[2K  ○ %s\n' "$label" >/dev/tty; fi
+            printf '\e[2K    %s%s%s\n' "$DIM" "$what" "$OFF" >/dev/tty
+        done
+        key
+        case "$REPLY" in
+            up) at=$(((at + n - 1) % n)) ;;
+            down) at=$(((at + 1) % n)) ;;
+            enter) break ;;
+        esac
+        printf '\e[%dA' $((n * 2)) >/dev/tty
+    done
+    printf '\n' >/dev/tty
+    PICKED=${items[$at]%%|*}
+}
+
+# tick any: ticks "question" "id|label|what it does|on or off"… → TICKED (array)
+ticks() {
+    local q=$1 at=0 i n id label what on; shift
+    local items=("$@") state=()
+    n=${#items[@]}
+    for i in "${!items[@]}"; do IFS='|' read -r id label what on <<<"${items[$i]}"; state[i]=${on:-off}; done
+    if interactive; then
+        printf '%s%s%s\n%s↑↓ move · space tick · a all or none · enter done%s\n\n' "$BOLD" "$q" "$OFF" "$DIM" "$OFF" >/dev/tty
+        while :; do
+            for i in "${!items[@]}"; do
+                IFS='|' read -r id label what on <<<"${items[$i]}"
+                local box='[ ]'; [ "${state[i]}" = on ] && box="[${RED}x${OFF}]"
+                local arrow=' '; [ "$i" = "$at" ] && arrow="${RED}›${OFF}"
+                printf '\e[2K%s %s %-22s %s%s%s\n' "$arrow" "$box" "$label" "$DIM" "$what" "$OFF" >/dev/tty
+            done
+            key
+            case "$REPLY" in
+                up) at=$(((at + n - 1) % n)) ;;
+                down) at=$(((at + 1) % n)) ;;
+                space) [ "${state[at]}" = on ] && state[at]=off || state[at]=on ;;
+                all)
+                    local to=on
+                    for i in "${!items[@]}"; do [ "${state[i]}" = on ] && to=off; done
+                    for i in "${!items[@]}"; do state[i]=$to; done ;;
+                enter) break ;;
+            esac
+            printf '\e[%dA' "$n" >/dev/tty
+        done
+        printf '\n' >/dev/tty
+    fi
+    TICKED=()
+    for i in "${!items[@]}"; do [ "${state[i]}" = on ] && TICKED+=("${items[$i]%%|*}"); done
+    return 0
+}
+
+ask_yes() { # ask_yes "question" y|n
+    local a
+    interactive || { [ "$2" = y ]; return; }
+    while :; do
+        read -rp "$1 [$([ "$2" = y ] && echo Y/n || echo y/N)] " a </dev/tty
+        case "${a:-$2}" in y | Y | yes) return 0 ;; n | N | no) return 1 ;; esac
     done
 }
 
+# ---- what the choices mean ----
+extras_packages() { # id → packages; "aur:" goes through yay
+    case "$1" in
+        telegram) echo "telegram-desktop" ;;
+        spotify) echo "spotify-launcher aur:spicetify-cli aur:spicetify-marketplace-bin" ;;
+        vpn) echo "aur:clash-verge-rev-bin" ;;
+        firewall) echo "ufw" ;;
+        cava) echo "cava" ;;
+        brightness) echo "ddcutil" ;;
+        firefox-theme) echo "aur:python-pywalfox" ;;
+        tmux) echo "tmux" ;;
+    esac
+}
+browser_package() { case "$1" in zen) echo "aur:zen-browser-bin" ;; firefox) echo "firefox" ;; chromium) echo "chromium" ;; chrome) echo "aur:google-chrome" ;; esac; }
+browser_desktop() { case "$1" in zen) echo "zen.desktop" ;; firefox) echo "firefox.desktop" ;; chromium) echo "chromium.desktop" ;; chrome) echo "google-chrome.desktop" ;; esac; }
+
+current_dm() { systemctl show -p Id --value display-manager.service 2>/dev/null | sed 's/\.service$//' | grep -v '^display-manager$' || true; }
+strata_present() { command -v strata >/dev/null || [ -x "$HOME/.local/bin/strata" ] || flatpak info io.github.lgse.Strata &>/dev/null; }
+
+# ---- the steps ----
+check_machine() {
+    head1 "Checking this machine"
+    command -v pacman >/dev/null || { say "This installer needs an Arch-based system. On another distro: $0 --links, and install the packages from the README yourself."; exit 1; }
+    note "system:    $(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-unknown}")"
+    note "memory:    $(awk '/MemTotal/ {printf "%.1f GB", $2/1048576}' /proc/meminfo)$(awk '/MemTotal/ && $2 < 7500000 {print " · Lite mode turns on by itself"}' /proc/meminfo)"
+    note "graphics:  $(lspci 2>/dev/null | grep -E 'VGA|3D' | sed -E 's/^[^:]*: *[^:]*: *//' | cut -c1-60 | paste -sd'·' || echo unknown)"
+    note "login now: $(current_dm | grep . || echo none)"
+    local v
+    v=$(pacman -Si hyprland 2>/dev/null | awk '/^Version/ {print $3; exit}' | cut -d- -f1)
+    if [ -n "$v" ] && [ "$(vercmp "$v" "$MIN_HYPRLAND")" -lt 0 ]; then
+        say "Your repositories have Hyprland $v, and this rice needs $MIN_HYPRLAND or newer (its config is written in Lua)."
+        ask_yes "Continue anyway?" n || exit 1
+    else
+        note "hyprland:  ${v:-unknown} (needs $MIN_HYPRLAND or newer)"
+    fi
+    pacman -Q sddm &>/dev/null && note "sddm:      installed; it stays unless you pick another login screen"
+    return 0
+}
+
+explain() {
+    head1 "What this does"
+    cat <<EOF
+  • Installs the desktop: Hyprland, the Glyph shell, fonts, icons and the apps it calls.
+  • Links the configs from this folder into your home, so 'git pull' updates them.
+  • Moves anything it replaces to $BACKUP first.
+  • Nothing changes until you say yes to the summary. './install.sh --uninstall' undoes it.
+
+EOF
+}
+
+choose() {
+    SETUP=recommended LOGIN=greeter FILES=thunar BROWSER=zen EXTRAS=()
+    [ "$YES" = 1 ] && return 0
+    pick "Which setup?" recommended \
+        "recommended|Recommended|The Glyph login screen, Thunar, Zen browser. No extras." \
+        "custom|Custom|Choose the login screen, apps and extras yourself." \
+        "minimal|Minimal|Only the desktop. Keeps your login screen and browser, no extras."
+    SETUP=$PICKED
+    if [ "$SETUP" = minimal ]; then LOGIN=keep BROWSER=keep; fi
+    [ "$SETUP" = custom ] || return 0
+
+    local dm; dm=$(current_dm)
+    pick "Login screen?" greeter \
+        "greeter|Glyph greeter|The lock screen's look before login, through greetd. Recommended." \
+        "sddm|SDDM theme|The original rice's disc and tachometer, by Nebelung. Installs SDDM." \
+        "keep|Keep what I have|${dm:-No display manager}: nothing changes."
+    LOGIN=$PICKED
+
+    pick "File manager? (Super+E)" thunar \
+        "thunar|Thunar|Small and simple, installed from the repositories." \
+        "strata|Strata|Must be installed separately$(strata_present && echo ', found on this machine' || echo ', not found yet: Thunar is set until it is')."
+    FILES=$PICKED
+
+    pick "Browser? (Super+W)" zen \
+        "zen|Zen|From the AUR." \
+        "firefox|Firefox|From the repositories." \
+        "chromium|Chromium|From the repositories." \
+        "chrome|Google Chrome|From the AUR." \
+        "keep|Keep what I have|Installs no browser."
+    BROWSER=$PICKED
+
+    ticks "Extras?" \
+        "telegram|Telegram|its own workspace on Super+D|off" \
+        "spotify|Spotify|its own workspace on Super+M, with Spicetify|off" \
+        "vpn|Clash Verge|the VPN panel on Super+P|off" \
+        "firewall|Firewall (ufw)|blocks incoming connections, and System gets a page for it|off" \
+        "cava|Cava|the audio bars widget and the wallpaper beat, both off until you turn them on|off" \
+        "brightness|External brightness|ddcutil: the brightness slider for external monitors, experimental|off" \
+        "firefox-theme|Firefox theming|python-pywalfox: Firefox follows your colors, needs its add-on too|off" \
+        "tmux|tmux|with colors that follow your theme|off"
+    EXTRAS=("${TICKED[@]}")
+}
+
+summary() {
+    head1 "Summary"
+    local label
+    case "$LOGIN" in greeter) label="Glyph greeter (greetd)" ;; sddm) label="SDDM with the Glyph theme" ;; *) label="keep what you have" ;; esac
+    printf '  %-16s %s\n' "login screen" "$label" "file manager" "$FILES" "browser" "$BROWSER" "extras" "${EXTRAS[*]:-none}" "old files go to" "$BACKUP"
+    printf '\n'
+    if [ "$LOGIN" != keep ] && [ -n "$(current_dm)" ] && [ "$(current_dm)" != "$([ "$LOGIN" = greeter ] && echo greetd || echo sddm)" ]; then
+        note "$(current_dm) gets disabled so the new login screen can take over; --uninstall brings it back."
+    fi
+    if [ "$DRY" = 1 ]; then note "dry run: nothing below is actually done"; fi
+    ask_yes "Go ahead?" y || { say "Nothing changed."; exit 0; }
+}
+
 packages() {
-    say "pacman"
+    head1 "Installing packages"
+    local main=("${PACMAN[@]}") aur=("${AUR[@]}") p
+    add() { for p in "$@"; do case "$p" in aur:*) aur+=("${p#aur:}") ;; *) main+=("$p") ;; esac; done; }
+    [ "$FILES" = thunar ] && main+=(thunar)
+    # thunar anyway if strata isn't there yet: Super+E needs something to open
+    [ "$FILES" = strata ] && ! strata_present && main+=(thunar)
+    case "$LOGIN" in greeter) main+=(greetd cage) ;; sddm) main+=(sddm) ;; esac
+    [ "$BROWSER" = keep ] || add $(browser_package "$BROWSER")
+    for p in "${EXTRAS[@]}"; do add $(extras_packages "$p"); done
+
     # pulseaudio modules require pulseaudio itself — pacman wouldn't let it be replaced with pipewire-pulse.
     # As a list, not grep '^pulseaudio-': pulseaudio-alsa and pulseaudio-qt live fine with pipewire
     local pa; pa=$(pacman -Qq pulseaudio-{bluetooth,jack,lirc,rtp,zeroconf,equalizer,equalizer-ladspa} 2>/dev/null || true)
-    [ -z "$pa" ] || sudo pacman -R $pa
-    pacman -Q pulseaudio &>/dev/null && say "pacman will ask «Remove pulseaudio?» — answer y, it gets replaced by pipewire-pulse"
+    [ -z "$pa" ] || run sudo pacman -R $pa
+    pacman -Q pulseaudio &>/dev/null && say "pacman will ask «Remove pulseaudio?»: answer y, pipewire-pulse replaces it"
     # no --noconfirm: on a conflict (pulseaudio → pipewire-pulse) it would answer «no» and abort the install
-    sudo pacman -Syu --needed "${PACMAN[@]}"
+    run sudo pacman -Syu --needed "${main[@]}"
 
     if ! command -v yay >/dev/null; then
-        say "yay"
-        local tmp; tmp="$(mktemp -d)"
-        git clone --depth 1 https://aur.archlinux.org/yay-bin.git "$tmp/yay-bin"
-        (cd "$tmp/yay-bin" && makepkg -si --noconfirm)
-        rm -rf "$tmp"
+        say "yay, for packages from the AUR"
+        if [ "$DRY" = 1 ]; then
+            note "would build yay-bin from aur.archlinux.org"
+        else
+            local tmp; tmp="$(mktemp -d)"
+            git clone --depth 1 https://aur.archlinux.org/yay-bin.git "$tmp/yay-bin"
+            (cd "$tmp/yay-bin" && makepkg -si --noconfirm)
+            rm -rf "$tmp"
+        fi
     fi
-
-    say "aur"
-    # AUR is optional: a package failed — services and links are installed anyway
-    yay -S --needed --noconfirm "${AUR[@]}" || say "aur: not everything installed, see above"
-    # separately: spicetify failed to build — the AUR core doesn't suffer from it
-    [ ${#EXT[@]} -eq 0 ] || yay -S --needed --noconfirm "${EXT[@]}" || say "optional: not everything installed, see above"
+    # the AUR is optional: a package failed — services and links are installed anyway
+    run yay -S --needed --noconfirm "${aur[@]}" || say "AUR: not everything installed, see above"
 }
 
 services() {
-    say "services"
-    sudo systemctl enable NetworkManager bluetooth power-profiles-daemon
-    systemctl is-enabled -q display-manager.service 2>/dev/null || sudo systemctl enable sddm
-    systemctl --user enable pipewire-pulse.socket wireplumber ydotool
-    sudo usermod -aG input,video "$USER" # ydotool (uinput), brightnessctl
-    xdg-user-dirs-update
+    head1 "Turning on services"
+    run sudo systemctl enable NetworkManager bluetooth power-profiles-daemon
+    run systemctl --user enable pipewire-pulse.socket wireplumber ydotool
+    run sudo usermod -aG input,video "$USER" # ydotool (uinput), brightnessctl
+    run xdg-user-dirs-update
+    case " ${EXTRAS[*]:-} " in *" firewall "*)
+        run sudo systemctl enable --now ufw
+        run sudo ufw enable ;;
+    esac
 }
 
 links() {
-    say "symlinks (old → $BACKUP)"
+    say "Linking configs (old ones → $BACKUP)"
     local src dst
     for l in "${LINKS[@]}"; do
         read -r src dst <<<"$l"
         src="$DOTS/$src" dst="$HOME/$dst"
-        [ "$(readlink "$dst")" = "$src" ] && continue
+        [ "$(readlink "$dst" 2>/dev/null)" = "$src" ] && continue
         if [ -e "$dst" ] || [ -L "$dst" ]; then
-            mkdir -p "$BACKUP/$(dirname "${dst#"$HOME"/}")"
-            mv "$dst" "$BACKUP/${dst#"$HOME"/}"
+            run mkdir -p "$BACKUP/$(dirname "${dst#"$HOME"/}")"
+            run mv "$dst" "$BACKUP/${dst#"$HOME"/}"
         fi
-        mkdir -p "$(dirname "$dst")"
-        ln -s "$src" "$dst"
-        echo "  $dst"
+        run mkdir -p "$(dirname "$dst")"
+        run ln -s "$src" "$dst"
     done
     # the shell creates rules.json and kitty.conf itself; rice starts glyph and builds the folder theme
-    mkdir -p "$HOME/.config/demonshot" "${XDG_STATE_HOME:-$HOME/.local/state}/rice"
-    echo glyph > "${XDG_STATE_HOME:-$HOME/.local/state}/rice/shell"
-    mkdir -p "$HOME/Pictures/Wallpapers" # the wallpaper picker (Super+Shift+W) looks here
-    fc-cache -f >/dev/null
+    run mkdir -p "$HOME/.config/demonshot" "$STATE" "$HOME/Pictures/Wallpapers"
+    if [ "$DRY" = 1 ]; then note "would write glyph to $STATE/shell"; else echo glyph >"$STATE/shell"; fi
+    # a few wallpapers to start with, in the picker's folder (Super+Shift+W). Yours are never overwritten
+    run cp -n "$DOTS"/assets/wallpapers/* "$HOME/Pictures/Wallpapers/"
+    run fc-cache -f
     command -v gsettings >/dev/null || return 0 # --links on a system without GNOME schemas
-    # dark mode for Zen, Electron and libadwaita (via the portal) and a dark gtk3 base under our gtk.css
-    gsettings set org.gnome.desktop.interface color-scheme prefer-dark
-    gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
+    # dark mode for browsers, Electron and libadwaita (via the portal) and a dark gtk3 base under our gtk.css
+    run gsettings set org.gnome.desktop.interface color-scheme prefer-dark
+    run gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
 }
 
-greeter() { # login theme. A copy, not a link: the sddm user can't read a private $HOME. fonts in the theme link to config/fonts, -L copies the files themselves
-    say "sddm: glyph theme"
-    [ -d /usr/share/sddm/themes ] || { say "sddm isn't installed — nowhere to put the theme"; return 0; }
+default_apps() {
+    # Super+E and Super+W open your default apps; System → default apps changes them later
+    if [ "$FILES" = strata ] && strata_present; then run xdg-mime default io.github.lgse.Strata.desktop inode/directory
+    else run xdg-mime default thunar.desktop inode/directory; fi
+    if [ "$BROWSER" != keep ]; then run xdg-mime default "$(browser_desktop "$BROWSER")" x-scheme-handler/http x-scheme-handler/https text/html application/xhtml+xml; fi
+    case " ${EXTRAS[*]:-} " in *" tmux "*)
+        local conf="$HOME/.config/tmux/tmux.conf"
+        grep -qs 'tmux/theme.conf' "$conf" && return 0
+        run mkdir -p "$(dirname "$conf")"
+        if [ "$DRY" = 1 ]; then note "would add source-file to $conf"
+        else echo 'source-file -q ~/.config/tmux/theme.conf # glyph: colors written by the shell' >>"$conf"; fi ;;
+    esac
+}
+
+sddm_theme() { # login theme. A copy, not a link: the sddm user can't read a private $HOME. fonts in the theme link to config/fonts, -L copies the files themselves
+    say "SDDM: the Glyph theme"
+    [ -d /usr/share/sddm/themes ] || [ "$DRY" = 1 ] || { say "SDDM isn't installed: nowhere to put the theme"; return 0; }
     # rm: files removed from the repo don't linger in the theme; chmod: under umask 077 the copy would come out 600 and sddm couldn't read it
-    sudo rm -rf /usr/share/sddm/themes/glyph
-    sudo cp -rLT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
-    sudo chmod -R a+rX /usr/share/sddm/themes/glyph
+    run sudo rm -rf /usr/share/sddm/themes/glyph
+    run sudo cp -rLT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
+    run sudo chmod -R a+rX /usr/share/sddm/themes/glyph
     # InputMethod empty: sddm's default is qtvirtualkeyboard, and with this theme a full-screen on-screen keyboard pops up
-    sudo mkdir -p /etc/sddm.conf.d
+    run sudo mkdir -p /etc/sddm.conf.d
     # zz-: conf.d files are read alphabetically and the next overrides — ours last, over others (astronaut's virtualkbd.conf)
-    printf '[Theme]\nCurrent=glyph\n\n[General]\nInputMethod=\n' | sudo tee /etc/sddm.conf.d/zz-glyph.conf >/dev/null
+    run sudo sh -c "printf '[Theme]\nCurrent=glyph\n\n[General]\nInputMethod=\n' > /etc/sddm.conf.d/zz-glyph.conf"
     # /etc/sddm.conf outranks conf.d
     if grep -qsE '^\s*Current=' /etc/sddm.conf && ! grep -qsE '^\s*Current=glyph\s*$' /etc/sddm.conf; then
         say "/etc/sddm.conf sets its own theme and outranks this: set Current=glyph there"
     fi
 }
 
-[ "$EUID" -eq 0 ] && { echo "run as your user, sudo will ask by itself"; exit 1; }
+switch_dm() { # switch_dm <new>: remembers the old one for --uninstall
+    local old; old=$(current_dm)
+    if [ "$old" = "$1" ]; then return 0; fi
+    if [ -n "$old" ]; then
+        if [ "$DRY" = 1 ]; then note "would remember $old in $STATE/previous-dm"; else mkdir -p "$STATE"; echo "$old" >"$STATE/previous-dm"; fi
+        run sudo systemctl disable "$old"
+    fi
+    run sudo systemctl enable "$1"
+}
 
-case "${1:-}" in
-    --links) links ;; # on any distro (NixOS, Fedora…): packages are then your own, the list is in the README
-    --sddm) greeter ;;
-    ""|--with) command -v pacman >/dev/null || { echo "I only install packages on Arch; on another distro: $0 --links"; exit 1; }
-        [ "${1:-}" = --with ] && WITH="${*:2}" # comma- or space-separated
-        extras; packages; services; links
-        # spicetify needs an already downloaded Spotify logged into an account, so there's nothing to apply before the first launch
-        [[ " ${WITH//,/ } " == *" spotify "* ]] && say "spotify: launch it, log in, then spicetify config custom_apps marketplace && spicetify backup apply"
-        say "done. reboot and log in to Hyprland" ;;
-    *) echo "usage: $0 [--with telegram,spotify,clash | --links | --sddm]"; exit 1 ;;
+login_screen() {
+    case "$LOGIN" in
+        greeter)
+            run sudo "$DOTS/config/greeter/install.sh"
+            switch_dm greetd ;;
+        sddm)
+            sddm_theme
+            switch_dm sddm ;;
+    esac
+}
+
+sleep_tip() { # the laptops this happened on: NVIDIA, and firmware that only offers s2idle
+    [ -r /sys/power/mem_sleep ] || return 0
+    lspci 2>/dev/null | grep -qi nvidia || return 0
+    grep -q deep /sys/power/mem_sleep && return 0
+    head1 "A note about sleep on this laptop"
+    cat <<'EOF'
+  It has NVIDIA graphics and its firmware only offers "s2idle" sleep. That combination can hang on wake.
+  Nothing was changed for this. If it happens to you, see "Sleep on NVIDIA laptops" in the README.
+
+EOF
+}
+
+finish() {
+    head1 "Done. Reboot and log in to Hyprland."
+    cat <<EOF
+  First keys to know:
+    Super                launcher           Super+T         terminal
+    Super+I              system settings    Super+A         quick settings
+    Super+Tab            workspaces         Super+Space     dashboard
+    Super+Shift+W        wallpapers         Super+Q         close a window
+    Super+L              lock               Super+Escape    power menu
+
+  A welcome card with these appears on your first login.
+
+  To undo all of it:  $0 --uninstall
+  Your old files:     $BACKUP
+EOF
+    if [ "$LOGIN" = greeter ]; then
+        cat <<EOF
+
+  If the new login screen ever fails: Ctrl+Alt+F2, log in, run  $0 --uninstall
+EOF
+    fi
+    case " ${EXTRAS[*]:-} " in
+        *" spotify "*) printf '\n  Spotify: launch it, log in, then: spicetify config custom_apps marketplace && spicetify backup apply\n' ;;
+    esac
+    case " ${EXTRAS[*]:-} " in
+        *" firefox-theme "*) printf '\n  Firefox: add the Pywalfox add-on from addons.mozilla.org. Do not run "pywalfox install" yourself.\n' ;;
+    esac
+    return 0
+}
+
+uninstall() {
+    head1 "Uninstalling"
+    ask_yes "Remove the links and restore your old files and login screen? Packages stay installed." n || exit 0
+    local src dst first
+    first=$(find "$HOME" -maxdepth 1 -type d -name '.dots-backup-*' 2>/dev/null | sort | head -n1)
+    for l in "${LINKS[@]}"; do
+        read -r src dst <<<"$l"
+        src="$DOTS/$src" dst="$HOME/$dst"
+        # gtk and qt files may point at the shell's recolored copies
+        case "$(readlink "$dst" 2>/dev/null)" in
+            "$src" | "$STATE"/glyph/*) run rm "$dst" ;;
+            *) continue ;;
+        esac
+        if [ -n "$first" ] && { [ -e "$first/${dst#"$HOME"/}" ] || [ -L "$first/${dst#"$HOME"/}" ]; }; then
+            run mv "$first/${dst#"$HOME"/}" "$dst"
+        fi
+    done
+    local old=""
+    [ -r "$STATE/previous-dm" ] && old=$(cat "$STATE/previous-dm")
+    if [ -n "$old" ]; then
+        run sudo systemctl disable "$(current_dm)"
+        run sudo systemctl enable "$old"
+        say "Login screen back to $old."
+    elif [ "$(current_dm)" = greetd ] || [ "$(current_dm)" = sddm ]; then
+        note "$(current_dm) stays enabled: no earlier login screen is on record."
+    fi
+    say "Done. Packages, your settings in $STATE and any backup that's left stay in place."
+}
+
+# ---- main ----
+[ "$EUID" -eq 0 ] && { echo "Run this as your user, sudo will ask by itself."; exit 1; }
+
+MODE=install
+for a in "$@"; do
+    case "$a" in
+        --dry-run) DRY=1 ;;
+        --yes | -y) YES=1 ;;
+        --uninstall) MODE=uninstall ;;
+        --links) MODE=links ;;
+        --sddm) MODE=sddm ;;
+        *) echo "usage: $0 [--dry-run] [--yes] [--uninstall] [--links] [--sddm]"; exit 1 ;;
+    esac
+done
+
+case "$MODE" in
+    links) links ;;
+    sddm) sddm_theme ;;
+    uninstall) uninstall ;;
+    install)
+        check_machine
+        explain
+        choose
+        summary
+        packages
+        services
+        links
+        default_apps
+        login_screen
+        sleep_tip
+        finish
+        ;;
 esac
