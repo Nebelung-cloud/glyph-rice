@@ -29,6 +29,20 @@ PanelWindow {
     anchors { left: !right_; right: right_ || !vert; top: true; bottom: vert }
     implicitWidth: Math.ceil(78 * Theme.s)  // at the side
     implicitHeight: Math.ceil(78 * Theme.s) // on top
+    // auto-hide, experimental, for OLEDs (burn-in): Theme.state.barHide lists the screens. Hidden: no exclusive zone, input only on a 2 px strip at the
+    // edge. Rest there and the pill slides in over the windows; leave it and it slides back out. From Isaqdn03/glyph-rice
+    readonly property bool autoHide: vert && Theme.state.barHide.includes(screen?.name ?? "")
+    property bool hov: false
+    readonly property bool shown: !autoHide || hov || powOpen || pop.visible
+    property real slide: shown ? 1 : 0
+    Behavior on slide { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+    exclusionMode: autoHide ? ExclusionMode.Ignore : ExclusionMode.Auto
+    mask: Region { item: root.shown ? hitAll : hitEdge }
+    onAutoHideChanged: hov = false
+    Timer { id: showT; interval: 150; onTriggered: root.hov = true }
+    Timer { id: hideT; interval: 500; onTriggered: root.hov = false }
+    Item { id: hitEdge; x: root.right_ ? root.width - 2 : 0; width: 2; height: parent.height }
+    Item { id: hitAll; anchors.fill: parent }
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
 
@@ -67,9 +81,17 @@ PanelWindow {
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
     Stage {
+        HoverHandler {
+            onHoveredChanged: {
+                if (hovered) { hideT.stop(); showT.restart(); }
+                else { showT.stop(); hideT.restart(); }
+            }
+        }
         Rectangle {
             id: pill
-            x: root.right_ ? 0 : 14 // a 14 gap — on the screen-edge side
+            // a 14 gap — on the screen-edge side; auto-hide slides it off that edge
+            x: (root.right_ ? 0 : 14) + (root.vert ? (root.right_ ? 80 : -80) * (1 - root.slide) : 0)
+            visible: root.slide > 0
             y: 14
             width: root.vert ? 64 : parent.width - 28
             height: root.vert ? parent.height - 28 : 64
