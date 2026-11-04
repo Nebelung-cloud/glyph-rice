@@ -227,7 +227,8 @@ PanelWindow {
                         value: Sys.panelBri
                         onMoved: v => Sys.setPanelBri(v)
                     }
-                    Slider { icon: Sys.muted ? "\u{F075F}" : "\u{F057E}"; value: Sys.muted ? 0 : Sys.vol; onMoved: v => Sys.setVol(v) }
+                    Slider { icon: Sys.muted ? "\u{F075F}" : "\u{F057E}"; value: Sys.muted ? 0 : Sys.vol; onMoved: v => Sys.setVol(v); picked: root.pick === "out"; onMenu: root.pick = picked ? "" : "out" }
+                    Out { width: parent.width; visible: root.pick === "out"; onTouched: root.pin() } // right-click the slider
 
                     // power mode, like in caelestia: four cells, the white fill slides to the selected one; notches — strength.
                     // ultra — also 60 Hz and no animations, blur or shadows (Rules.modes)
@@ -502,7 +503,10 @@ PanelWindow {
         id: sl
         property real value
         property string icon
+        property bool picked // right-click → a menu (volume: outputs), open — the number is white
         signal moved(real v)
+        signal menu
+        TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.pin(); sl.menu(); } }
         readonly property real shown: area.pressed ? area.v : value
         width: col.width
         height: 54
