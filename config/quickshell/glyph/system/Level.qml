@@ -16,7 +16,7 @@ Rectangle {
 
     width: 480
     height: 54
-    radius: 27
+    radius: Theme.corner(27)
     color: Theme.s2
     border { width: activeFocus ? 1 : 0; color: Theme.fg }
     activeFocusOnTab: true
@@ -39,7 +39,7 @@ Rectangle {
     Rectangle {
         width: Math.max(height, sl.width * sl.shown)
         height: parent.height
-        radius: 27
+        radius: Theme.corner(27)
         color: sl.muted ? Theme.mute : Theme.fg
         Behavior on color { ColorAnimation { duration: Theme.t } }
         Icon { x: 18; anchors.verticalCenter: parent.verticalCenter; text: sl.icon; font.pixelSize: 21; color: Theme.ink }
@@ -48,7 +48,7 @@ Rectangle {
         anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
         width: val.width + 16
         height: val.height + 8
-        radius: 10
+        radius: Theme.corner(10)
         color: Theme.s2
         Lb { id: val; anchors.centerIn: parent; text: sl.fmt(sl.shown) }
     }

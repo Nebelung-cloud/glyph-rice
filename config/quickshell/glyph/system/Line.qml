@@ -16,7 +16,7 @@ Rectangle {
 
     width: parent.width
     height: 64
-    radius: 32
+    radius: Theme.corner(32)
     color: picked ? Theme.s2 : hov.hovered ? Theme.s1 : "transparent"
     border { width: activeFocus ? 1 : 0; color: Theme.fg }
     activeFocusOnTab: true

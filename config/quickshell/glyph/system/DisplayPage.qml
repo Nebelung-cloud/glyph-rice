@@ -27,7 +27,7 @@ Page {
             Rectangle {
                 width: 340
                 height: 190
-                radius: 22
+                radius: Theme.corner(22)
                 color: Theme.bg
                 border { width: 1; color: Theme.s3 }
                 Image {
@@ -82,7 +82,7 @@ Page {
                 y: 65
                 width: 140
                 height: 80
-                radius: 14
+                radius: Theme.corner(14)
                 color: Theme.s2
                 border { width: 1; color: Theme.s3 }
                 Lb { anchors.centerIn: parent; px: 10; text: Rules.mon.name; color: Theme.fg }
@@ -96,7 +96,7 @@ Page {
                     y: modelData[3]
                     width: modelData[4]
                     height: modelData[5]
-                    radius: 12
+                    radius: Theme.corner(12)
                     color: on ? Theme.fg : hov.hovered ? Theme.s1 : "transparent"
                     border { width: 1; color: on ? Theme.fg : Theme.s3 }
                     Behavior on color { ColorAnimation { duration: Theme.t } }

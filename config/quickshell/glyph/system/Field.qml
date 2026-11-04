@@ -15,7 +15,7 @@ Rectangle {
 
     width: 480
     height: 64
-    radius: 32
+    radius: Theme.corner(32)
     color: Theme.s2
     border { width: input.activeFocus ? 1 : 0; color: Theme.fg }
 

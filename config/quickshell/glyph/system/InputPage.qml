@@ -22,7 +22,7 @@ Page {
         Rectangle {
             width: 110
             height: 110
-            radius: 30
+            radius: Theme.corner(30)
             color: inp.n ? Theme.fg : Theme.s1
             border { width: 1; color: Theme.s2 }
             Num { anchors.centerIn: parent; text: "A"; font.pixelSize: 54; color: inp.n ? Theme.ink : Theme.fg }

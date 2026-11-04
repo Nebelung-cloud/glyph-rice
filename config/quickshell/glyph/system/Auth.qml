@@ -58,7 +58,7 @@ PanelWindow {
             anchors.centerIn: parent
             width: 620
             height: col.height + 72
-            radius: 40
+            radius: Theme.corner(40)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
             Keys.onEscapePressed: root.cancel()

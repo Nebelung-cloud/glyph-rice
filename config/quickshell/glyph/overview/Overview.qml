@@ -158,7 +158,7 @@ PanelWindow {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 22
+                    radius: Theme.corner(22)
                     color: Theme.s1
                     border { width: tile.cur || tile.hot ? 2 : 1; color: tile.cur ? Theme.fg : tile.hot ? Theme.grey : Theme.s2 }
                     Behavior on border.color { ColorAnimation { duration: Theme.t } }

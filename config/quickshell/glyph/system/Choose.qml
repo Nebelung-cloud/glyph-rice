@@ -15,7 +15,7 @@ Rectangle {
 
     width: 466
     height: 64
-    radius: 32
+    radius: Theme.corner(32)
     color: Theme.s2
     border { width: activeFocus ? 1 : 0; color: Theme.fg }
     activeFocusOnTab: true
@@ -42,7 +42,7 @@ Rectangle {
         Rectangle {
             width: val.implicitWidth + 28
             height: 44
-            radius: 22
+            radius: Theme.corner(22)
             color: root.cur >= 0 ? Theme.fg : Theme.s3
             Lb { id: val; anchors.centerIn: parent; text: root.names[root.cur] ?? "—"; color: root.cur >= 0 ? Theme.ink : Theme.grey }
         }
