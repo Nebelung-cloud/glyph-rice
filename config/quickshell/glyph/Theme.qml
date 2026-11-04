@@ -59,7 +59,9 @@ Singleton {
     // layout canvas 1920×1080 → screen. ponytail: by the first screen; monitors of different sizes — compute from the window's screen
     readonly property real s: {
         const sc = Quickshell.screens[0];
-        return sc ? Math.min(sc.width / 1920, sc.height / 1080) : 1;
+        if (!sc) return 1;
+        // orientation-agnostic: a rotated (portrait) first screen would give 0.56 and shrink everything
+        return Math.min(Math.max(sc.width, sc.height) / 1920, Math.min(sc.width, sc.height) / 1080);
     }
 
     // glide: ease-out-quart, no overshoot — like bezier glide in hypr

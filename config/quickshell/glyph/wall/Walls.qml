@@ -22,7 +22,9 @@ PanelWindow {
     // copies — in the screen's physical pixels, with spare room for cropping
     readonly property string res: {
         const s = Quickshell.screens[0];
-        return s ? `${Math.round(s.width * s.devicePixelRatio)}x${Math.round(s.height * s.devicePixelRatio)}^` : "2880x1800^";
+        if (!s) return "2880x1800^";
+        const d = s.devicePixelRatio; // a landscape copy even when the first screen is rotated
+        return `${Math.round(Math.max(s.width, s.height) * d)}x${Math.round(Math.min(s.width, s.height) * d)}^`;
     }
 
     property var files: [] // the originals that already have a copy, by name
