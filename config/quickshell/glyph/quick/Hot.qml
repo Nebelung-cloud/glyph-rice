@@ -11,7 +11,7 @@ PanelWindow {
     signal triggered
 
     visible: Theme.state.quickHover
-    anchors { right: !Theme.state.barRight; left: Theme.state.barRight; bottom: true }
+    anchors { right: !Theme.barRight; left: Theme.barRight; bottom: true }
     implicitWidth: 2
     implicitHeight: Math.round(screen.height * 0.8)
     exclusionMode: ExclusionMode.Ignore

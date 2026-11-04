@@ -19,10 +19,10 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // wallpapers — their own screen (wall/Walls), shell.qml opens it
-    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "COLOR", "WINDOWS", "SHELL"]
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", rings, rings, ""]
+    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, ""]
     readonly property var r: Rules.store
 
     // glyphs for the home widgets, deck sections and the bar tray
@@ -182,7 +182,7 @@ PanelWindow {
                         width: 26
                         height: 26
                         radius: 13
-                        color: name.activeFocus ? Theme.fg : Theme.red
+                        color: name.activeFocus ? Theme.fg : Theme.accent
                     }
                     Grow { text: word.modelData; on: word.on; big: 112; small: 46; anchors.verticalCenter: parent.verticalCenter }
                     TapHandler { onTapped: root.go(word.index) }
@@ -271,6 +271,59 @@ PanelWindow {
                         elide: Text.ElideRight
                         text: !home.cur_ ? "empty · ↵ adds one" : `${home.cur_.id} · ${home.cur_.span} cell${home.cur_.span > 1 ? "s" : ""}${home.cur_.fits ? "" : " · off grid"}`
                     }
+                    // the cat's gif (services/Gifs) — while the cat is selected. A click or ←→ when focused
+                    Column {
+                        id: gifPick
+                        visible: home.cur_?.id === "cat"
+                        topPadding: 28
+                        spacing: 12
+                        Lb {
+                            width: 404
+                            elide: Text.ElideRight
+                            text: `gif · ${Gifs.name(Gifs.cur)} · ${Gifs.sel + 1} of ${Gifs.list.length}`
+                            color: gifStrip.activeFocus ? Theme.fg : Theme.grey
+                        }
+                        ListView {
+                            id: gifStrip
+                            width: 404
+                            height: 58
+                            orientation: ListView.Horizontal
+                            spacing: (width - 6 * 58) / 5 // exactly six in a row
+                            clip: true
+                            snapMode: ListView.SnapToItem
+                            boundsBehavior: Flickable.StopAtBounds
+                            keyNavigationEnabled: false
+                            activeFocusOnTab: true
+                            model: Gifs.list
+                            currentIndex: Gifs.sel
+                            onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+                            Keys.onPressed: e => {
+                                if (e.key === Qt.Key_Left) Gifs.step(-1);
+                                else if (e.key === Qt.Key_Right) Gifs.step(1);
+                                else return;
+                                e.accepted = true;
+                            }
+                            delegate: Rectangle {
+                                id: th
+                                required property string modelData
+                                required property int index
+                                readonly property bool on: index === Gifs.sel
+                                width: 58
+                                height: 58
+                                radius: Theme.corner(width * 0.18)
+                                color: Theme.s1
+                                border { width: on ? 2 : 1; color: on ? Theme.fg : Theme.s2 }
+                                GifDots { anchors { fill: parent; margins: 6 } path: th.modelData; bg: th.color; playing: gifPick.visible && root.visible }
+                                TapHandler {
+                                    onTapped: {
+                                        Gifs.pick(th.modelData);
+                                        gifStrip.forceActiveFocus();
+                                    }
+                                }
+                                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                            }
+                        }
+                    }
                     Item { width: 1; height: 40 }
                     Lb { text: home.off.length ? `off grid · ${home.off.length}` : "everything fits" }
                     Flow {
@@ -342,7 +395,7 @@ PanelWindow {
                         anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 30 }
                         width: Math.max(1, Theme.state.deck.length) * 104 + 20
                         height: 116
-                        radius: 40
+                        radius: Theme.corner(40)
                         color: Theme.s1
                         border { width: 1; color: strip.activeFocus ? Theme.fg : Theme.s2 }
                         Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
@@ -437,28 +490,35 @@ PanelWindow {
             }
         }
 
-        // ---- BAR: the bar tray as a column, like in the bar, — in order top to bottom; labels to the side. The tray — what exists ----
+        // ---- BAR: the edge — screens in miniature, a click picks. The tray — like in the bar: at the side a column (labels beside it), on top
+        // a row (labels under the icon), in order; drag along the bar. The tray below — what exists ----
         Page {
             id: bar
             k: 2
-            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · left edge`
+            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · ${Theme.state.barAt} edge`
+            readonly property bool onTop: Theme.state.barAt === "top"
+            readonly property real step: onTop ? 104 : 68 // a slot along the bar
             property int cur: 0
-            // dragging from (-1 — none): dy — the cursor offset in layout px, at — where it is in the column, to — where it'll land
+            // dragging from (-1 — none): d — the cursor offset along the bar in layout px, at — where it is, to — where it'll land
             property int from: -1
-            property real dy: 0
-            readonly property real at: Math.max(10, Math.min(10 + (Theme.state.bar.length - 1) * 68, 10 + from * 68 + dy))
-            readonly property int to: Math.round((at - 10) / 68)
+            property real d: 0
+            readonly property real at: Math.max(10, Math.min(10 + (Theme.state.bar.length - 1) * step, 10 + from * step + d))
+            readonly property int to: Math.round((at - 10) / step)
 
-            Row {
-                spacing: 200
+            Grid {
+                columns: bar.onTop ? 1 : 2
+                columnSpacing: 200
+                rowSpacing: 40
 
                 Rectangle {
                     id: col
-                    width: 88
-                    height: Math.max(1, Theme.state.bar.length) * 68 + 20
-                    radius: 44
+                    readonly property int n: Math.max(1, Theme.state.bar.length)
+                    width: bar.onTop ? n * 104 + 20 : 88
+                    height: bar.onTop ? 116 : n * 68 + 20
+                    radius: Theme.corner(bar.onTop ? 40 : 44)
                     color: Theme.s1
                     border { width: 1; color: col.activeFocus ? Theme.fg : Theme.s2 }
+                    Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                     Behavior on height { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                     activeFocusOnTab: true
                     Keys.onPressed: e => {
@@ -480,17 +540,22 @@ PanelWindow {
                             readonly property int slot: bar.from < 0 ? index
                                 : index > bar.from && index <= bar.to ? index - 1
                                 : index < bar.from && index >= bar.to ? index + 1 : index
-                            y: bd.active ? bar.at : 10 + slot * 68
-                            width: col.width
-                            height: 68
-                            z: bd.active ? 1 : 0
-                            Behavior on y {
+                            // its place along the bar: follows the cursor while dragged
+                            property real pos: bd.active ? bar.at : 10 + slot * bar.step
+                            Behavior on pos {
                                 enabled: !bd.active
                                 NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
                             }
+                            x: bar.onTop ? pos : 0
+                            y: bar.onTop ? 0 : pos
+                            width: bar.onTop ? 104 : col.width
+                            height: bar.onTop ? col.height : 68
+                            z: bd.active ? 1 : 0
 
                             Rectangle {
-                                anchors.centerIn: parent
+                                id: bdot
+                                x: (parent.width - width) / 2
+                                y: bar.onTop ? 18 : (parent.height - height) / 2
                                 width: 52
                                 height: 52
                                 radius: 26
@@ -498,7 +563,13 @@ PanelWindow {
                                 border { width: bs.on && !bs.hot ? 1 : 0; color: Theme.fg }
                                 Icon { anchors.centerIn: parent; text: root.icons[bs.modelData] ?? ""; font.pixelSize: 22; color: bs.hot ? Theme.ink : Theme.fg }
                             }
-                            Lb { x: parent.width + 24; anchors.verticalCenter: parent.verticalCenter; text: bs.modelData; px: 10; color: bs.on ? Theme.fg : Theme.grey }
+                            Lb {
+                                x: bar.onTop ? (parent.width - width) / 2 : parent.width + 24
+                                y: bar.onTop ? bdot.y + bdot.height + 10 : (parent.height - height) / 2
+                                text: bs.modelData
+                                px: 10
+                                color: bs.on ? Theme.fg : Theme.grey
+                            }
                             TapHandler {
                                 onTapped: {
                                     col.forceActiveFocus();
@@ -508,8 +579,9 @@ PanelWindow {
                             DragHandler {
                                 id: bd
                                 target: null
-                                xAxis.enabled: false
-                                onActiveTranslationChanged: bar.dy = activeTranslation.y / Theme.s
+                                xAxis.enabled: bar.onTop
+                                yAxis.enabled: !bar.onTop
+                                onActiveTranslationChanged: bar.d = (bar.onTop ? activeTranslation.x : activeTranslation.y) / Theme.s
                                 onActiveChanged: {
                                     if (active) {
                                         bar.cur = bs.index;
@@ -529,11 +601,51 @@ PanelWindow {
 
                 Column {
                     spacing: 14
+                    Lb { text: "edge" }
+                    // screens with a pill at their edge; ←→ — another one
+                    Row {
+                        id: edges
+                        spacing: 20
+                        activeFocusOnTab: true
+                        Keys.onPressed: e => {
+                            if (e.key !== Qt.Key_Left && e.key !== Qt.Key_Right && e.key !== Qt.Key_Space && e.key !== Qt.Key_Return) return;
+                            const all = ["left", "right", "top"], back = e.key === Qt.Key_Left ? 2 : 1;
+                            Theme.state.barAt = all[(all.indexOf(Theme.state.barAt) + back) % 3];
+                            e.accepted = true;
+                        }
+                        Repeater {
+                            model: ["left", "right", "top"]
+                            Column {
+                                id: ed
+                                required property string modelData
+                                readonly property bool on: modelData === Theme.state.barAt
+                                spacing: 10
+                                Rectangle {
+                                    width: 200
+                                    height: 125
+                                    radius: 18
+                                    color: Theme.bg
+                                    border { width: ed.on && edges.activeFocus ? 2 : 1; color: ed.on ? Theme.fg : Theme.s3 }
+                                    Behavior on border.color { ColorAnimation { duration: Theme.t } }
+                                    Rectangle {
+                                        x: ed.modelData === "right" ? parent.width - 26 : 10
+                                        y: 10
+                                        width: ed.modelData === "top" ? parent.width - 20 : 16
+                                        height: ed.modelData === "top" ? 16 : parent.height - 20
+                                        radius: Theme.corner(8)
+                                        color: ed.on ? Theme.fg : Theme.s3
+                                        Behavior on color { ColorAnimation { duration: Theme.t } }
+                                    }
+                                    TapHandler { onTapped: Theme.state.barAt = ed.modelData }
+                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                }
+                                Lb { anchors.horizontalCenter: parent.horizontalCenter; text: ed.modelData; px: 10; color: ed.on ? Theme.fg : Theme.grey }
+                            }
+                        }
+                    }
+                    Item { width: 1; height: 12 }
                     Toggle { width: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
-                    Lb { topPadding: 6; text: "above the clock"; px: 10 }
-                    // the side: right — quick settings move left, volume/brightness — into the island
-                    Toggle { width: 200; text: "on the right"; on: Theme.state.barRight; onFlip: Theme.state.barRight = !Theme.state.barRight }
-                    Lb { topPadding: 6; text: "quick settings move left"; px: 10 }
+                    Lb { topPadding: 6; text: bar.onTop ? "left of the clock" : "above the clock"; px: 10 }
                 }
             }
 
@@ -583,7 +695,7 @@ PanelWindow {
 
                 Column {
                     spacing: 14
-                    Toggle { width: 200; text: "light"; on: Theme.light; onFlip: Theme.state.light = !Theme.state.light }
+                    Toggle { width: 200; text: "light"; on: Theme.light; onFlip: Theme.setLight(!Theme.light) }
                     Toggle { width: 200; text: "dot grid"; on: Theme.state.grid; onFlip: Theme.state.grid = !Theme.state.grid }
                     Toggle { width: 200; text: "orb"; on: Theme.state.orb; onFlip: Theme.state.orb = !Theme.state.orb }
                     Toggle { width: 200; text: "24 hours"; on: Theme.state.clock24; onFlip: Theme.state.clock24 = !Theme.state.clock24 }
@@ -606,7 +718,7 @@ PanelWindow {
             Rectangle {
                 width: 760
                 height: 72
-                radius: 36
+                radius: Theme.corner(36)
                 color: Theme.s2
                 border { width: name.activeFocus ? 1 : 0; color: Theme.fg }
                 Lb { id: nameL; x: 30; anchors.verticalCenter: parent.verticalCenter; text: "name"; color: name.activeFocus ? Theme.fg : Theme.grey }
@@ -623,7 +735,7 @@ PanelWindow {
                     onTextEdited: Theme.state.name = text
                     cursorDelegate: Rectangle {
                         width: 2
-                        color: name.activeFocus ? Theme.red : "transparent"
+                        color: name.activeFocus ? Theme.accent : "transparent"
                         Timer { running: name.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
                     }
                     Text { visible: !name.text; text: Quickshell.env("USER"); font: name.font; color: Theme.mute }
@@ -637,100 +749,136 @@ PanelWindow {
             }
         }
 
-        // ---- COLOR: color from the wallpaper. On the left the live palette — the roles by lightness and the accent glide along with the whole shell.
-        // On the right the toggle and saturation, below the style and the seeds — the wallpaper's color buckets, the selected one larger and in a ring ----
+        // ---- STYLE: where color comes from and where it lands. On top — a desktop in the palette of the swatch under the cursor or focused (none —
+        // in the current one): bar, quick settings, kitty, player, the Glyph bar; beside it — the roles as callouts, like on a
+        // blueprint: which color goes where. Under it where color comes from and the theme; then what the source has: the wallpaper in dots (click — the picker), its tones
+        // and variants (the ring — how much color) or palettes by group. The same choice as style in the launcher (Theme.styles).
+        // Swatches by index: a new Theme.styles on every pick doesn't recreate the circles, and focus stays where it was ----
         Page {
+            id: tint
             k: 4
-            caption: !Theme.state.match ? "color · glyph greys and one red"
-                   : Theme.matched ? `color · from the wallpaper · ${Theme.styles[Theme.state.matchStyle]} · ${Theme.light ? "light" : "dark"}`
-                   : "color · no colour in this wallpaper, greys stay grey"
+            property Item hot: null // the swatch under the cursor or focused
+            readonly property var p: hot?.item.pal ?? Theme.pal
+            readonly property string src: Theme.state.paint === "scheme" ? (Theme.pal.group === "more" ? "" : Theme.pal.group + " ") + Theme.pal.name
+                : Theme.state.paint === "wall" && Theme.tones.length ? `wallpaper · ${Theme.pal.name}` : "nothing"
+            caption: `style · ${src} · ${Theme.light ? "light" : "dark"}` + (hot && !hot.item.now ? `   →   ${hot.item.name} · ↵ sets it` : "")
+            function block(h) { return Theme.styles.find(b => b.head === h)?.items ?? []; }
+            function peek(sw) {
+                if (sw.peek) hot = sw;
+                else if (hot === sw) hot = null;
+            }
+
+            Desk { p: tint.p }
 
             Row {
-                spacing: 40
+                spacing: 24
+                Pick {
+                    label: "from"
+                    opts: ["nothing", "wall", "palette"]
+                    cur: ["", "wall", "scheme"].indexOf(Theme.state.paint)
+                    onPicked: i => Theme.state.paint = ["", "wall", "scheme"][i]
+                }
+                Pick { label: "theme"; opts: ["dark", "light"]; cur: Theme.light ? 1 : 0; onPicked: i => Theme.setLight(i === 1) }
+                Toggle { opacity: Theme.light ? 0.4 : 1; text: "extra dark"; on: Theme.state.extraDark; onFlip: Theme.state.extraDark = !Theme.state.extraDark }
+            }
 
-                Rectangle {
-                    width: 760
-                    height: 475
-                    radius: 24
-                    color: Theme.bg
-                    border { width: 1; color: Theme.s3 }
+            // what the source has. One height for all: Page is centered, and the layout shouldn't jump when the source changes. ponytail: 300 — by
+            // eye, palettes in two rows; if it grows — the Item grows with it
+            Item {
+                width: 1040
+                height: Math.max(300, own.height)
+                Column {
+                    id: own
+                    spacing: 28
+                    Lb { visible: !Theme.state.paint; text: "black · white dots · one red — nothing to pick"; color: Theme.mute }
                     Row {
-                        anchors.centerIn: parent
-                        spacing: 22
+                        visible: Theme.state.paint === "wall"
+                        spacing: 34
+                        // the wallpaper in dots; click — the picker
+                        Rectangle {
+                            width: 168
+                            height: 105
+                            radius: Theme.corner(14)
+                            color: "transparent"
+                            border { width: Theme.state.wall ? 0 : 1; color: Theme.s3 }
+                            Image {
+                                anchors.fill: parent
+                                source: visible ? Theme.url(Theme.wallSrc(Theme.state.wall)) : "" // not visible — no texture
+                                fillMode: Image.PreserveAspectCrop
+                                sourceSize: Qt.size(336, 210)
+                                asynchronous: true
+                                layer.enabled: true
+                                layer.effect: Dm { step: 4 }
+                            }
+                            Lb { visible: !Theme.state.wall; anchors.centerIn: parent; px: 10; text: "no wallpaper" }
+                            TapHandler {
+                                onTapped: {
+                                    root.close();
+                                    root.wallRequested();
+                                }
+                            }
+                            HoverHandler { cursorShape: Qt.PointingHandCursor }
+                        }
+                        Column {
+                            spacing: 6
+                            Lb { text: Theme.tones.length ? "tones · from the wallpaper" : "no colour in it · click it for another" }
+                            Row {
+                                Repeater {
+                                    model: tint.block("tones").length
+                                    Swatch { id: tw; item: tint.block("tones")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(tw) }
+                                }
+                            }
+                        }
+                    }
+                    Pick {
+                        visible: Theme.state.paint === "wall" && Theme.tones.length > 0
+                        readonly property var amounts: [50, 75, 100, 125, 150, 200]
+                        label: "saturation · %"
+                        opts: amounts.map(String)
+                        cur: amounts.indexOf(Theme.state.paintSat)
+                        onPicked: i => Theme.state.paintSat = amounts[i]
+                    }
+                    Column {
+                        visible: Theme.state.paint === "wall" && Theme.tones.length > 0
+                        spacing: 6
+                        Lb { text: "variant · how much colour, like material you" }
+                        Row {
+                            Repeater {
+                                model: tint.block("variant").length
+                                Swatch { id: vw; item: tint.block("variant")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(vw) }
+                            }
+                        }
+                    }
+                    // palettes by group — the blocks between source and theme
+                    Flow {
+                        visible: Theme.state.paint === "scheme"
+                        width: 1040
+                        spacing: 40
                         Repeater {
-                            model: ["bg", "s1", "s2", "s3", "mute", "grey", "fg", "red"]
+                            model: Theme.state.paint === "scheme" ? Theme.styles.length - 2 : 0
                             Column {
-                                id: role
-                                required property string modelData
-                                spacing: 12
-                                Rectangle { width: 64; height: 64; radius: 32; color: Theme[role.modelData]; border { width: 1; color: Theme.s3 } }
-                                Lb { anchors.horizontalCenter: parent.horizontalCenter; text: role.modelData; px: 10 }
-                                Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Theme.hex(Theme.p[role.modelData]); px: 9; color: Theme.mute }
+                                id: sb
+                                required property int index
+                                readonly property var block: Theme.styles[index + 1] ?? ({ head: "", items: [] })
+                                spacing: 6
+                                Lb { text: sb.block.head }
+                                Row {
+                                    Repeater {
+                                        model: sb.block.items.length
+                                        Swatch { id: pw; item: sb.block.items[index] ?? ({ name: "" }); onPeekChanged: tint.peek(pw) }
+                                    }
+                                }
                             }
                         }
                     }
                 }
-
-                Column {
-                    spacing: 14
-                    Toggle { width: 200; text: "from wallpaper"; on: Theme.state.match; onFlip: Theme.state.match = !Theme.state.match }
-                    Toggle { width: 200; text: "light"; on: Theme.light; onFlip: Theme.state.light = !Theme.state.light }
-                    Toggle { width: 200; opacity: Theme.light ? 0.4 : 1; text: "extra dark"; on: Theme.state.extraDark; onFlip: Theme.state.extraDark = !Theme.state.extraDark }
-                    Dial { opacity: Theme.matched ? 1 : 0.4; label: "saturation · %"; to: 200; step: 5; value: Theme.state.matchSat; onMoved: v => Theme.state.matchSat = v }
-                }
             }
-
-            Pick { opacity: Theme.matched ? 1 : 0.4; label: "style"; opts: Theme.styles; cur: Theme.state.matchStyle; onPicked: i => Theme.state.matchStyle = i }
-
-            Rectangle {
-                id: seedBox
-                readonly property int n: Theme.seeds.length
-                readonly property int cur: Math.min(Theme.state.matchSeed, n - 1)
-                visible: n > 0
-                width: seedL.width + 66 + n * 64
-                height: 64
-                radius: 32
-                color: Theme.s2
-                border { width: activeFocus ? 1 : 0; color: Theme.fg }
-                activeFocusOnTab: true
-                Keys.onPressed: e => {
-                    if (e.key === Qt.Key_Left) Theme.state.matchSeed = (cur + n - 1) % n;
-                    else if (e.key === Qt.Key_Right || e.key === Qt.Key_Space) Theme.state.matchSeed = (cur + 1) % n;
-                    else return;
-                    e.accepted = true;
-                }
-                Lb { id: seedL; x: 30; anchors.verticalCenter: parent.verticalCenter; text: "seed"; color: seedBox.activeFocus ? Theme.fg : Theme.grey }
-                Row {
-                    x: seedL.x + seedL.width + 30
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 24
-                    Repeater {
-                        model: Theme.seeds
-                        Rectangle {
-                            id: sw
-                            required property var modelData
-                            required property int index
-                            readonly property bool on: index === seedBox.cur
-                            width: 40
-                            height: 40
-                            radius: 20
-                            color: modelData.hex
-                            border { width: on ? 3 : 0; color: Theme.fg }
-                            scale: on ? 1 : 0.7
-                            Behavior on scale { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-                            TapHandler { onTapped: Theme.state.matchSeed = sw.index }
-                        }
-                    }
-                }
-            }
-
-            Lb { text: "borders and kitty follow live · gtk and qt apps on their next start"; px: 10 }
         }
 
         // ---- WINDOWS: a desktop with two windows from the rings' live values. Window animation — only if motion ----
         Page {
             k: 5
-            caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v}`
+            caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v} · panels ${pan.v} %`
 
             Row {
                 spacing: 40
@@ -743,12 +891,13 @@ PanelWindow {
                             id: wnd
                             required property int index
                             readonly property real o: gOut.v * desk.k
-                            readonly property real l: 78 * desk.k + o // bar 64 + a 14 gap
-                            readonly property real w: (desk.width - l - o - 2 * gIn.v * desk.k) / 2
-                            x: index ? l + w + 2 * gIn.v * desk.k : l
-                            y: o
+                            readonly property real l: 78 * Theme.s * desk.k + o // bar 64 + a 14 gap, in logical px
+                            readonly property string at: Theme.state.barAt
+                            readonly property real w: (desk.width - (at === "top" ? o : l) - o - 2 * gIn.v * desk.k) / 2
+                            x: (at === "top" || at === "right" ? o : l) + (index ? w + 2 * gIn.v * desk.k : 0)
+                            y: at === "top" ? l : o
                             width: w
-                            height: desk.height - 2 * o
+                            height: desk.height - (at === "top" ? l : o) - o
                             radius: rnd.v * desk.k
                             color: Theme.s1
                             border { width: bord.v ? Math.max(1, bord.v * desk.k) : 0; color: index ? Theme.s3 : Theme.fg }
@@ -792,6 +941,7 @@ PanelWindow {
                 Dial { id: gOut; label: "gaps out"; to: 60; value: root.r.gapsOut; onMoved: v => { root.r.gapsOut = v; Theme.apply(); } }
                 Dial { id: bord; label: "border"; to: 6; n: 24; value: root.r.border; onMoved: v => { root.r.border = v; Theme.apply(); } }
                 Dial { id: rnd; label: "rounding"; to: 40; value: Theme.state.rounding; onMoved: v => Theme.state.rounding = v } // shell.qml calls Theme.apply itself
+                Dial { id: pan; label: "panels"; to: 100; step: 5; value: Theme.state.corners; onMoved: v => Theme.state.corners = v } // the shell's corners, %
             }
         }
 
@@ -862,12 +1012,15 @@ PanelWindow {
             fillMode: Image.Tile
             source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="1" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
         }
+        // the bar at its edge: the 14 gap and 64 thickness are layout px, on screen they're Theme.s logical
         Rectangle {
-            x: Theme.state.barRight ? parent.width - 78 * parent.k : 14 * parent.k
-            y: 14 * parent.k
-            width: 64 * parent.k
-            height: parent.height - 28 * parent.k
-            radius: width / 2
+            readonly property real u: Theme.s * parent.k
+            readonly property bool onTop: Theme.state.barAt === "top"
+            x: Theme.barRight ? parent.width - 78 * u : 14 * u
+            y: 14 * u
+            width: onTop ? parent.width - 28 * u : 64 * u
+            height: onTop ? 64 * u : parent.height - 28 * u
+            radius: Theme.corner(Math.min(width, height) / 2)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
         }
@@ -896,7 +1049,7 @@ PanelWindow {
         readonly property bool round: root.rounds.includes(modelData.id)
         width: modelData.span * cell + (modelData.span - 1) * gap
         height: cell
-        radius: round ? cell / 2 : cell * 0.18
+        radius: round ? cell / 2 : Theme.corner(cell * 0.18)
         color: hot ? Theme.fg : modelData.fits ? Theme.s1 : "transparent"
         border { width: on ? 2 : 1; color: on ? Theme.fg : modelData.fits ? Theme.s2 : Theme.mute }
         z: drag.active ? 1 : 0

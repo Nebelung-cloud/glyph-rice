@@ -27,7 +27,6 @@ Item {
         const ia = img.implicitWidth / Math.max(1, img.implicitHeight), sa = width / Math.max(1, height);
         return ia > sa ? Qt.size(sa / ia, 1) : Qt.size(1, ia / sa);
     }
-    function url(p) { return p ? "file://" + p.split("/").map(encodeURIComponent).join("/") : ""; }
 
     // ---- the change: shown — the path on screen, coming — on its way ----
     property string shown: ""
@@ -50,7 +49,7 @@ Item {
         }
         coming = path;
         pending = true;
-        next.source = url(path);
+        next.source = Theme.url(path);
         check();
     }
     function check() {

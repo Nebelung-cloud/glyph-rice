@@ -83,7 +83,7 @@ Scope {
                     width: row.width + 52
                     height: root.h + 52
                     opacity: win.t // not visible: a hidden Row has width 0, and the window is measured by it
-                    radius: 40
+                    radius: Theme.corner(40)
                     color: Theme.s1
                     border { width: 1; color: Theme.s2 }
 
@@ -219,8 +219,12 @@ Scope {
                             Grid {
                                 id: cores
                                 readonly property int n: Math.max(1, SysStats.cores.length)
-                                readonly property real d: (width - (n - 1) * spacing) / n
-                                width: parent.width
+                                // height in the root.h=232 budget: 109 ring + 18 gap + 19 label → the grid gets ≤86, otherwise it sticks out of the panel
+                                // d from the column width (126, stable), not its own — otherwise a d↔width loop and the grid collapses to 0
+                                readonly property real d: Math.min((126 - (n - 1) * spacing) / n, (86 - 7 * spacing) / 8)
+                                width: n * d + (n - 1) * spacing
+                                // narrower than the column — center the grid itself: no gap on the right, even on both sides
+                                anchors.horizontalCenter: parent.horizontalCenter
                                 columns: n
                                 spacing: 3
                                 Repeater {

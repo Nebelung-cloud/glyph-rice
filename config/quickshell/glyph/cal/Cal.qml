@@ -4,7 +4,7 @@ import Quickshell.Wayland
 import qs
 import qs.components
 
-// calendar and focus timer: a click on the bar clock. A 440 panel to the right of the bar, centered — opposite the clock, slides out from the left.
+// calendar and focus timer: a click on the bar clock. A 440 panel at the bar (on the screen side), centered — opposite the clock, slides out from the bar.
 // The month as a 7×6 grid (today — a white circle), the arrows and ←→ page through, a click on the month — back to today. Below, the timer:
 // a ring of dots fills clockwise, minute presets, start/pause (and space), reset. While running — Glyph fills the bottom bar.
 // Esc or a click outside — close
@@ -48,12 +48,15 @@ PanelWindow {
     Stage {
         Rectangle {
             id: panel
-            x: 92 - 24 * (1 - root.t) // the right edge of the bar pill (14 + 64) and a 14 gap
-            anchors.verticalCenter: parent.verticalCenter
+            // the inner edge of the bar pill (14 + 64) and a 14 gap, slides out from the bar; across — centered, where the clock is
+            readonly property real off: 92 - 24 * (1 - root.t)
+            readonly property bool onTop: Theme.state.barAt === "top"
+            x: onTop ? (parent.width - width) / 2 : Theme.barRight ? parent.width - width - off : off
+            y: onTop ? off : (parent.height - height) / 2
             width: 440
             height: col.height + 52
             opacity: root.t
-            radius: 36
+            radius: Theme.corner(36)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
             focus: true
@@ -175,7 +178,7 @@ PanelWindow {
                             Rectangle {
                                 width: 146
                                 height: 44
-                                radius: 22
+                                radius: Theme.corner(22)
                                 color: Focus.running ? Theme.s2 : Theme.fg
                                 Row {
                                     anchors.centerIn: parent

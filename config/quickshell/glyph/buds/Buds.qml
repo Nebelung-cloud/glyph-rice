@@ -88,7 +88,7 @@ PanelWindow {
             y: 40 + (1 - root.t) * 480
             width: 420
             height: 456
-            radius: 44
+            radius: Theme.corner(44)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
             opacity: Math.min(1, root.t * 1.5)

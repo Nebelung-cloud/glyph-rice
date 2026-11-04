@@ -298,7 +298,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
                     width: 10
                     height: 10
                     radius: 5
-                    color: Theme.red
+                    color: Theme.accent
                 }
                 TapHandler {
                     onTapped: {

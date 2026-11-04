@@ -1,0 +1,10 @@
+[SddmGreeterTheme]
+Name=glyph
+Description=Glyph rice login: camera-dial session wheel, glyph tachometer, staged power-on
+Type=sddm-theme
+Version=0.1
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=glyph
+Theme-API=2.0
+QtVersion=6

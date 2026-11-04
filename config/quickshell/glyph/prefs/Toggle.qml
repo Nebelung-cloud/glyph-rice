@@ -13,7 +13,7 @@ Rectangle {
 
     width: Math.max(170, lab.implicitWidth + 96)
     height: 64
-    radius: 32
+    radius: Theme.corner(32)
     color: Theme.s2
     border { width: activeFocus ? 1 : 0; color: Theme.fg }
     activeFocusOnTab: true
@@ -29,7 +29,7 @@ Rectangle {
         y: 6
         width: root.on ? root.width - 12 : height
         height: root.height - 12
-        radius: height / 2
+        radius: Theme.corner(height / 2)
         color: root.on ? Theme.fg : Theme.mute
         Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
         Behavior on color { ColorAnimation { duration: Theme.t } }

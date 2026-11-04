@@ -7,14 +7,17 @@ import qs
 import qs.components
 
 // launcher: tap Super or Super+Space. An 860 panel in the center, the screen dims to 74%. A search pill with a red caret,
-// modes as chips (Tab): apps / run / windows / calc. Without a query — «recent» and all apps in a grid of 6, an alphabet on the right.
+// modes as chips (Tab): apps / style / windows / calc. Without a query — «recent» and all apps in a grid of 6, an alphabet on the right.
+// style — color, like scheme in caelestia: where from (nothing, wallpaper, palette), under it — the wallpaper's tones and variants (tonal spot…) or palettes
+// (catppuccin, rosé pine…), the theme (Theme.styles, the same as STYLE in settings). Circles — swatches, a dot — what's set,
+// ↵ sets it and the launcher stays open. With palettes the search also covers the group: «catppuccin».
 // Appears like Charms and Clip: a 24 rise and a fade. Icons — monochrome glyphs in circles, unknown ones — the icon itself as dots; the selected — a white circle
 PanelWindow {
     id: root
 
     property int mode: 0
     property int sel: 0
-    readonly property var modes: ["apps", "run", "windows", "calc"]
+    readonly property var modes: ["apps", "style", "windows", "calc"]
     readonly property string query: input.text
     property var uses: ({}) // app id → how many times it was opened
 
@@ -50,8 +53,17 @@ PanelWindow {
         const cls = t.lastIpcObject?.class ?? "";
         const icon = DesktopEntries.heuristicLookup(cls)?.icon;
         return { name: t.title, src: icon ? Quickshell.iconPath(icon, true) : "", glyph: glyph(cls), extra: cls.toLowerCase(),
-                 run: () => Hyprland.dispatch(`hl.dsp.focus({ window = "address:${t.address}" })`) };
+                 run: () => { focusT.addr = t.address; focusT.restart(); } };
     })
+    // while the launcher holds the keyboard (Exclusive), Hyprland switches workspace but won't focus the window — and once it lets
+    // go of the keyboard, returns the previous window with its workspace. So focus comes after release (it leaves with the next frame).
+    // ponytail: 100 ms — a margin for one frame; if it's not enough — focus on onVisibleChanged, after the fade
+    Timer {
+        id: focusT
+        property string addr
+        interval: 100
+        onTriggered: Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${addr}" })`) // Quickshell gives the address without 0x
+    }
 
     // a subsequence: a word start and consecutive letters rank higher. hl — indexes of the matched letters
     function match(s, q) {
@@ -80,7 +92,7 @@ PanelWindow {
     readonly property var blocks: {
         const q = query.trim().toLowerCase();
         let b;
-        if (mode === 1) b = q ? [{ head: "run", items: [{ name: query, glyph: "\u{F018D}", hl: [], run: () => Quickshell.execDetached(["sh", "-c", query]) }] }] : [];
+        if (mode === 1) b = Theme.styles.map(x => ({ head: x.head, items: filter(x.items.map(it => Object.assign({ extra: "", keep: true }, it)), q) })).filter(x => x.items.length);
         else if (mode === 3) b = [];
         else if (mode === 2) b = [{ head: "windows", sub: String(wins.length), items: filter(wins, q) }];
         else if (q) {
@@ -110,6 +122,7 @@ PanelWindow {
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
     function open() {
+        focusT.stop(); // a window from the last open won't steal focus from the launcher
         input.text = "";
         mode = 0;
         sel = 0;
@@ -133,6 +146,7 @@ PanelWindow {
         }
         const it = cur;
         if (!it) return;
+        if (it.keep) return it.run();
         close();
         if (it.id) {
             uses = Object.assign({}, uses, { [it.id]: (uses[it.id] ?? 0) + 1 });
@@ -186,7 +200,7 @@ PanelWindow {
             width: 860
             height: Math.min(stage.height - 280, 30 + 66 + 20 + body.height + 34)
             opacity: root.t
-            radius: 44
+            radius: Theme.corner(44)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
             MouseArea { anchors.fill: parent }
@@ -198,7 +212,7 @@ PanelWindow {
                 y: 30
                 width: parent.width - 68
                 height: 66
-                radius: 33
+                radius: Theme.corner(33)
                 color: Theme.s2
 
                 Icon { id: lens; x: 24; anchors.verticalCenter: parent.verticalCenter; text: "\u{F0349}"; color: Theme.grey; font.pixelSize: 22 }
@@ -211,13 +225,13 @@ PanelWindow {
                     clip: true
                     cursorDelegate: Rectangle {
                         width: 2
-                        color: Theme.red
+                        color: Theme.accent
                         Timer { running: input.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
                     }
                     Text {
                         visible: !input.text
                         x: 6
-                        text: ["Search apps, files, commands", "Run a command", "Find a window", "2 + 2, 20 usd to eur…"][root.mode]
+                        text: ["Search apps", "Color from nothing, the wallpaper or a palette", "Find a window", "2 + 2, 20 usd to eur…"][root.mode]
                         font: input.font
                         color: Theme.mute
                     }
@@ -261,7 +275,7 @@ PanelWindow {
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 function ensure(y, h) {
-                    if (y < contentY) contentY = y;
+                    if (y < contentY) contentY = Math.max(0, y);
                     else if (y + h > contentY + height) contentY = y + h - height;
                 }
 
@@ -305,7 +319,7 @@ PanelWindow {
                                 rowSpacing: 22
                                 Repeater {
                                     model: block.modelData.items.length
-                                    Cell { items: block.modelData.items }
+                                    Cell { items: block.modelData.items; gy: block.y + grid.y }
                                 }
                             }
                         }
@@ -358,16 +372,28 @@ PanelWindow {
         property var items: []
         readonly property var modelData: items[index] ?? ({ name: "", hl: [] })
         readonly property bool on: root.sel === modelData.k
+        // Quickshell recreates the layer-shell window on every open, and Image loads its texture even when hidden: 160 icons —
+        // ~60 ms of the first frame. Outside the scroll (with a row of margin) the cell is empty, no icon, it holds its height itself
+        property real gy // the grid's y in body
+        readonly property bool near: gy + y < flick.contentY + flick.height + 140 && gy + y + height > flick.contentY - 140
         width: body.width / 6
+        height: 88 + spacing + label.implicitHeight
         spacing: 10
-        onOnChanged: if (on) flick.ensure(mapToItem(body, 0, 0).y, height)
+        onOnChanged: if (on) flick.ensure(mapToItem(body, 0, 0).y - 8, height + 8) // 8 — the swatch's ring above the circle
 
         Rectangle {
+            id: disc
+            visible: cell.near
             anchors.horizontalCenter: parent.horizontalCenter
             width: 88
             height: 88
             radius: 44
-            color: cell.on ? Theme.fg : Theme.s2
+            color: cell.modelData.fill ?? (cell.on ? Theme.fg : Theme.s2)
+            border { width: cell.modelData.fill ? 1 : 0; color: Theme.s3 } // a black swatch on the panel
+            // the swatch under the cursor — a ring around it: fill with white and its color would vanish. dot — the palette's accent, what's set now — a dot
+            Rectangle { visible: cell.on && !!cell.modelData.fill; anchors.centerIn: parent; width: 104; height: 104; radius: 52; color: "transparent"; border { width: 2; color: Theme.fg } }
+            Rectangle { id: inner; visible: !!cell.modelData.dot; anchors.centerIn: parent; width: 40; height: 40; radius: 20; color: cell.modelData.dot ?? "transparent" }
+            Rectangle { visible: !!cell.modelData.now; anchors.centerIn: parent; width: 14; height: 14; radius: 7; color: Theme.on(inner.visible ? inner.color : disc.color) }
             Icon {
                 anchors.centerIn: parent
                 visible: !!cell.modelData.glyph
@@ -380,17 +406,19 @@ PanelWindow {
                 visible: !cell.modelData.glyph && status === Image.Ready
                 width: 44
                 height: 44
-                source: cell.modelData.src ?? ""
+                source: cell.near ? cell.modelData.src ?? "" : ""
                 sourceSize: Qt.size(44, 44)
                 asynchronous: true
                 retainWhileLoading: true // the cell got another app — the old icon while the new one loads
-                layer.enabled: true
+                layer.enabled: cell.near // the layer draws its Image even when hidden
                 layer.effect: Dm { step: 2.5 }
             }
             TapHandler { onTapped: { root.sel = cell.modelData.k; root.launch(); } }
             HoverHandler { cursorShape: Qt.PointingHandCursor }
         }
         Text {
+            id: label
+            visible: cell.near
             width: parent.width - 8
             anchors.horizontalCenter: parent.horizontalCenter
             horizontalAlignment: Text.AlignHCenter

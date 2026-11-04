@@ -10,7 +10,7 @@ Rectangle {
 
     width: lb.width + 32
     height: 36
-    radius: 18
+    radius: Theme.corner(18)
     color: on ? Theme.fg : "transparent"
     Behavior on color { ColorAnimation { duration: Theme.t } }
 

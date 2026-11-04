@@ -12,7 +12,7 @@ Rectangle {
     readonly property var st: Theme.state
 
     height: list.height + 32
-    radius: 30
+    radius: Theme.corner(30)
     color: Theme.s2
 
     Column {
@@ -34,12 +34,12 @@ Rectangle {
         Rectangle {
             width: list.width
             height: 54
-            radius: 27
+            radius: Theme.corner(27)
             color: Theme.fg
             Row {
                 anchors.centerIn: parent
                 spacing: 10
-                Rectangle { visible: Sys.rec; anchors.verticalCenter: parent.verticalCenter; width: 10; height: 10; radius: 5; color: Theme.red }
+                Rectangle { visible: Sys.rec; anchors.verticalCenter: parent.verticalCenter; width: 10; height: 10; radius: 5; color: Theme.accent }
                 Lb { anchors.verticalCenter: parent.verticalCenter; text: Sys.rec ? "stop recording" : "start recording"; color: Theme.ink }
             }
             TapHandler { onTapped: root.start() }

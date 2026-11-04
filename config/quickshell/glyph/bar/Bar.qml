@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Effects
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
@@ -7,11 +9,13 @@ import Quickshell.Services.UPower
 import Quickshell.Wayland
 import qs
 import qs.components
+import qs.services
 import qs.settings
 
-// bar: a vertical pill at the left edge (Theme.state.barRight — at the right; quick settings then move left). At the top the mark (a ring of 16 dots) — the launcher, the center turns red while recording or the microphone is on.
-// Workspaces as dots, the window title as a column, a Doto clock in the center, the tray at the bottom — a click opens quick settings.
-// What's in the tray and in what order, whether there's a title — Theme.state (settings, the BAR section)
+// bar: a pill at the left or right edge, or along the top — Theme.state.barAt. First the mark (a ring of 16 dots) — the launcher, the center
+// turns red while recording or the microphone is on. Workspaces as dots, the window title, a Doto clock in the center, the tray last — a click
+// opens quick settings. At the side everything is a column, on top a row. What's in the tray and in what order, whether there's a title —
+// Theme.state (settings, the BAR section)
 PanelWindow {
     id: root
 
@@ -20,9 +24,11 @@ PanelWindow {
     signal powerClicked
     signal clockClicked
 
-    readonly property bool right_: Theme.state.barRight
-    anchors { left: !right_; right: right_; top: true; bottom: true }
-    implicitWidth: Math.ceil(78 * Theme.s)
+    readonly property bool right_: Theme.barRight
+    readonly property bool vert: Theme.state.barAt !== "top" // anything but top is at the side
+    anchors { left: !right_; right: right_ || !vert; top: true; bottom: vert }
+    implicitWidth: Math.ceil(78 * Theme.s)  // at the side
+    implicitHeight: Math.ceil(78 * Theme.s) // on top
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
 
@@ -45,9 +51,9 @@ PanelWindow {
             id: pill
             x: root.right_ ? 0 : 14 // a 14 gap — on the screen-edge side
             y: 14
-            width: 64
-            height: parent.height - 28
-            radius: 32
+            width: root.vert ? 64 : parent.width - 28
+            height: root.vert ? parent.height - 28 : 64
+            radius: Theme.corner(32)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
 
@@ -56,8 +62,8 @@ PanelWindow {
             // the mark: a ring of dots, the center — red while something is recording
             Item {
                 id: mark
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 18
+                x: root.vert ? (parent.width - width) / 2 : 18
+                y: root.vert ? 18 : (parent.height - height) / 2
                 width: 34
                 height: 34
                 Ring { anchors.fill: parent; n: 16; dot: 3 }
@@ -66,16 +72,16 @@ PanelWindow {
                     width: 9
                     height: 9
                     radius: 4.5
-                    color: Sys.live ? Theme.red : Theme.fg
+                    color: !Sys.live ? Theme.fg : Qt.colorEqual(Theme.accent, Theme.fg) ? Theme.red : Theme.accent // monochrome: accent = fg
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.markClicked() }
             }
 
             // workspaces: the current one stretches into a white pill, occupied ones grey, empty ones — a line
-            Column {
+            Pile {
                 id: ws
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: mark.y + mark.height + 24
+                x: root.vert ? (parent.width - width) / 2 : mark.x + mark.width + 24
+                y: root.vert ? mark.y + mark.height + 24 : (parent.height - height) / 2
                 spacing: 8
 
                 Repeater {
@@ -86,31 +92,32 @@ PanelWindow {
                         readonly property int n: index + 1
                         readonly property bool occ: (Hyprland.workspaces.values.find(w => w.id === n)?.toplevels.values.length ?? 0) > 0
                         readonly property bool on: root.active === n
-                        width: 8
-                        height: on ? 28 : 8
+                        property real len: on ? 28 : 8
+                        width: root.vert ? 8 : len
+                        height: root.vert ? len : 8
                         radius: 4
                         color: on ? Theme.fg : occ ? Theme.grey : Theme.s3
-                        Behavior on height { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                        Behavior on len { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         Behavior on color { ColorAnimation { duration: Theme.t } }
                         MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.go(parent.n) }
                     }
                 }
             }
 
-            // the window title, rotated: from the workspaces to the clock
+            // the window title: from the workspaces to the clock, rotated at the side
             Item {
                 id: title
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: ws.y + ws.height + 24
-                width: 20
-                height: Math.max(0, clk.y - 24 - y)
+                x: root.vert ? (parent.width - width) / 2 : ws.x + ws.width + 24
+                y: root.vert ? ws.y + ws.height + 24 : (parent.height - height) / 2
+                width: root.vert ? 20 : Math.max(0, clk.x - 24 - x)
+                height: root.vert ? Math.max(0, clk.y - 24 - y) : 20
                 clip: true
                 visible: Theme.state.barTitle
                 Lb {
                     x: (parent.width - width) / 2
                     y: (parent.height - height) / 2
-                    width: parent.height
-                    rotation: 90
+                    width: root.vert ? parent.height : parent.width
+                    rotation: root.vert ? 90 : 0
                     elide: Text.ElideRight
                     visible: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
                     text: root.top ? `${root.top.appId.split(".").pop()} · ${root.top.title}` : ""
@@ -118,34 +125,28 @@ PanelWindow {
                 }
             }
 
-            // the clock as a column: 14 over 32 and the day. A click — calendar and focus timer (cal/Cal)
-            Column {
+            // the clock: at the side a column, 14 over 32 and the day, on top a row. A click — calendar and focus timer (cal/Cal)
+            Pile {
                 id: clk
                 anchors.centerIn: parent
                 TapHandler { onTapped: root.clockClicked() }
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
-                Num {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Theme.hh(clock.date)
-                    font.pixelSize: 30
-                }
-                Num {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: Qt.formatTime(clock.date, "mm")
-                    font.pixelSize: 30
-                }
+                Num { text: Theme.hh(clock.date); font.pixelSize: 30 }
+                Num { visible: !root.vert; text: ":"; font.pixelSize: 30 }
+                Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 30 }
                 Lb {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    topPadding: 8
+                    topPadding: root.vert ? 8 : 0
+                    leftPadding: root.vert ? 0 : 12
                     text: Qt.locale("en_US").toString(clock.date, "ddd d")
                     px: 10
                 }
             }
 
             // the tray — Theme.state.bar in order (settings, the BAR section). Layout, network, bluetooth, sound (wheel — volume),
-            // notifications, battery: a click opens quick settings. Power mode and power — their own clicks
-            Column {
-                anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 22 }
+            // notifications, battery, the running cat: a click opens quick settings. Power mode and power — their own clicks
+            Pile {
+                x: root.vert ? (parent.width - width) / 2 : parent.width - width - 22
+                y: root.vert ? parent.height - height - 22 : (parent.height - height) / 2
                 spacing: 20
 
                 Repeater {
@@ -154,7 +155,6 @@ PanelWindow {
                         id: part
                         required property string modelData
                         readonly property bool quick: modelData !== "mode" && modelData !== "power"
-                        anchors.horizontalCenter: parent.horizontalCenter
                         sourceComponent: root.parts[modelData] ?? null
                         visible: !!sourceComponent && (modelData !== "battery" || root.bat.isLaptopBattery)
                         TapHandler { enabled: part.quick; onTapped: root.trayClicked() }
@@ -164,14 +164,46 @@ PanelWindow {
             }
         }
     }
-
-    readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC })
+    readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC, cat: catC })
     Component { id: layoutC; Lb { text: Sys.layout; px: 10 } }
+    // the RunCat cat: the more cpu, the faster it runs (250 ms a frame idle, 50 at full load). cpu is polled while it's in the tray;
+    // the Binding isn't in the delegate — a destroyed one doesn't restore the value. Grey as is, lost on white in the light theme — black there, like buds
+    Component {
+        id: catC
+        AnimatedImage {
+            width: 44
+            height: 26
+            source: "runcat.gif"
+            mipmap: true
+            speed: 1 + 4 * SysStats.cpu
+            layer.enabled: Theme.light
+            layer.effect: MultiEffect { brightness: -1 }
+        }
+    }
+    Binding { target: SysStats; property: "cat"; value: Theme.state.bar.includes("cat") }
+    // network: two arcs and a dot, round ends like the battery; off — a slash
     Component {
         id: wifiC
-        Icon {
-            text: Networking.wifiEnabled ? "\u{F05A9}" : "\u{F05AA}"
-            color: root.wifi?.connected ? Theme.fg : Theme.grey
+        Shape {
+            id: wf
+            width: 20
+            height: 18
+            preferredRendererType: Shape.CurveRenderer
+            readonly property color ink: root.wifi?.connected ? Theme.fg : Theme.grey
+            ShapePath {
+                strokeColor: wf.ink; strokeWidth: 2.2; capStyle: ShapePath.RoundCap; fillColor: "transparent"
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 5.5; radiusY: 5.5; startAngle: 220; sweepAngle: 100 }
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 10.5; radiusY: 10.5; startAngle: 220; sweepAngle: 100 }
+            }
+            ShapePath {
+                strokeColor: Networking.wifiEnabled ? "transparent" : wf.ink; strokeWidth: 2.2; capStyle: ShapePath.RoundCap
+                startX: 3; startY: 2
+                PathLine { x: 17; y: 17 }
+            }
+            ShapePath {
+                strokeWidth: -1; fillColor: wf.ink
+                PathAngleArc { centerX: 10; centerY: 15; radiusX: 1.9; radiusY: 1.9; startAngle: 0; sweepAngle: 360 }
+            }
         }
     }
     Component {
@@ -195,10 +227,10 @@ PanelWindow {
             color: Notes.list.length ? Theme.fg : Theme.grey
         }
     }
-    // in the vertical bar the battery stands upright, the charge grows from the bottom. On charge — a bolt on top, the fill breathes while charging
+    // at the side the battery stands upright, the charge grows from the bottom; on top it lies down, growing from the left. On charge — a bolt first, the fill breathes while charging
     Component {
         id: batC
-        Column {
+        Pile {
             id: batc
             HoverHandler { onHoveredChanged: { root.batHot = hovered; root.peek(batc); } Component.onDestruction: root.batHot = false }
             spacing: 8
@@ -209,25 +241,26 @@ PanelWindow {
             property real phase: 0
             readonly property real pulse: charging ? 0.675 + 0.325 * Math.cos(phase * Math.PI / 1.1) : 1
             Timer { running: batc.charging; interval: 50; repeat: true; onTriggered: batc.phase = (batc.phase + 0.05) % 2.2; onRunningChanged: batc.phase = 0 }
-            Icon { visible: batc.ac; anchors.horizontalCenter: parent.horizontalCenter; text: "\u{F140B}"; font.pixelSize: 14 }
+            Icon { visible: batc.ac; text: "\u{F140B}"; font.pixelSize: 14 }
             Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: 14
-                height: 26
+                width: root.vert ? 14 : 26
+                height: root.vert ? 26 : 14
                 radius: 7
                 color: "transparent"
                 border { width: 1.5; color: Theme.grey }
                 Rectangle {
                     x: 3
-                    width: parent.width - 6
-                    height: (parent.height - 6) * root.bat.percentage
-                    anchors { bottom: parent.bottom; bottomMargin: 3 }
+                    y: parent.height - 3 - height
+                    width: root.vert ? parent.width - 6 : (parent.width - 6) * root.bat.percentage
+                    height: root.vert ? (parent.height - 6) * root.bat.percentage : parent.height - 6
                     radius: 4
                     color: root.batLow ? Theme.red : Theme.fg
                     opacity: batc.pulse
                 }
             }
-            Lb { anchors.horizontalCenter: parent.horizontalCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
+            // the width fits «100»: on top the tray is pressed right, 99 → 100 would shift everything left
+            Lb { width: full.implicitWidth; horizontalAlignment: Text.AlignHCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
+            Lb { id: full; visible: false; text: "100"; px: 10 }
         }
     }
     // power mode as notches (Rules.modes): ultra — one, performance — all; a click — the next one,
@@ -267,16 +300,17 @@ PanelWindow {
         }
     }
 
-    // ---- battery and power mode: hovered the battery or the notches — a card to the right of the bar, like caelestia's popover.
+    // ---- battery and power mode: hovered the battery or the notches — a card beside the bar (on the screen side), like caelestia's popover.
     // The charge in Doto, status, a scale; below the modes as circles with notches — a click picks, under the cursor — what it does.
     // Left both the bar and the card — it fades out ----
     property bool batHot: false
     property bool tickHot: false
     readonly property bool powHot: batHot || tickHot || popHov.hovered
     readonly property bool batLow: UPower.onBattery && root.bat.percentage < 0.15
-    // the card's bottom lines up with what was hovered (battery or notches); while visible — it doesn't jump
-    property real popY: 0
-    function peek(it) { if (!pop.visible) popY = it.mapToItem(pill, 0, it.height).y; }
+    // the card lines up with what was hovered (battery or notches): at the side its bottom to the bottom, on top its right edge to the right;
+    // while visible — it doesn't jump
+    property point popAt
+    function peek(it) { if (!pop.visible) popAt = it.mapToItem(pill, it.width, it.height); }
     property bool powOpen: false
     property int powPeek: -1
     onPowHotChanged: powHot ? powOpenT.restart() : powCloseT.restart()
@@ -293,11 +327,11 @@ PanelWindow {
         property real t: root.powOpen ? 1 : 0
         Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
         visible: t > 0
-        // from the bar pill toward the screen with a 14 gap; the bottom — at popY, grows upward
+        // from the inner edge of the bar pill with a 14 gap; at the side it grows up from popAt, on top — down and to the left
         anchor.item: pill
-        anchor.rect: Qt.rect(root.right_ ? -14 : pill.width + 14, root.popY, 1, 1)
+        anchor.rect: root.vert ? Qt.rect(root.right_ ? -14 : pill.width + 14, root.popAt.y, 1, 1) : Qt.rect(root.popAt.x, pill.height + 14, 1, 1)
         anchor.edges: Edges.Top | Edges.Left
-        anchor.gravity: Edges.Top | (root.right_ ? Edges.Left : Edges.Right)
+        anchor.gravity: root.vert ? Edges.Top | (root.right_ ? Edges.Left : Edges.Right) : Edges.Bottom | Edges.Left
         implicitWidth: Math.ceil(440 * Theme.s)
         implicitHeight: Math.ceil(card.height * Theme.s)
         color: "transparent"
@@ -307,11 +341,11 @@ PanelWindow {
                 id: card
                 width: 440
                 height: body.height + 52
-                radius: 36
+                radius: Theme.corner(36)
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
                 opacity: pop.t
-                transform: Translate { x: (root.right_ ? 16 : -16) * (1 - pop.t) }
+                transform: Translate { x: root.vert ? (root.right_ ? 16 : -16) * (1 - pop.t) : 0; y: root.vert ? 0 : -16 * (1 - pop.t) }
                 HoverHandler { id: popHov }
 
                 Column {

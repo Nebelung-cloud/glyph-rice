@@ -3,7 +3,7 @@
 #   rice                the current one
 #   rice list           all shells: folders in ~/.config/quickshell with rice.json
 #   rice start          start the current one (hypr on startup)
-#   rice restart|kill   restart / stop the current one
+#   rice restart|kill   restart (hypr too) / stop the current one
 #   rice switch <name>  stop the current one, return hypr to its config, start another
 #   rice lock           lock with the current shell (bind, hypridle, power menu)
 q=$HOME/.config/quickshell
@@ -82,7 +82,7 @@ case $1 in
     "") echo "$cur" ;;
     list) for f in "$q"/*/rice.json; do basename "$(dirname "$f")"; done ;;
     start) [ -n "$(pids "$cur")" ] && exit 0; mkdir -p "$state"; term "$cur" login; exec qs -p "$q/$cur" -d ;;
-    restart) term "$cur"; stop "$cur"; exec qs -p "$q/$cur" -d ;;
+    restart) term "$cur"; stop "$cur"; hyprctl reload >/dev/null; exec qs -p "$q/$cur" -d ;; # the reload also clears a stuck hypr error bar
     kill) stop "$cur" ;;
     switch)
         [ -f "$q/$2/rice.json" ] || { echo "rice: no shell «$2»" >&2; exit 1; }

@@ -49,6 +49,7 @@ PanelWindow {
 
     Stage {
         id: stage
+        x: Theme.state.barAt === "top" ? -39 * Theme.s : 0 // the layout is for a bar on the left; a bar on top — half its width to the left, centered
 
         Row {
             x: 182
@@ -95,7 +96,7 @@ PanelWindow {
                     if (c + w > 3) { r++; c = 0; }
                     if (r > 2) break;
                     // bar on the right — the grid moves left by the bar's width, otherwise the right column would go under it
-                    out.push({ id, x: (Theme.state.barRight ? 1060 : 1140) + c * 240, y: 150 + r * 240 });
+                    out.push({ id, x: (Theme.barRight ? 1060 : 1140) + c * 240, y: 150 + r * 240 });
                     c += w;
                 }
                 return out;
@@ -247,33 +248,13 @@ PanelWindow {
             }
         }
 
-        // the cat: the gif as a matrix in the theme's tone via the wallpaper shader (like Wall in look 0). Dances only while home is visible
+        // the cat: a gif as a matrix in the theme's tone via the wallpaper shader (like Wall in look 0), which one — services/Gifs, the tile itself — Gif.
+        // Dances only while home is visible
         Component {
             id: catW
             W {
                 id: cw
-                AnimatedImage { id: cat; anchors.fill: fx; opacity: 0; source: "cat.gif"; playing: root.home && !Theme.state.lite } // the texture for fx, see Wall
-                ShaderEffect {
-                    id: fx
-                    anchors { fill: parent; margins: 12 }
-                    readonly property size size: Qt.size(width, height)
-                    readonly property point origin: Qt.point(0, 0)
-                    readonly property size cropA: Qt.size(1, 1)
-                    readonly property size cropB: cropA
-                    readonly property color lo: Theme.light ? Theme.fg : Theme.bg
-                    readonly property color hi: Theme.light ? Theme.bg : Theme.fg
-                    readonly property color bg: cw.color // transparency in the gif — in the tile's color
-                    readonly property real pitch: 6
-                    readonly property real dots: 1
-                    readonly property real mono: 1
-                    readonly property real bright: 1
-                    readonly property real wave: 0
-                    readonly property real hasA: cat.status === Image.Ready ? 1 : 0
-                    readonly property real hasB: 0
-                    readonly property var srcA: cat
-                    readonly property var srcB: cat
-                    fragmentShader: Qt.resolvedUrl("../components/shaders/wall.frag.qsb")
-                }
+                Gif { anchors.fill: parent; playing: root.home && !Theme.state.lite; bg: cw.color }
             }
         }
 
@@ -400,7 +381,7 @@ PanelWindow {
         property bool round
         width: span * 220 + (span - 1) * 20
         height: 220
-        radius: round ? 110 : 40
+        radius: round ? 110 : Theme.corner(40)
         color: Theme.s1
         border { width: 1; color: Theme.s2 }
     }

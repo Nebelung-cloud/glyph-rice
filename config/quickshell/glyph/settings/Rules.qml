@@ -176,13 +176,15 @@ Singleton {
         stdout: StdioCollector { onStreamFinished: root.canHibernate = text.includes('"yes"') }
     }
     // hypridle doesn't reload its config on the fly: we write ours and restart it. Same text and hypridle alive — leave it,
-    // so a shell reload doesn't reset the idle counter
+    // so a shell reload doesn't reset the idle counter. inhibit_sleep = 3 — sleep waits until the lock is up (hypridle itself
+    // only waits like that for hyprlock): otherwise the lock falls asleep half-started, and on wake the monitors blink — a monitor that
+    // drops in the first ~0.5 s of the lock's life kills qs (#5)
     function idle() {
         idleDone = true;
         const s = store, dpms = a => `hyprctl dispatch 'hl.dsp.dpms({action = "${a}"})'`;
         const at = (min, on, back) => min ? `\nlistener {\n    timeout = ${min * 60}\n    on-timeout = ${on}${back ? `\n    on-resume = ${back}` : ""}\n}\n` : "";
         const conf = "# demonshot: written by Rules.idle() from rules.json, don't edit by hand\n"
-            + "general {\n    lock_cmd = ~/.config/quickshell/rice/rice lock\n"
+            + "general {\n    lock_cmd = ~/.config/quickshell/rice/rice lock\n    inhibit_sleep = 3\n"
             + `    before_sleep_cmd = loginctl lock-session\n    after_sleep_cmd = ${dpms("on")}\n}\n`
             + at(s.lockAfter, "loginctl lock-session") + at(s.dpmsAfter, dpms("off"), dpms("on"))
             + at(s.sleepAfter, hibernateOn ? "systemctl suspend-then-hibernate" : "systemctl suspend");

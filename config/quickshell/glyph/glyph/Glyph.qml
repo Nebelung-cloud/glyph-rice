@@ -40,7 +40,7 @@ Scope {
 
     // ---- where the lights glow: at the edges (by default) or as a pill in the island at the top — Theme.state.glyphLights. A bar on the right takes
     // the right edge, then volume/brightness are always in the island. Volume outranks progress: it's for 3 s, progress can wait ----
-    readonly property bool volIsland: Theme.state.glyphLights === 1 || Theme.state.barRight
+    readonly property bool volIsland: Theme.state.glyphLights === 1 || Theme.barRight
     readonly property bool progIsland: Theme.state.glyphLights === 1
     readonly property bool liveVol: root.volShown && root.volIsland
     readonly property bool liveProg: root.busy && root.progIsland && !root.liveVol
@@ -172,6 +172,7 @@ Scope {
         id: top
         shown: !!root.note && Theme.state.edges
         anchors.top: true
+        margins.top: Theme.state.barAt === "top" ? Math.ceil(78 * Theme.s) : 0 // under the bar
         implicitWidth: Math.ceil(640 * Theme.s)
         implicitHeight: Math.ceil(30 * Theme.s)
         Seg {
@@ -200,6 +201,7 @@ Scope {
     PanelWindow {
         visible: stack.count > 0
         anchors.top: true
+        margins.top: Theme.state.barAt === "top" ? Math.ceil(78 * Theme.s) : 0 // under the bar
         implicitWidth: Math.ceil(600 * Theme.s)
         implicitHeight: Math.ceil((24 + root.most * 132) * Theme.s)
         exclusionMode: ExclusionMode.Ignore
@@ -250,7 +252,7 @@ Scope {
                             x: (600 - width) / 2
                             y: -24 * (1 - c.drop)
                             opacity: c.drop
-                            radius: Math.min(34, height / 2)
+                            radius: Theme.corner(Math.min(34, height / 2))
                             clip: true
                             color: Theme.s1
                             border { width: 1; color: c.crit ? Theme.red : Theme.fg }
@@ -307,8 +309,8 @@ Scope {
                                         color: Theme.grey
                                     }
                                 }
-                                // the red dot — only on the newest one: there's one red thing on screen
-                                Rectangle { id: dot; visible: c.index === 0; anchors { right: parent.right; rightMargin: 22; verticalCenter: parent.verticalCenter } width: 12; height: 12; radius: 6; color: Theme.red }
+                                // the accent dot — only on the newest one: there's one accent thing on screen
+                                Rectangle { id: dot; visible: c.index === 0; anchors { right: parent.right; rightMargin: 22; verticalCenter: parent.verticalCenter } width: 12; height: 12; radius: 6; color: Theme.accent }
                             }
 
                             // a click — the default action; the card leaves, it stays in the history. The notification may already be closed —
@@ -452,7 +454,7 @@ Scope {
         property bool vertical
         width: vertical ? Math.max(52, box.width + 24) : box.width + 32
         height: vertical ? box.height + 36 : 52
-        radius: Math.min(width, height) / 2
+        radius: Theme.corner(Math.min(width, height) / 2)
         color: Theme.s1
         border { width: 1; color: Theme.s2 }
         Grid {

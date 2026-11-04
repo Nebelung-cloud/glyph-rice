@@ -75,7 +75,7 @@ PanelWindow {
                         width: 30
                         height: 30
                         radius: 15
-                        color: Theme.red
+                        color: Theme.accent
                     }
                     Grow { text: it.modelData[0]; on: it.on; big: 168; small: 66; anchors.verticalCenter: parent.verticalCenter }
                     HoverHandler { onHoveredChanged: if (hovered) root.sel = it.index }

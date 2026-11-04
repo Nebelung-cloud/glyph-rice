@@ -43,8 +43,8 @@ PanelWindow {
     Connections { target: root; function onVisibleChanged() { if (!root.visible) root.mapped = false; } }
     property real t: open && mapped ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-    // the side — opposite the bar: bar on the right (Theme.state.barRight) — the panel and its edge on the left. m — the edge offset, slides in
-    readonly property bool left_: Theme.state.barRight
+    // the side — opposite the bar: bar on the right (Theme.barRight) — the panel and its edge on the left. m — the edge offset, slides in
+    readonly property bool left_: Theme.barRight
     readonly property real m: 14 - 24 * (1 - t)
 
     visible: t > 0 || open
@@ -92,7 +92,7 @@ PanelWindow {
                 width: 470
                 height: col.height + 44
                 opacity: root.t
-                radius: 36
+                radius: Theme.corner(36)
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
                 focus: true
@@ -169,7 +169,7 @@ PanelWindow {
                             id: anc
                             width: parent.width
                             height: 54
-                            radius: 27
+                            radius: Theme.corner(27)
                             color: Theme.s2
                             readonly property real cell: (width - 12) / Sys.ancModes.length
                             readonly property int at: Sys.ancModes.findIndex(m => m[0] === Sys.ear?.mode)
@@ -211,7 +211,7 @@ PanelWindow {
                         Tile { icon: on ? "\u{F036C}" : "\u{F036D}"; name: "mic"; on: Sys.micOn; onClicked: Sys.toggleMic() }
                         Tile { icon: "\u{F044A}"; name: "record"; on: Sys.rec; picked: root.pick === "rec"; onClicked: { root.close(); Sys.toggleRec(); } onMenu: root.pick = picked ? "" : "rec" }
                         Tile { icon: "\u{F0483}"; name: "vpn"; on: Sys.vpn; onClicked: Sys.toggleVpn() }
-                        Tile { icon: "\u{F050E}"; name: "dark"; on: !Theme.light; onClicked: Theme.state.light = !Theme.state.light }
+                        Tile { icon: "\u{F050E}"; name: "dark"; on: !Theme.light; onClicked: Theme.setLight(!Theme.light) }
                     }
 
                     Rec { width: parent.width; visible: root.pick === "rec"; onTouched: root.pin(); onStart: { root.close(); Sys.toggleRec(); } }
@@ -229,7 +229,7 @@ PanelWindow {
                             id: modes
                             width: parent.width - game.width - 12
                             height: 54
-                            radius: 27
+                            radius: Theme.corner(27)
                             color: Theme.s2
                             readonly property real cell: (width - 12) / Rules.modeCount
                             Rectangle {
@@ -293,7 +293,7 @@ PanelWindow {
                         visible: !!Media.player
                         width: parent.width
                         height: 86
-                        radius: 30
+                        radius: Theme.corner(30)
                         color: Theme.s2
                         Art { id: mart; x: 12; anchors.verticalCenter: parent.verticalCenter; width: 62; height: 62; step: 4; url: Media.player?.trackArtUrl ?? "" }
                         Column {
@@ -333,7 +333,7 @@ PanelWindow {
                             readonly property var n: modelData
                             width: notes.width
                             height: body.height + 32
-                            radius: 26
+                            radius: Theme.corner(26)
                             color: Theme.s2
                             border { width: n.urgency === NotificationUrgency.Critical ? 1 : 0; color: Theme.red }
 
@@ -424,7 +424,7 @@ PanelWindow {
         signal clicked
         width: (col.width - 12) / 2
         height: 76
-        radius: 38
+        radius: Theme.corner(38)
         color: on ? Theme.fg : Theme.s2
         Behavior on color { ColorAnimation { duration: Theme.t } }
         Rectangle {
@@ -496,7 +496,7 @@ PanelWindow {
         readonly property real shown: area.pressed ? area.v : value
         width: col.width
         height: 54
-        radius: 27
+        radius: Theme.corner(27)
         color: Theme.s2
         // the empty part — dots at a step of 11. Not as an svg tile: it rasterizes at 11px and blurs with the canvas scale
         Row {
@@ -511,7 +511,7 @@ PanelWindow {
         Rectangle {
             width: Math.max(height, sl.width * sl.shown)
             height: parent.height
-            radius: 27
+            radius: Theme.corner(27)
             color: Theme.fg
             Icon { x: 18; anchors.verticalCenter: parent.verticalCenter; text: sl.icon; font.pixelSize: 21; color: Theme.ink }
         }
@@ -519,7 +519,7 @@ PanelWindow {
             anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
             width: val.width + 16
             height: val.height + 8
-            radius: 10
+            radius: Theme.corner(10)
             color: Theme.s2
             Lb { id: val; anchors.centerIn: parent; text: Math.round(sl.shown * 100) }
         }

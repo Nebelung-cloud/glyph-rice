@@ -3,6 +3,7 @@
 #   ./install.sh                   packages + services + symlinks; asks what else from EXTRA to install
 #   ./install.sh --with telegram   the same without asking (--with "" — just the rice itself)
 #   ./install.sh --links           symlinks only (on an already set-up system)
+#   ./install.sh --sddm            only the sddm login theme (sudo); run again after edits in config/sddm
 set -euo pipefail
 
 DOTS="$(cd "$(dirname "$0")" && pwd)"
@@ -137,15 +138,33 @@ links() {
     gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
 }
 
+greeter() { # login theme. A copy, not a link: the sddm user can't read a private $HOME. fonts in the theme link to config/fonts, -L copies the files themselves
+    say "sddm: glyph theme"
+    [ -d /usr/share/sddm/themes ] || { say "sddm isn't installed — nowhere to put the theme"; return 0; }
+    # rm: files removed from the repo don't linger in the theme; chmod: under umask 077 the copy would come out 600 and sddm couldn't read it
+    sudo rm -rf /usr/share/sddm/themes/glyph
+    sudo cp -rLT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
+    sudo chmod -R a+rX /usr/share/sddm/themes/glyph
+    # InputMethod empty: sddm's default is qtvirtualkeyboard, and with this theme a full-screen on-screen keyboard pops up
+    sudo mkdir -p /etc/sddm.conf.d
+    # zz-: conf.d files are read alphabetically and the next overrides — ours last, over others (astronaut's virtualkbd.conf)
+    printf '[Theme]\nCurrent=glyph\n\n[General]\nInputMethod=\n' | sudo tee /etc/sddm.conf.d/zz-glyph.conf >/dev/null
+    # /etc/sddm.conf outranks conf.d
+    if grep -qsE '^\s*Current=' /etc/sddm.conf && ! grep -qsE '^\s*Current=glyph\s*$' /etc/sddm.conf; then
+        say "/etc/sddm.conf sets its own theme and outranks this: set Current=glyph there"
+    fi
+}
+
 [ "$EUID" -eq 0 ] && { echo "run as your user, sudo will ask by itself"; exit 1; }
 
 case "${1:-}" in
     --links) links ;; # on any distro (NixOS, Fedora…): packages are then your own, the list is in the README
+    --sddm) greeter ;;
     ""|--with) command -v pacman >/dev/null || { echo "I only install packages on Arch; on another distro: $0 --links"; exit 1; }
         [ "${1:-}" = --with ] && WITH="${*:2}" # comma- or space-separated
         extras; packages; services; links
         # spicetify needs an already downloaded Spotify logged into an account, so there's nothing to apply before the first launch
         [[ " ${WITH//,/ } " == *" spotify "* ]] && say "spotify: launch it, log in, then spicetify config custom_apps marketplace && spicetify backup apply"
-        say "done. reboot and pick Hyprland in sddm" ;;
-    *) echo "usage: $0 [--with telegram,spotify,clash | --links]"; exit 1 ;;
+        say "done. reboot and log in to Hyprland" ;;
+    *) echo "usage: $0 [--with telegram,spotify,clash | --links | --sddm]"; exit 1 ;;
 esac

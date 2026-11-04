@@ -163,7 +163,7 @@ WlSessionLockSurface {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: 58 + (380 - 58) * root.ph(0.5, 0.9) // grows from a dot into a pill
                 height: 58
-                radius: 29
+                radius: Theme.corner(29)
                 opacity: root.ph(0.45, 0.6)
                 color: Theme.s1
                 border { width: 1; color: root.auth.fail ? Theme.red : Theme.s3 }
@@ -187,7 +187,7 @@ WlSessionLockSurface {
                             NumberAnimation on scale { from: 0.2; to: 1; duration: 180; easing.type: Easing.OutCubic }
                         }
                     }
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 2; height: 24; color: Theme.red; opacity: root.blink ? 1 : 0 }
+                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 2; height: 24; color: Theme.accent; opacity: root.blink ? 1 : 0 }
                     Repeater {
                         model: Math.max(0, 6 - root.auth.buffer.length)
                         Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 11; height: 11; radius: 5.5; color: Theme.s3 }

@@ -254,7 +254,7 @@ PanelWindow {
             width: 1040
             height: 760
             opacity: root.t
-            radius: 44
+            radius: Theme.corner(44)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
             focus: true
@@ -293,7 +293,7 @@ PanelWindow {
                             width: 18
                             height: 18
                             radius: 9
-                            color: root.live ? Theme.red : Theme.s3
+                            color: root.live ? Theme.accent : Theme.s3
                             Behavior on color { ColorAnimation { duration: Theme.t } }
                         }
                         Num {
@@ -325,7 +325,7 @@ PanelWindow {
                     id: modeBox
                     width: 340
                     height: 58
-                    radius: 29
+                    radius: Theme.corner(29)
                     color: Theme.s2
                     readonly property real cw: (width - 12) / 3
                     Rectangle {
@@ -334,7 +334,7 @@ PanelWindow {
                         visible: root.mode >= 0
                         width: modeBox.cw
                         height: 46
-                        radius: 23
+                        radius: Theme.corner(23)
                         color: Theme.fg
                         Behavior on x { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                     }
@@ -444,7 +444,7 @@ PanelWindow {
                         readonly property bool on: !!w.on
                         width: list.width
                         height: 52
-                        radius: 26
+                        radius: Theme.corner(26)
                         color: on ? Theme.fg : index === root.cur ? Theme.s2 : Theme.fade(Theme.s2, 0)
                         Behavior on color { ColorAnimation { duration: Theme.t } }
 
@@ -528,7 +528,7 @@ PanelWindow {
         signal clicked
         width: 164
         height: 76
-        radius: 38
+        radius: Theme.corner(38)
         color: on ? Theme.fg : Theme.s2
         Behavior on color { ColorAnimation { duration: Theme.t } }
         Rectangle {

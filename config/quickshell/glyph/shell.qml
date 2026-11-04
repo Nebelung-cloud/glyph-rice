@@ -69,6 +69,7 @@ ShellRoot {
     // motion, night light and hypridle; on top Theme.apply — its own border colors, rounding and kitty. We call it on a theme change too
     Component.onCompleted: {
         hypr();
+        Theme.apps(); // rice start puts the links back on term/ — the color has to return; waits for the login to settle
         Rules.night();
         Rules.idle();
         Theme.liteFlag();
@@ -93,7 +94,24 @@ ShellRoot {
     // the palette changed — theme, wallpaper, color from the wallpaper: repaint hypr, kitty and the apps. callLater — one repaint per turn
     Connections {
         target: Theme
-        function onPChanged() { Qt.callLater(Theme.apply); }
+        function onGreysChanged() { paint.restart(); }
+    }
+    // the theme or color changed (style, a new wallpaper) — windows, kitty, gtk and qt. After 300 ms: a new wallpaper's tones
+    // don't arrive at once, and gtk shouldn't be poked twice
+    Timer { id: paint; interval: 300; onTriggered: { Theme.apply(); Theme.apps(); } }
+    // the wallpaper's tones (Theme.pick) — here, not in Theme: the lock loads it too, and the ready ones in glyph.json are enough
+    // for it. Empty — the wallpaper copy didn't load (greys give 16 colors): the old tones stay. A new wallpaper starts on the first tone
+    ColorQuantizer {
+        source: Theme.url(Theme.wallSrc(Theme.state.wall))
+        depth: 4
+        rescaleSize: 64
+        onColorsChanged: {
+            if (!colors.length) return;
+            const t = Theme.pick(colors);
+            if (t.join() === Theme.state.tones.join()) return;
+            Theme.state.tones = t;
+            Theme.state.paintAt = 0;
+        }
     }
     Connections {
         target: Theme.state

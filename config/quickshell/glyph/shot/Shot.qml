@@ -210,8 +210,8 @@ Scope {
                         x: 2
                         anchors.bottom: parent.bottom
                         spacing: 10
-                        // recording — a red dot: the only «live» thing on screen
-                        Rectangle { visible: root.mode === 3; anchors.verticalCenter: parent.verticalCenter; width: 10; height: 10; radius: 5; color: Theme.red }
+                        // recording — an accent dot: the only «live» thing on screen
+                        Rectangle { visible: root.mode === 3; anchors.verticalCenter: parent.verticalCenter; width: 10; height: 10; radius: 5; color: Theme.accent }
                         Lb { text: root.modes[root.mode]; color: Theme.fg }
                     }
                     Row {
@@ -370,7 +370,7 @@ Scope {
                 width: root.shotRect.width + o * 2
                 height: root.shotRect.height + o * 2
                 color: root.shotRec ? "transparent" : Theme.fade(Theme.fg, 0.12)
-                border { width: 2; color: root.shotRec ? Theme.red : Theme.fg }
+                border { width: 2; color: root.shotRec ? Theme.accent : Theme.fg }
                 layer.enabled: fired.visible && !root.shotRec
                 layer.effect: MultiEffect {
                     shadowEnabled: true
@@ -392,7 +392,7 @@ Scope {
                 opacity: t
                 width: 360
                 height: col.height + 32
-                radius: 40
+                radius: Theme.corner(40)
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
 
@@ -424,7 +424,7 @@ Scope {
                     }
                     Lb { x: 8; text: "copied · click to edit"; px: 10; color: Theme.mute }
                 }
-                Rectangle { id: thumbMask; width: 328; height: 184; radius: 24; visible: false; layer.enabled: true }
+                Rectangle { id: thumbMask; width: 328; height: 184; radius: Theme.corner(24); visible: false; layer.enabled: true }
 
                 TapHandler { onTapped: { fx.stop(); fired.visible = false; editor.open(root.shot, root.scr); } }
                 HoverHandler { cursorShape: Qt.PointingHandCursor }

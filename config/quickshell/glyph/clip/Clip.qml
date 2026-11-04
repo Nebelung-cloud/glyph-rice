@@ -155,7 +155,7 @@ PanelWindow {
             width: 1120
             height: Math.min(stage.height - 280, 760)
             opacity: root.t
-            radius: 44
+            radius: Theme.corner(44)
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
             MouseArea { anchors.fill: parent }
@@ -167,7 +167,7 @@ PanelWindow {
                 y: 30
                 width: parent.width - 68
                 height: 66
-                radius: 33
+                radius: Theme.corner(33)
                 color: Theme.s2
 
                 Icon { id: lens; x: 24; anchors.verticalCenter: parent.verticalCenter; text: "\u{F0349}"; color: Theme.grey; font.pixelSize: 22 }
@@ -181,7 +181,7 @@ PanelWindow {
                     clip: true
                     cursorDelegate: Rectangle {
                         width: 2
-                        color: Theme.red
+                        color: Theme.accent
                         Timer { running: input.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
                     }
                     Text {
@@ -249,7 +249,7 @@ PanelWindow {
             Rectangle {
                 id: card
                 anchors { left: rows.right; leftMargin: 24; right: parent.right; rightMargin: 34; top: head.top; bottom: parent.bottom; bottomMargin: 34 }
-                radius: 40
+                radius: Theme.corner(40)
                 color: Theme.s2
 
                 Lb { id: kindLb; x: 30; y: 30; text: root.cur ? `${root.cur.type} · ${root.sel + 1} of ${root.view.length}` : "" }
@@ -289,7 +289,7 @@ PanelWindow {
         readonly property bool on: root.sel === index
         width: rows.width
         height: 64
-        radius: 32
+        radius: Theme.corner(32)
         color: on ? Theme.fg : "transparent"
 
         Rectangle {

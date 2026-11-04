@@ -15,7 +15,7 @@ Rectangle {
     readonly property real seg: 104
     width: head.width + opts.length * seg + 8
     height: 64
-    radius: 32
+    radius: Theme.corner(32)
     color: Theme.s2
     border { width: activeFocus ? 1 : 0; color: Theme.fg }
     activeFocusOnTab: true
