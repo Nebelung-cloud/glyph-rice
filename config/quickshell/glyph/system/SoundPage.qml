@@ -17,6 +17,32 @@ Page {
     // a node's volume is visible only while it's tracked
     PwObjectTracker { objects: root.live ? root.nodes : [] }
 
+    // a live level, only while the page is on screen: no node — no capture stream. Peak is ∛amplitude, so −60…0 dB → 1 + log10(peak). It jumps
+    // up and falls back slowly on the timer so a word stays readable: in silence peak sits at 0 and peakChanged never fires.
+    // From Nebelung-cloud/glyph-rice dev (prefs/Audio.qml)
+    component Meter: Row {
+        id: meter
+        property var node
+        spacing: 7
+        leftPadding: 8
+        PwNodePeakMonitor { id: peak; node: root.live ? meter.node : null; onNodeChanged: meter.lv = 0 }
+        readonly property real at: Math.max(0, Math.min(1, 1 + Math.log10(peak.peak)))
+        property real lv: 0
+        onAtChanged: lv = Math.max(lv, at)
+        Timer { interval: 33; repeat: true; running: root.live && meter.lv > 0; onTriggered: meter.lv = Math.max(meter.at, meter.lv - 0.03) }
+        Repeater {
+            model: 24
+            Rectangle {
+                required property int index
+                width: 7
+                height: 7
+                radius: 3.5
+                // the last two — close to clipping
+                color: meter.lv * 24 <= index ? Theme.s3 : index >= 22 ? Theme.red : Theme.fg
+            }
+        }
+    }
+
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var src: Pipewire.defaultAudioSource
     function label(n) { return n.description || n.nickname || n.name; }
@@ -56,6 +82,8 @@ Page {
                 }
             }
             Item { width: 1; height: 10 }
+            Meter { node: root.sink }
+            Item { width: 1; height: 6 }
             Level {
                 visible: !!root.sink?.audio
                 icon: root.sink?.audio?.muted ? "\u{F075F}" : "\u{F057E}"
@@ -87,6 +115,8 @@ Page {
                 }
             }
             Item { width: 1; height: 10 }
+            Meter { node: root.src }
+            Item { width: 1; height: 6 }
             Level {
                 visible: !!root.src?.audio
                 icon: root.src?.audio?.muted ? "\u{F036D}" : "\u{F036C}"
