@@ -220,6 +220,14 @@ Singleton {
             property bool atmosphere: false // lock: the wallpaper in a haze, clearing up on unlock
             property int wallRib: 28       // rib width, px
             property int wallBend: 50      // %, rib bend
+            property bool wallPulse: false // the wallpaper swells with the music's bass; starts cava, so it's off until asked for (wall picker → beat)
+            property bool homeClock: true  // home shows the clock and date (prefs → LOOK → on home)
+            property bool homeHello: true  // … the greeting and the line under it
+            property bool homeBento: true  // … the widgets
+            property bool lockHideLen: false // lock: three fixed dots while typing, the password's length doesn't show
+            property bool lockOneScreen: false // lock: the full lock only on the screen in focus, the others go plain
+            property bool autoGame: true   // a fullscreen game turns on game mode and do not disturb (services/Game)
+            property var gameAuto: null    // services/Game — what game mode and dnd were before it, null when it's not holding them
             property string gif: ""        // the gif tile on home (services/Gifs), a path; empty — the first in the folder
             property string gifDir: ""     // empty — ~/Pictures/Gifs
             property int rounding: 20      // hypr windows
@@ -234,6 +242,7 @@ Singleton {
             // left, right or top; calendar, battery card, home, island and the Glyph flash follow it. On the right quick settings and
             // their hot edge move left, volume/brightness — into the island (the right edge is taken)
             property string barAt: "left"
+            property var barHide: []       // screen names where the bar auto-hides (experimental), see bar/Bar.qml
             property bool barRight: false  // older setting, moved to barAt by migrate()
             property int glyphLights: 0    // where volume/brightness and progress light up: 0 at the edges, 1 in the island at the top
             // workspaces (System → workspaces, the count — also in the overview): how many per group of ten, whether ±1 wraps,

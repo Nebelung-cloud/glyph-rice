@@ -673,15 +673,17 @@ PanelWindow {
                     Row {
                         x: 60
                         y: 52
+                        visible: Theme.state.homeClock
                         Num { id: hrs; text: Theme.hh(clock.date); font.pixelSize: 120 }
                         Num { text: ":"; font.pixelSize: 120; opacity: Theme.state.blink && look.dim ? 0.2 : 1 }
                         Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 120 }
                         Lb { visible: !Theme.state.clock24; anchors.baseline: hrs.baseline; leftPadding: 12; text: clock.date.getHours() < 12 ? "am" : "pm" }
                     }
-                    Lb { x: 64; y: 172; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 11 }
+                    Lb { x: 64; y: 172; visible: Theme.state.homeClock; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 11 }
                     Text {
                         x: 62
                         y: 232
+                        visible: Theme.state.homeHello
                         textFormat: Text.StyledText
                         text: `${root.hello},<br><font color="${Theme.grey}">${root.who}.</font>`
                         font { family: Theme.ui; pixelSize: 30; weight: Font.Light }
@@ -701,7 +703,6 @@ PanelWindow {
                     Toggle { width: 200; text: "24 hours"; on: Theme.state.clock24; onFlip: Theme.state.clock24 = !Theme.state.clock24 }
                     Toggle { width: 200; text: "blink"; on: Theme.state.blink; onFlip: Theme.state.blink = !Theme.state.blink }
                     Toggle { width: 200; text: "edges"; on: Theme.state.edges; onFlip: Theme.state.edges = !Theme.state.edges }
-                    Toggle { width: 200; text: "atmosphere"; on: Theme.state.atmosphere; onFlip: Theme.state.atmosphere = !Theme.state.atmosphere }
                     Toggle { width: 200; text: "lights in island"; on: Theme.state.glyphLights === 1; onFlip: Theme.state.glyphLights = Theme.state.glyphLights === 1 ? 0 : 1 }
                     Act {
                         icon: "\u{F02E9}"
@@ -711,6 +712,31 @@ PanelWindow {
                             root.wallRequested();
                         }
                     }
+                }
+
+                // what home shows, and the lock
+                Column {
+                    spacing: 14
+                    readonly property bool all: Theme.state.homeClock && Theme.state.homeHello && Theme.state.homeBento
+                    Lb { x: 22; bottomPadding: 4; text: "on home" }
+                    Toggle { width: 200; text: "clock"; on: Theme.state.homeClock; onFlip: Theme.state.homeClock = !Theme.state.homeClock }
+                    Toggle { width: 200; text: "greeting"; on: Theme.state.homeHello; onFlip: Theme.state.homeHello = !Theme.state.homeHello }
+                    Toggle { width: 200; text: "widgets"; on: Theme.state.homeBento; onFlip: Theme.state.homeBento = !Theme.state.homeBento }
+                    Toggle {
+                        width: 200
+                        text: "all"
+                        on: parent.all
+                        onFlip: {
+                            const v = !parent.all;
+                            Theme.state.homeClock = v;
+                            Theme.state.homeHello = v;
+                            Theme.state.homeBento = v;
+                        }
+                    }
+                    Lb { x: 22; topPadding: 12; bottomPadding: 4; text: "on the lock" }
+                    Toggle { width: 200; text: "atmosphere"; on: Theme.state.atmosphere; onFlip: Theme.state.atmosphere = !Theme.state.atmosphere }
+                    Toggle { width: 200; text: "hide length"; on: Theme.state.lockHideLen; onFlip: Theme.state.lockHideLen = !Theme.state.lockHideLen }
+                    Toggle { width: 200; text: "one screen"; on: Theme.state.lockOneScreen; onFlip: Theme.state.lockOneScreen = !Theme.state.lockOneScreen }
                 }
             }
 

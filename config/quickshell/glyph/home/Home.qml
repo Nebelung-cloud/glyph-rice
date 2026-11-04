@@ -23,7 +23,7 @@ PanelWindow {
     readonly property bool home: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) === 0
     Binding { target: SysStats; property: "detailed"; value: root.home || Sys.deckOpen }
     // not in the delegate: a destroyed Binding doesn't restore the value — the widget removed, and cava would run forever
-    Binding { target: Cava; property: "active"; value: root.home && !Theme.state.lite && bento.model.some(w => w.id === "cava") }
+    Binding { target: Cava; property: "active"; value: root.home && !Theme.state.lite && Theme.state.homeBento && bento.model.some(w => w.id === "cava") }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
     readonly property var en: Qt.locale("en_US")
@@ -51,35 +51,46 @@ PanelWindow {
         id: stage
         x: Theme.state.barAt === "top" ? -39 * Theme.s : 0 // the layout is for a bar on the left; a bar on top — half its width to the left, centered
 
-        Row {
-            x: 182
-            y: 150
-            Num { text: Theme.hh(clock.date); font.pixelSize: 300 }
-            Num { text: ":"; font.pixelSize: 300; opacity: Theme.state.blink && root.dim ? 0.2 : 1 }
-            Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 300 }
+        // the clock and date, the greeting and its line can each be hidden (prefs → LOOK → on home); they fade
+        Item {
+            opacity: Theme.state.homeClock ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+            Row {
+                x: 182
+                y: 150
+                Num { text: Theme.hh(clock.date); font.pixelSize: 300 }
+                Num { text: ":"; font.pixelSize: 300; opacity: Theme.state.blink && root.dim ? 0.2 : 1 }
+                Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 300 }
+            }
+            Lb {
+                x: 190
+                y: 448
+                text: `${root.en.toString(clock.date, "dddd · d MMMM")} · week ${root.week(clock.date)}`
+                px: 14
+            }
         }
-        Lb {
-            x: 190
-            y: 448
-            text: `${root.en.toString(clock.date, "dddd · d MMMM")} · week ${root.week(clock.date)}`
-            px: 14
-        }
-        Text {
-            x: 188
-            y: 560
-            textFormat: Text.StyledText
-            text: `${root.hello},<br><font color="${Theme.grey}">${Theme.state.name || Quickshell.env("USER")}.</font>`
-            font { family: Theme.ui; pixelSize: 54; weight: Font.Light; letterSpacing: -1 }
-            lineHeight: 1.1
-            color: Theme.fg
-        }
-        Row {
-            x: 190
-            y: 700
-            spacing: 28
-            Meta { icon: "\u{F009A}"; text: `${Notes.list.length} notifications` }
-            Meta { visible: Weather.ok; icon: Weather.glyph(Weather.now?.code ?? 0, Weather.now?.day); text: `${Math.round(Weather.now?.temp ?? 0)}° ${Weather.name(Weather.now?.code)}` }
-            Meta { visible: !!root.buds; icon: "\u{F02CB}"; text: `${root.buds?.name ?? ""} · ${Math.round((root.buds?.battery ?? 0) * 100)}%` }
+        Item {
+            opacity: Theme.state.homeHello ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+            Text {
+                x: 188
+                y: 560
+                textFormat: Text.StyledText
+                text: `${root.hello},<br><font color="${Theme.grey}">${Theme.state.name || Quickshell.env("USER")}.</font>`
+                font { family: Theme.ui; pixelSize: 54; weight: Font.Light; letterSpacing: -1 }
+                lineHeight: 1.1
+                color: Theme.fg
+            }
+            Row {
+                x: 190
+                y: 700
+                spacing: 28
+                Meta { icon: "\u{F009A}"; text: `${Notes.list.length} notifications` }
+                Meta { visible: Weather.ok; icon: Weather.glyph(Weather.now?.code ?? 0, Weather.now?.day); text: `${Math.round(Weather.now?.temp ?? 0)}° ${Weather.name(Weather.now?.code)}` }
+                Meta { visible: !!root.buds; icon: "\u{F02CB}"; text: `${root.buds?.name ?? ""} · ${Math.round((root.buds?.battery ?? 0) * 100)}%` }
+            }
         }
 
         // bento: 220 cells, a 20 gap, a 3×3 grid. Which widgets and in what order — Theme.state.widgets (settings), widths —
@@ -102,6 +113,11 @@ PanelWindow {
                 return out;
             }
             Loader {
+                // hidden (prefs → LOOK → on home) — fades, then unloads
+                opacity: Theme.state.homeBento ? 1 : 0
+                visible: opacity > 0
+                active: visible
+                Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                 required property var modelData
                 x: modelData.x
                 y: modelData.y
