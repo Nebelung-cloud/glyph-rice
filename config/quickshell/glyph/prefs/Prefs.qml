@@ -959,6 +959,18 @@ PanelWindow {
                     Toggle { width: 200; text: "shadow"; on: root.r.shadow; onFlip: { root.r.shadow = !root.r.shadow; Theme.apply(); } }
                     Toggle { width: 200; text: "motion"; on: root.r.motion; onFlip: { root.r.motion = !root.r.motion; Rules.motion(); } }
                 }
+
+                // game mode: starts by itself on a fullscreen game (services/Game), and what stays on in it. Off — game mode drops it
+                Column {
+                    spacing: 14
+                    Toggle { width: 200; text: "auto game mode"; on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
+                    Lb { x: 22; topPadding: 6; text: "in a game, keep" }
+                    Toggle { width: 200; text: "gaps"; on: root.r.gameGaps; onFlip: { root.r.gameGaps = !root.r.gameGaps; Theme.apply(); } }
+                    Toggle { width: 200; text: "motion"; on: root.r.gameMotion; onFlip: { root.r.gameMotion = !root.r.gameMotion; Rules.motion(); } }
+                    Toggle { width: 200; text: "blur"; on: root.r.gameBlur; onFlip: { root.r.gameBlur = !root.r.gameBlur; Theme.apply(); } }
+                    Toggle { width: 200; text: "shadow"; on: root.r.gameShadow; onFlip: { root.r.gameShadow = !root.r.gameShadow; Theme.apply(); } }
+                    Toggle { width: 200; text: "quiet"; on: root.r.gameDnd; onFlip: root.r.gameDnd = !root.r.gameDnd }
+                }
             }
 
             Row {

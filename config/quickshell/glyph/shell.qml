@@ -47,6 +47,7 @@ ShellRoot {
     Lazy { id: clip; component: Clip {} }
     Lazy { id: charms; component: Charms {} }
     Lazy { id: walls; component: Walls {} }
+    readonly property bool gaming: Game.on // a singleton only lives once something touches it
     function togglePower() { const p = power.get(); p.visible ? p.close() : p.open(); }
 
     Variants {
