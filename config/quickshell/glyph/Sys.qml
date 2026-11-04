@@ -59,8 +59,8 @@ Singleton {
     readonly property real bri: Backlight.value
     readonly property bool hasBri: !!Backlight.dev // no backlight (a PC with a monitor) — no brightness controls
     function setBri(v) { Backlight.set(v); }
-    // яркость того монитора, где открыли панель: встроенный — подсветка, внешний — DDC. Панель живёт на
-    // одном экране, но Super+A и peek с горячего края открывают её «на» фокусе Hyprland
+    // brightness of the monitor where the panel was opened: built-in — backlight, external — DDC. The panel lives on
+    // one screen, but Super+A and a peek from the hot edge open it «on» Hyprland's focus
     property string panelMon: ""
     readonly property bool panelBriExternal: panelMon !== "" && !panelMon.startsWith("eDP")
     readonly property real panelBri: panelBriExternal ? Backlight.ddc : Backlight.value

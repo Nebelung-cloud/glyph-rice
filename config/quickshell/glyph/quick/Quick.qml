@@ -219,8 +219,8 @@ PanelWindow {
 
                     Rec { width: parent.width; visible: root.pick === "rec"; onTouched: root.pin(); onStart: { root.close(); Sys.toggleRec(); } }
 
-                    // яркость — того монитора, где панель открыли: фокус запоминаем при открытии (open change ниже).
-                    // Встроенный — подсветка, внешний — DDC (ddcutil). Нет подсветки и нет DDC — слайдера нет
+                    // brightness — of the monitor where the panel was opened: focus is remembered on open (open change below).
+                    // Built-in — backlight, external — DDC (ddcutil). No backlight and no DDC — no slider
                     Slider {
                         icon: "\u{F00E0}"
                         visible: Sys.panelBriExternal ? Sys.ddcOk : Sys.hasBri
@@ -540,21 +540,21 @@ PanelWindow {
         MouseArea {
             id: area
             property real v
-            // колесо на слайдере: засечка — шаг 5%, тачпад — по пикселям с множителем. Мелкие доли копим
-            // и применяем от 2% — громкость и яркость хранят целые проценты, дробный шаг иначе съедается
+            // the wheel on the slider: a notch — a 5% step, a touchpad — by pixels with a multiplier. Small fractions accumulate
+            // and apply from 2% — volume and brightness keep whole percents, a fractional step would be eaten otherwise
             property real wacc: 0
             Timer { id: widle; interval: 300; onTriggered: area.wacc = 0 }
             anchors.fill: parent
             preventStealing: true
             function set(x) { v = Math.max(0, Math.min(1, x / width)); sl.moved(v); }
-            // pin только на отпускание: он снимает peek, а это пересборка keyboardFocus слоя — посреди нажатия
-            // она рвёт неявный захват мыши, и первый после открытия панели зажим доезжает до точки клика и умирает.
-            // За время drag'а фокус не трогаем, на release догоняем — как раньше, но уже без живого захвата
+            // pin only on release: it drops the peek, which rebuilds the layer's keyboardFocus — mid-press
+            // that breaks the implicit mouse grab, and the first press after the panel opens reaches the click point and dies.
+            // During a drag focus isn't touched, it catches up on release — as before, but with no live grab
             onPressed: e => set(e.x)
             onPositionChanged: e => set(e.x)
             onReleased: root.pin()
             onWheel: e => {
-                // колесо не держит неявный захват — pin здесь безопасен
+                // the wheel holds no implicit grab — pin is safe here
                 root.pin();
                 const a = e.angleDelta.y || e.angleDelta.x;
                 wacc += a ? a / 120 * 0.05 : (e.pixelDelta.y || e.pixelDelta.x) * 0.001;

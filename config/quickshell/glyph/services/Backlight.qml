@@ -58,18 +58,18 @@ Singleton {
         }
     }
 
-    // ---- внешний монитор по DDC (ddcutil): шина ищем парами «I2C bus → DRM_connector», внешняя — коннектор без eDP.
-    // udev-правило logind даёт активному пользователю rw на /dev/i2c-*, sudo не нужен. Событий смены нет —
-    // значение держим своё, раз в 5 с сверяем getvcp, при drag'е панели ставим через один процесс ----
-    property string ddcBus: ""      // /dev/i2c-N, пусто — внешнего с DDC нет
-    property real ddc: 0.5          // последнее известное 0…1
+    // ---- an external monitor over DDC (ddcutil), experimental: buses come in pairs «I2C bus → DRM_connector», external — a connector without eDP.
+    // logind's udev rule gives the active user rw on /dev/i2c-*, no sudo needed. There are no change events —
+    // we keep our own value, check getvcp every 5 s, and on a panel drag set it through one process ----
+    property string ddcBus: ""      // /dev/i2c-N, empty — no external monitor with DDC
+    property real ddc: 0.5          // last known 0…1
     property bool ddcOk: false
     signal ddcMoved()
-    // setvcp уходит через один процесс: на медленных мониторах запись занимает сотни мс, и параллельные вызовы
-    // (execDetached) заканчиваются не по порядку — итог прилипал к случайной яркости из середины drag'а и мигал.
-    // Всегда ставим последнее значение (ddcWant), а опрос после нашей записи молчит, пока она не отыгралась
-    property int ddcWant: -1        // что ставим, −1 — нечего
-    property real ddcSetAt: 0       // когда ушла последняя запись: сразу после неё читать нельзя
+    // setvcp goes through one process: on slow monitors a write takes hundreds of ms, and parallel calls
+    // (execDetached) finish out of order — the result stuck at a random brightness from mid-drag and flickered.
+    // We always set the latest value (ddcWant), and polling after our own write stays quiet until it has settled
+    property int ddcWant: -1        // what to set, −1 — nothing
+    property real ddcSetAt: 0       // when the last write went: reading right after it isn't possible
     Timer {
         running: !!root.ddcBus
         interval: 5000
@@ -77,7 +77,7 @@ Singleton {
         onTriggered: root.ddcRead()
     }
     function ddcRead() {
-        // свою же запись читаем только когда она успела примениться (медленным панелям нужно время)
+        // our own write is read back only once it has had time to apply (slow panels need time)
         if (ddcWant >= 0 || (ddcSetAt && Date.now() - ddcSetAt < 1200))
             return;
         ddcGet.exec(["ddcutil", "--noverify", "--sleep-multiplier", "0.05", "--brief", "getvcp", "10"]);
@@ -86,7 +86,7 @@ Singleton {
         id: ddcGet
         stdout: StdioCollector {
             onStreamFinished: {
-                // «VCP 10 C 50 100» — код, тип, текущее, максимум
+                // «VCP 10 C 50 100» — code, type, current, maximum
                 const p = text.trim().split(/\s+/);
                 const v = parseFloat(p[3]), m = parseFloat(p[4]);
                 if (!isNaN(v) && m > 0) {
@@ -118,7 +118,7 @@ Singleton {
     }
     Process {
         id: ddcSet
-        onExited: root.ddcPump()   // пока писали, могли накидать новое значение — ставим следом
+        onExited: root.ddcPump()   // values could arrive during the write — set the next one right after
     }
     Process {
         running: true

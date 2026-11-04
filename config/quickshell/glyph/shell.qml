@@ -3,6 +3,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import qs.services
 import "bar"
 import "buds"
 import "cal"

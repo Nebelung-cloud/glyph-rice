@@ -58,10 +58,10 @@ PanelWindow {
     // hyprland 0.56 with lua: dispatch takes a lua expression
     function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
 
-    // скролл воркспейсов: навёл на точки — крутишь колесо, идёшь по столам. Одна засечка колеса = один стол;
-    // копим дельту и гасим накоп за 300 мс без событий, чтобы тачпад и высокоточные колёса (много мелких
-    // событий за свайп) не пролетали через несколько столов разом. WheelHandler на layer-shell поверхности
-    // колесо не получает, поэтому MouseArea у точек
+    // workspace scroll: hover the dots and turn the wheel to move through them. One wheel notch = one workspace;
+    // the delta accumulates and resets after 300 ms without events, so touchpads and hi-res wheels (many small
+    // events per swipe) don't fly through several at once. WheelHandler on a layer-shell surface
+    // gets no wheel, hence the MouseArea at the dots
     property real wheelAcc: 0
     Timer { id: wheelIdle; interval: 300; onTriggered: root.wheelAcc = 0 }
     function nudge(d) {
