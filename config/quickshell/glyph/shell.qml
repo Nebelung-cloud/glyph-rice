@@ -1,5 +1,5 @@
 //@ pragma IconTheme Rice
-// тема значков своя, а не из qtengine: не загрузился он — Qt ищет только в hicolor, и у kcalc и т.п. пустые круги (#11)
+// our own icon theme, not qtengine's: if it didn't load Qt looks only in hicolor, and kcalc and the like get empty circles (#11)
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -74,7 +74,6 @@ ShellRoot {
         Theme.apps(); // rice start puts the links back on term/ — the color has to return; waits for the login to settle
         Rules.night();
         Rules.idle();
-        Theme.liteFlag();
     }
     // what lives in the hypr config. It reloads it by itself: any hypr file saved (the links are live — both git pull and a branch
     // switch), hyprctl reload — and it returns the variables.lua defaults: demonshot borders, monitor, input, animations. We lay
@@ -122,7 +121,7 @@ ShellRoot {
         function onWsWrapChanged() { Theme.workspaces(); }
         function onWsAnimChanged() { Theme.workspaces(); }
         function onWsBlurSpecialChanged() { Theme.workspaces(); }
-        function onLiteChanged() { Theme.apply(); Theme.liteFlag(); }
+        function onLiteChanged() { Theme.apply(); }
     }
     // ultra mode turns blur and shadows off/on over the settings — repaint the windows (Rules.setMode sets hertz and motion itself).
     // Game mode — the same plus animations

@@ -47,8 +47,8 @@ Scope {
             Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
             screen: modelData
-            // в фулскрине Top не рисуется, Qt не коммитит кадры и смену слоя Hyprland не видит — полосы там нет,
-            // Super+Space создаёт окно заново, уже в Overlay. ponytail: hasFullscreen — и maximized (Super+Alt+F), край там тоже молчит
+            // in fullscreen Top isn't drawn, Qt commits no frames and Hyprland doesn't see the layer change — there's no strip there,
+            // Super+Space creates the window anew, already in Overlay. ponytail: hasFullscreen includes maximized (Super+Alt+F), the edge is silent there too
             visible: Theme.state.deckHover && root.ids.length > 0 && !Hyprland.monitorFor(modelData)?.activeWorkspace?.hasFullscreen || t > 0
             anchors.bottom: true
             implicitWidth: Math.ceil(panel.width * Theme.s)

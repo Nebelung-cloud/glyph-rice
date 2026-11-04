@@ -349,10 +349,6 @@ Singleton {
             }
         }
     }
-    // a flag file for what runs outside the shell: hypr's execs.lua skips the background kitty when it's there
-    function liteFlag() {
-        Quickshell.execDetached(["sh", "-c", 'd="${XDG_STATE_HOME:-$HOME/.local/state}/rice"; mkdir -p "$d"; if [ "$1" = true ]; then touch "$d/lite"; else rm -f "$d/lite"; fi', "sh", String(st.lite)]);
-    }
 
     // apps follow the shell's color — only on a color change (shell.qml): apply() is also called on every step of the rounding ring.
     // The portal (browsers, libadwaita) and the gtk3 base under our gtk.css first. The templates are our own term/ (the dark glyph
