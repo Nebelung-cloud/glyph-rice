@@ -78,20 +78,16 @@ PanelWindow {
         // and open right away. The panel inside the zone, not as a sibling: a button's HoverHandler (mode cells, Picker rows) cancels
         // a sibling's hover under it, but not an ancestor's
         Item {
-            anchors { right: root.left_ ? undefined : parent.right; left: root.left_ ? parent.left : undefined; bottom: parent.bottom }
+            // x, not anchors: anchors that change side at runtime stay set on both and stretch the panel across the screen
+            x: root.left_ ? 0 : parent.width - width
+            anchors.bottom: parent.bottom
             width: panel.width + root.m
             height: panel.height + 14
             HoverHandler { id: keep }
             Rectangle {
                 id: panel
-                anchors {
-                    right: root.left_ ? undefined : parent.right
-                    left: root.left_ ? parent.left : undefined
-                    rightMargin: root.m
-                    leftMargin: root.m
-                    bottom: parent.bottom
-                    bottomMargin: 14
-                }
+                x: root.left_ ? root.m : parent.width - width - root.m
+                anchors { bottom: parent.bottom; bottomMargin: 14 }
                 width: 470
                 height: col.height + 44
                 opacity: root.t
@@ -406,7 +402,8 @@ PanelWindow {
     }
     // the Hot strip: the panel lies over it, the cursor on it keeps the panel, like the panel itself
     Item {
-        anchors { right: root.left_ ? undefined : parent.right; left: root.left_ ? parent.left : undefined; bottom: parent.bottom }
+        x: root.left_ ? 0 : parent.width - width
+        anchors.bottom: parent.bottom
         width: 2
         height: Math.round(parent.height * 0.8)
         HoverHandler { id: edge }

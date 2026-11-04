@@ -17,7 +17,11 @@ PanelWindow {
     signal customizeRequested
     property int sel: 0
     property bool hasUfw: false
-    Process { running: true; command: ["sh", "-c", "command -v ufw"]; onExited: code => root.hasUfw = code === 0 }
+    Process { running: true; command: ["sh", "-c", "command -v ufw"]; onExited: code => {
+        const at = root.cur; // the list grows: stay on the same section
+        root.hasUfw = code === 0;
+        root.sel = Math.max(0, root.sections.indexOf(at));
+    } }
     readonly property var sections: ["NETWORK", "BLUETOOTH", "SOUND", "DISPLAY", "WORKSPACES", "POWER"]
         .concat(UPower.displayDevice?.isLaptopBattery ? ["BATTERY"] : [], ["INPUT", "IDLE"], hasUfw ? ["FIREWALL"] : [], ["APPS", "ABOUT"])
     readonly property string cur: sections[sel] ?? ""

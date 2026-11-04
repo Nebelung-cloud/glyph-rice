@@ -52,10 +52,10 @@ done`]
             onStreamFinished: {
                 const seen = {}, out = [];
                 for (const l of text.split("\n")) {
-                    const [file, name, hide, mime] = l.split("\t");
-                    if (!mime || seen[file]) continue;
-                    seen[file] = true;
-                    out.push({ file, name: name || file.replace(/\.desktop$/, ""), hidden: hide === "1", types: mime.split(";") });
+                    const f = l.split("\t"); // no destructuring: in this loop the engine mixed up its registers
+                    if (!f[3] || seen[f[0]]) continue;
+                    seen[f[0]] = true;
+                    out.push({ file: f[0], name: f[1] || f[0].replace(/\.desktop$/, ""), hidden: f[2] === "1", types: f[3].split(";") });
                 }
                 root.desktop = out.sort((a, b) => a.name.localeCompare(b.name));
             }

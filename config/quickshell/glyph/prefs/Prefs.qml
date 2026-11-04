@@ -730,30 +730,34 @@ PanelWindow {
                     }
                 }
 
-                // what home shows, and the lock
-                Column {
-                    spacing: 14
+            }
+
+            // what home shows, and the lock
+            Row {
+                spacing: 12
+                Lb { width: 110; anchors.verticalCenter: parent.verticalCenter; text: "on home" }
+                Toggle { width: 170; text: "clock"; on: Theme.state.homeClock; onFlip: Theme.state.homeClock = !Theme.state.homeClock }
+                Toggle { width: 170; text: "greeting"; on: Theme.state.homeHello; onFlip: Theme.state.homeHello = !Theme.state.homeHello }
+                Toggle { width: 170; text: "widgets"; on: Theme.state.homeBento; onFlip: Theme.state.homeBento = !Theme.state.homeBento }
+                Toggle {
                     readonly property bool all: Theme.state.homeClock && Theme.state.homeHello && Theme.state.homeBento
-                    Lb { x: 22; bottomPadding: 4; text: "on home" }
-                    Toggle { width: 200; text: "clock"; on: Theme.state.homeClock; onFlip: Theme.state.homeClock = !Theme.state.homeClock }
-                    Toggle { width: 200; text: "greeting"; on: Theme.state.homeHello; onFlip: Theme.state.homeHello = !Theme.state.homeHello }
-                    Toggle { width: 200; text: "widgets"; on: Theme.state.homeBento; onFlip: Theme.state.homeBento = !Theme.state.homeBento }
-                    Toggle {
-                        width: 200
-                        text: "all"
-                        on: parent.all
-                        onFlip: {
-                            const v = !parent.all;
-                            Theme.state.homeClock = v;
-                            Theme.state.homeHello = v;
-                            Theme.state.homeBento = v;
-                        }
+                    width: 170
+                    text: "all"
+                    on: all
+                    onFlip: {
+                        const v = !all;
+                        Theme.state.homeClock = v;
+                        Theme.state.homeHello = v;
+                        Theme.state.homeBento = v;
                     }
-                    Lb { x: 22; topPadding: 12; bottomPadding: 4; text: "on the lock" }
-                    Toggle { width: 200; text: "atmosphere"; on: Theme.state.atmosphere; onFlip: Theme.state.atmosphere = !Theme.state.atmosphere }
-                    Toggle { width: 200; text: "hide length"; on: Theme.state.lockHideLen; onFlip: Theme.state.lockHideLen = !Theme.state.lockHideLen }
-                    Toggle { width: 200; text: "one screen"; on: Theme.state.lockOneScreen; onFlip: Theme.state.lockOneScreen = !Theme.state.lockOneScreen }
                 }
+            }
+            Row {
+                spacing: 12
+                Lb { width: 110; anchors.verticalCenter: parent.verticalCenter; text: "on the lock" }
+                Toggle { width: 170; text: "atmosphere"; on: Theme.state.atmosphere; onFlip: Theme.state.atmosphere = !Theme.state.atmosphere }
+                Toggle { width: 170; text: "hide length"; on: Theme.state.lockHideLen; onFlip: Theme.state.lockHideLen = !Theme.state.lockHideLen }
+                Toggle { width: 170; text: "one screen"; on: Theme.state.lockOneScreen; onFlip: Theme.state.lockOneScreen = !Theme.state.lockOneScreen }
             }
 
             // the name in the greeting; empty — $USER
@@ -976,17 +980,6 @@ PanelWindow {
                     Toggle { width: 200; text: "motion"; on: root.r.motion; onFlip: { root.r.motion = !root.r.motion; Rules.motion(); } }
                 }
 
-                // game mode: starts by itself on a fullscreen game (services/Game), and what stays on in it. Off — game mode drops it
-                Column {
-                    spacing: 14
-                    Toggle { width: 200; text: "auto game mode"; on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
-                    Lb { x: 22; topPadding: 6; text: "in a game, keep" }
-                    Toggle { width: 200; text: "gaps"; on: root.r.gameGaps; onFlip: { root.r.gameGaps = !root.r.gameGaps; Theme.apply(); } }
-                    Toggle { width: 200; text: "motion"; on: root.r.gameMotion; onFlip: { root.r.gameMotion = !root.r.gameMotion; Rules.motion(); } }
-                    Toggle { width: 200; text: "blur"; on: root.r.gameBlur; onFlip: { root.r.gameBlur = !root.r.gameBlur; Theme.apply(); } }
-                    Toggle { width: 200; text: "shadow"; on: root.r.gameShadow; onFlip: { root.r.gameShadow = !root.r.gameShadow; Theme.apply(); } }
-                    Toggle { width: 200; text: "quiet"; on: root.r.gameDnd; onFlip: root.r.gameDnd = !root.r.gameDnd }
-                }
             }
 
             Row {
@@ -996,6 +989,18 @@ PanelWindow {
                 Dial { id: bord; label: "border"; to: 6; n: 24; value: root.r.border; onMoved: v => { root.r.border = v; Theme.apply(); } }
                 Dial { id: rnd; label: "rounding"; to: 40; value: Theme.state.rounding; onMoved: v => Theme.state.rounding = v } // shell.qml calls Theme.apply itself
                 Dial { id: pan; label: "panels"; to: 100; step: 5; value: Theme.state.corners; onMoved: v => Theme.state.corners = v } // the shell's corners, %
+            }
+
+            // game mode: starts by itself on a fullscreen game (services/Game), and what stays on in it. Off — game mode drops it
+            Row {
+                spacing: 12
+                Toggle { width: 230; text: "auto game mode"; on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
+                Lb { leftPadding: 16; rightPadding: 4; anchors.verticalCenter: parent.verticalCenter; text: "keep in a game" }
+                Toggle { width: 130; text: "gaps"; on: root.r.gameGaps; onFlip: { root.r.gameGaps = !root.r.gameGaps; Theme.apply(); } }
+                Toggle { width: 130; text: "motion"; on: root.r.gameMotion; onFlip: { root.r.gameMotion = !root.r.gameMotion; Rules.motion(); } }
+                Toggle { width: 130; text: "blur"; on: root.r.gameBlur; onFlip: { root.r.gameBlur = !root.r.gameBlur; Theme.apply(); } }
+                Toggle { width: 130; text: "shadow"; on: root.r.gameShadow; onFlip: { root.r.gameShadow = !root.r.gameShadow; Theme.apply(); } }
+                Toggle { width: 130; text: "quiet"; on: root.r.gameDnd; onFlip: root.r.gameDnd = !root.r.gameDnd }
             }
         }
 
