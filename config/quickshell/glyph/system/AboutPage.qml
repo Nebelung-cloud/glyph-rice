@@ -108,6 +108,7 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
                 Lb { anchors.baseline: un.baseline; text: root.checking ? "checking…" : root.checked ? `checked ${root.checked}${root.updates.some(u => u.startsWith("aur:")) ? " · incl. aur" : ""}` : "" }
             }
         }
+        Act { anchors.verticalCenter: parent.verticalCenter; icon: "\u{F030C}"; text: "keys"; onHit: Theme.state.welcomed = false } // the first-run card
         Act { anchors.verticalCenter: parent.verticalCenter; icon: "\u{F0450}"; text: "check"; onHit: if (!root.checking) root.check() }
         Act { anchors.verticalCenter: parent.verticalCenter; visible: root.updates.length > 0; icon: "\u{F06B0}"; text: "update"; onHit: root.update() }
     }

@@ -22,6 +22,7 @@ import "shot"
 import "system"
 import "vpn"
 import "wall"
+import "welcome"
 
 // glyph: a rice in the spirit of nothing os. Home on the wallpaper, bar, launcher, quick settings,
 // Glyph bars along the edges instead of an OSD, the notification island, power menu, settings, deck (bottom dashboard), clipboard, charms (emoji and symbols), screenshots, vpn, wallpapers. The lock — a separate process (lock.qml).
@@ -40,6 +41,7 @@ ShellRoot {
     Deck { id: deck }
     Shot { id: shot }
     Vpn { id: vpn }
+    LazyLoader { active: !Theme.state.welcomed; Welcome {} }
     Lazy { id: overview; component: Overview { onSettingsRequested: system.get().openAt("WORKSPACES") } } // Super+Tab: all workspaces and windows, drag a window onto a workspace
     Lazy { id: power; component: Power {} }
     Lazy { id: prefs; component: Prefs { onWallRequested: walls.get().open() } }
