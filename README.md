@@ -2,7 +2,8 @@
 
 <img src="assets/title.svg" width="760" alt="Glyph: a Nothing OS rice for Hyprland + Quickshell">
 
-Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebelung-cloud/demons-shot-rice).
+Black, white dots, one red. **rice_nothing** is a fork of [Glyph by Nebelung](https://github.com/Nebelung-cloud/glyph-rice):
+everything the original does, plus a full System settings app, the best ideas from every other fork, and a guided installer.
 
 <br>
 
@@ -12,17 +13,78 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 
 <div align="center"><img src="assets/divider-dots.svg" width="720" alt=""></div>
 
+<h2 align="center">What's different in this fork</h2>
+
+**New here**
+
+| | |
+|---|---|
+| **System app** (`Super` `I`) | Network, Bluetooth, Sound, Display, Workspaces, Power, Battery, Input, Idle, Firewall, Default apps, About. One place for what used to need a terminal. |
+| **Network editor** | Everything `nmtui` can do: Wi-Fi, Ethernet, DSL, InfiniBand, bond, bridge, team, VLAN, IP tunnel and WireGuard connections, with IP, DNS and security fields. |
+| **Password windows** | Bluetooth pairing codes, Wi-Fi passwords and admin prompts (polkit) appear as Glyph cards instead of hiding behind the settings. |
+| **Workspace overview** (`Super` `Tab`) | Live thumbnails, drag a window to another workspace, set the number of workspaces. A wrap-around limit that the binds respect. |
+| **Display arrangement** | Choose which side a second screen sits on, mirror it or turn it off. |
+| **Default apps** | Pick from a list of apps that can open each type. `Super` `E` and `Super` `W` follow your choice. |
+| **Lite mode** | Fewer effects for slower machines. Turns on by itself under about 7.5 GB of RAM. |
+| **More color** | A saturation control, Extra Dark, and colors that fade instead of jumping. |
+| **More looks** | Ribbed glass and color dots on the wallpaper, a hazy lock screen, a bar on the right, volume and brightness in the island. |
+| **Glyph greeter** | A greetd login screen with the lock screen's look. The SDDM theme stays available as an option. |
+| **Guided installer** | Menus with tick boxes, a summary before anything changes, `--dry-run` and `--uninstall`. |
+| **Welcome card** | The keys to know, on first login. |
+| **All English** | Code, comments and interface. |
+
+**From other forks, with thanks**
+
+| Feature | Where | Author |
+|---|---|---|
+| Palettes, top bar, corners dial, GIF tile, RunCat, SDDM theme, lock before sleep | prefs → STYLE, BAR, WINDOWS | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) |
+| No auto-HDR, deck over fullscreen, VPN behind a captive portal, plain kitty, theme icons in the launcher | automatic | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch |
+| Live level meter | System → Sound | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch, [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Scroll over the workspace dots, scroll over the sliders, first-drag fix | bar, quick settings | [rawnullbyte](https://github.com/rawnullbyte/glyph-rice) |
+| External monitor brightness (experimental) | quick settings | [rawnullbyte](https://github.com/rawnullbyte/glyph-rice), [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Hide the clock, greeting or widgets | prefs → LOOK | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Automatic game mode, and what stays on in it | prefs → WINDOWS | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Right-click the volume slider for outputs | quick settings | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Bar auto-hide per screen (experimental) | prefs → BAR | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Wallpaper beat, off by default | wall picker | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| tmux and Firefox follow the palette | automatic if installed | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Hide the password's length, plain cover on other screens | prefs → LOOK | [SenulMapa](https://github.com/SenulMapa/glyph-rice) |
+| A rotated first screen no longer shrinks the shell | automatic | [SenulMapa](https://github.com/SenulMapa/glyph-rice) |
+| GPU load on Intel integrated graphics | deck, home | [Dimashyt](https://github.com/Dimashyt/glyph-rice) |
+| The idea of a corners setting | prefs → WINDOWS | [Shykid002](https://github.com/Shykid002), [GloomyGuava](https://github.com/GloomyGuava/glyph-rice) |
+
+Commits picked directly keep their author. Features ported by hand name their source in the commit message and in a comment beside the code.
+
+<div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
+
+<h2 align="center">Tested, and not tested</h2>
+
+Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprland 0.56.
+
+**Not tested yet, so tell me if something breaks:**
+
+- A full install on a clean system. The installer's menus and its `--dry-run` were run, not a real install from zero.
+- The SDDM option and the greeter's install script from this repository.
+- A second monitor: display arrangement, per-screen bar auto-hide, the lock's "one screen" option.
+- External monitor brightness (DDC), Intel graphics, a rotated screen.
+- Automatic game mode with a real game, and Firefox theming.
+- The wallpaper beat. It needs cava, and it stays off until you turn it on.
+
+<div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
+
 <h2 align="center">What's inside</h2>
 
 | | | |
 |---|---|:---:|
-| **Bar** | launcher, workspaces, clock, tray | |
-| **Home** | clock, greeting, widgets (cava as a round Glyph Matrix), dot grid | |
+| **Bar** | launcher, workspaces, clock, tray; left, right or top | |
+| **Home** | clock, greeting, widgets, dot grid; each can be hidden | |
 | **Glyph** | screen edges as OSD: volume, brightness, notifications, progress | |
 | **Launcher** | apps, style, windows, calculator | `Super` |
-| **Quick** | quick settings, game mode, media, notifications; also opens from the right edge | `Super` `A` |
+| **Quick** | quick settings, game mode, media, notifications; also opens from the screen edge | `Super` `A` |
 | **Deck** | dashboard from the bottom edge | `Super` `Space` |
-| **Prefs** | settings, bar and home layout | `Super` `I` |
+| **System** | network, bluetooth, sound, display, workspaces, power, battery, input, idle, firewall, default apps, about | `Super` `I` |
+| **Prefs** | the rice's look: home, deck, bar, look, style, windows | System → customize the rice |
+| **Overview** | workspaces as live tiles | `Super` `Tab` |
 | **Shot** | screenshots, editor, recording | `Print` |
 | **Clip** | clipboard history | `Super` `V` |
 | **Charms** | emoji, kaomoji, symbols | `Super` `.` |
@@ -32,52 +94,103 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Buds** | Nothing / CMF earbuds: battery, ANC | |
 | **Power** | power menu | `Super` `Esc` |
 | **Lock** | lock screen | `Super` `L` |
-| **Login** | SDDM theme: sessions on a camera dial, a Glyph tachometer that fills as you type, a staged power-on | `←` `→` |
-| **Style** | where the colour comes from, like caelestia: Nothing (black, white, red), the wallpaper (one of its tones through a Material You variant — monochrome, neutral, tonal spot, rainbow, content, fidelity, fruit salad, expressive, vibrant) or a palette — Catppuccin, Rosé Pine, Gruvbox, Nord, Dracula, Tokyo Night, Everforest, Kanagawa. Shell, Hyprland and kitty follow at once, GTK and Qt apps when they next start | launcher → style, Prefs → Style (a live mock-up of the desktop shows the palette under the cursor before you pick it) |
+| **Login** | Glyph greeter, or the original SDDM theme with its camera dial and tachometer | |
+| **Style** | where the color comes from: Nothing, the wallpaper through a Material You variant, or a palette (Catppuccin, Rosé Pine, Gruvbox, Nord, Dracula, Tokyo Night, Everforest, Kanagawa) | |
 | **Rice** | shell switcher, if Demon's Shot is installed too | `rice switch <name>` |
 
-Also: Hyprland (Lua), hypridle, kitty, fish, starship, fastfetch, btop, cava (dots in fish; `command cava` for bars), GTK, Qt and folder colours.
+Also: Hyprland (Lua), hypridle, kitty, fish, starship, fastfetch, btop, GTK, Qt and folder colors.
 
 <div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
 
 <h2 align="center">Screenshots</h2>
 
+Wi-Fi names, Bluetooth devices, the hostname and the laptop model are blanked out in these on purpose.
+
+### Color
+
+![colors fading between sources](screenshots/colors.gif)
+
 | | |
 |:---:|:---:|
-| ![launcher](screenshots/launcher.png) **Launcher** | ![quick](screenshots/quick.png) **Quick** |
-| ![deck](screenshots/deck.png) **Deck** | ![prefs](screenshots/settings.png) **Prefs** |
-| ![shot](screenshots/shot.png) **Shot** | ![clip](screenshots/clip.png) **Clip** |
-| ![power](screenshots/power.png) **Power** | ![login](screenshots/login.png) **Login** |
+| ![style, nothing](screenshots/style-nothing.png) **Style: Nothing** | ![style, wallpaper](screenshots/style-wallpaper.png) **Style: from the wallpaper** |
+| ![style, palette](screenshots/style-palette.png) **Style: palettes** | ![home on a wallpaper](screenshots/home-wallpaper.png) **Wallpaper as color dots** |
+| ![Catppuccin Mocha](screenshots/home-mocha.png) **Catppuccin Mocha** | ![light](screenshots/home-light-nothing.png) **Light** |
+
+### System
+
+| | |
+|:---:|:---:|
+| ![network](screenshots/system-network.png) **Network** | ![bluetooth](screenshots/system-bluetooth.png) **Bluetooth** |
+| ![sound](screenshots/system-sound.png) **Sound, with live levels** | ![display](screenshots/system-display.png) **Display** |
+| ![workspaces](screenshots/system-workspaces.png) **Workspaces** | ![power](screenshots/system-power.png) **Power and Lite mode** |
+| ![battery](screenshots/system-battery.png) **Battery** | ![input](screenshots/system-input.png) **Input** |
+| ![idle](screenshots/system-idle.png) **Idle and lid** | ![firewall](screenshots/system-firewall.png) **Firewall** |
+| ![default apps](screenshots/system-apps.png) **Default apps** | ![about](screenshots/system-about.png) **About** |
+
+### The rice's look
+
+| | |
+|:---:|:---:|
+| ![home](screenshots/prefs-home.png) **Home widgets** | ![deck](screenshots/prefs-deck.png) **Deck** |
+| ![bar](screenshots/prefs-bar.png) **Bar** | ![look](screenshots/prefs-look.png) **Look, on home and on the lock** |
+| ![windows](screenshots/prefs-windows.png) **Windows, corners and game mode** | ![home hidden](screenshots/home-hidden.png) **Everything hidden on home** |
+| ![bar on the right](screenshots/bar-right.png) **Bar on the right, Extra Dark** | ![bar on top](screenshots/bar-top.png) **Bar on top** |
+
+### Panels
+
+| | |
+|:---:|:---:|
+| ![overview](screenshots/overview.png) **Overview** (thumbnails pixelated here) | ![launcher](screenshots/launcher.png) **Launcher** |
+| ![quick](screenshots/quick.png) **Quick** | ![quick on the left](screenshots/quick-bar-right.png) **Quick moves when the bar does** |
+| ![deck](screenshots/deck.png) **Deck** | ![calendar](screenshots/cal.png) **Calendar and focus timer** |
+| ![charms](screenshots/charms.png) **Charms** | ![walls](screenshots/walls.png) **Wallpapers** |
+| ![power](screenshots/power.png) **Power** | ![shot](screenshots/shot.png) **Shot** (from the original) |
+| ![clip](screenshots/clip.png) **Clip** (from the original) | ![greeter](screenshots/greeter.png) **Glyph greeter** (preview, username blanked) |
+| ![sddm](screenshots/login.png) **SDDM theme, optional** (from the original) | ![installer](screenshots/installer.png) **Installer** |
 
 <div align="center"><img src="assets/divider-matrix.svg" width="720" alt=""></div>
 
 <h2 align="center">Install</h2>
 
 ```sh
-git clone https://github.com/Nebelung-cloud/glyph-rice ~/.local/share/glyph
-~/.local/share/glyph/install.sh                  # Arch: packages, services, symlinks, login theme
-~/.local/share/glyph/install.sh --with telegram  # same, extras picked up front
-~/.local/share/glyph/install.sh --links          # any distro: symlinks only
-~/.local/share/glyph/install.sh --sddm           # login theme only (sudo); run again after editing it
+git clone https://github.com/AMM021/rice_nothing ~/.local/share/glyph
+~/.local/share/glyph/install.sh
 ```
 
-Without `--with` it asks which extras to add: `telegram` (`Super` `D`), `spotify` with Spicetify (`Super` `M`),
-`clash` for the VPN panel. Old configs go to `~/.dots-backup-<date>/`. Wallpapers are read from `~/Pictures/Wallpapers`,
-gifs for the home cat tile from `~/Pictures/Gifs` (pick one in prefs → home, or click the tile; none there — the cat).
+It checks your machine, explains what will happen, and asks which setup you want:
+
+- **Recommended**: the Glyph login screen, Thunar and Zen. No extras.
+- **Custom**: choose the login screen, file manager, browser and extras. Move with the arrow keys, tick with space.
+- **Minimal**: only the desktop. Your login screen and browser stay.
+
+Nothing changes until you accept the summary. Files it replaces move to `~/.dots-backup-<date>/`.
+
+| Flag | What it does |
+|---|---|
+| `--dry-run` | The same questions, prints what it would do, changes nothing |
+| `--yes` | No questions, the Recommended setup |
+| `--uninstall` | Removes the links, restores your old files and login screen. Packages stay |
+| `--links` | Symlinks only, on any distro. The packages are then your own, see below |
+| `--sddm` | Only the SDDM theme; run again after editing it |
+
+If a new login screen ever fails: `Ctrl` `Alt` `F2`, log in, run `install.sh --uninstall`.
+
+Wallpapers are read from `~/Pictures/Wallpapers`, and the installer copies [five CC0 ones](assets/wallpapers) there.
+Gifs for the home cat tile come from `~/Pictures/Gifs`: pick one in prefs → home or click the tile. With none there, you get the cat.
 
 | `config/` | goes to |
 |---|---|
 | `hypr/` | `~/.config/hypr` |
 | `quickshell/glyph/` | `~/.config/quickshell/glyph` |
 | `quickshell/rice/` | `~/.config/quickshell/rice`, `~/.local/bin/rice` |
-| `quickshell/glyph/term/` | `starship.toml` `fastfetch/` `btop/` `cava/` `gtk-*/gtk.css` `qtengine.colors` in `~/.config` (with a Style colour — copies in `~/.local/state/rice/glyph`; edit `term/`) |
+| `quickshell/glyph/term/` | `starship.toml` `fastfetch/` `btop/` `cava/` `gtk-*/gtk.css` `qtengine.colors` in `~/.config` (with a Style color, copies in `~/.local/state/rice/glyph`), `glyph-progress.fish` in fish's `conf.d` |
 | `kitty/` `qtengine/` | `~/.config/…` |
 | `fish/` | `~/.config/fish` |
 | `fonts/` | `~/.local/share/fonts/glyph` |
-| `sddm/glyph/` | copied to `/usr/share/sddm/themes/glyph` (the `sddm` user can't read your home), set in `/etc/sddm.conf.d/zz-glyph.conf`; to undo, delete both |
+| `greeter/` | copied to `/var/lib/greetd`, set in `/etc/greetd/config.toml` (the old one is kept as `config.toml.bak`) |
+| `sddm/glyph/` | copied to `/usr/share/sddm/themes/glyph`, set in `/etc/sddm.conf.d/zz-glyph.conf`; to undo, delete both |
 
-Monitor, backlight, GPU and sensors are detected. Keyboard layouts are in `hypr/hyprland/input.lua`,
-default apps in `hypr/variables.lua`. Earbuds photo: `quickshell/glyph/buds/<device-name>.png`.
+Monitor, backlight, GPU and sensors are detected. Keyboard layouts are in `hypr/hyprland/input.lua`.
 Your own binds and overrides go in `hypr/user.lua`: it's gitignored, so `git pull` never touches it.
 Apps for the special workspaces and the editor are read when you press the key, so `user.lua` can swap them:
 
@@ -90,6 +203,17 @@ apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
 hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by default
 ```
 
+### Sleep on NVIDIA laptops
+
+Some laptops with NVIDIA graphics and firmware that only offers `s2idle` sleep hang on wake. The installer mentions it if yours looks like this, and changes nothing.
+What fixed it on the laptop this was developed on was adding these kernel parameters in the bootloader:
+
+```
+nvme_core.default_ps_max_latency_us=0 nvidia.NVreg_EnableS0ixPowerManagement=1 pcie_aspm=off
+```
+
+They are specific to that hardware, and `pcie_aspm=off` costs some battery life, so try them only if you have the problem.
+
 <div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
 
 <h2 align="center">Dependencies</h2>
@@ -97,18 +221,19 @@ hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by de
 | | |
 |---|---|
 | **Shell** | `quickshell` (Qt 6.9+) · `hyprland` 0.56+ · `hypridle` · `hyprsunset` · `xdg-desktop-portal-hyprland` · `jq` · `curl` · `python3` · `libqalculate` |
-| **System** | `sddm` 0.21+ (Qt 6 greeter) · `networkmanager` · `bluez` · `pipewire` · `pipewire-pulse` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `brightnessctl` · `libnotify` · `playerctl` · `polkit-gnome` · `gnome-keyring` · `geoclue` |
+| **System** | `networkmanager` · `bluez` · `pipewire` · `pipewire-pulse` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `polkit-gnome` · `gnome-keyring` · `geoclue` · `brightnessctl` · `playerctl` · `libnotify` · `python-dbus` · `python-gobject` · `pacman-contrib` · `xdg-utils` · `gtk3` |
 | **Capture** | `grim` · `slurp` · `imagemagick` · `libvips` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
-| **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `cava` · `eza` · `zoxide` · `direnv` |
+| **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |
-| **Optional** | `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` |
+| **Login** | `greetd` and `cage` for the Glyph greeter, or `sddm` 0.21+ (Qt 6 greeter) for the theme |
+| **Optional** | `thunar` or [Strata](https://github.com/lgse/strata) · `cava` · `ddcutil` · `ufw` · `tmux` · `python-pywalfox` · `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` · `libteam` for team connections |
 
-From the AUR only `qtengine`, `darkly`, Bibata and Zen, plus Spicetify and Clash Verge if picked; all optional. The VPN panel expects Clash Verge in English.
+The VPN panel expects Clash Verge in English.
 NixOS: change the `/usr/lib` agent paths in `hypr/hyprland/execs.lua` and the Papirus path in `quickshell/rice/rice`.
 
 <div align="center"><img src="assets/divider-dots.svg" width="720" alt=""></div>
 
-<h2 align="center">Colours</h2>
+<h2 align="center">Colors</h2>
 
 <div align="center"><img src="assets/palette.svg" width="720" alt="Palette, dark: #000000 #0E0E0E #1A1A1A #2A2A2A #4A4A4A #8C8C8C #F2F2F2 #D71921; light: #E9E9E9 #FFFFFF #F1F1F1 #D9D9D9 #B8B8B8 #6E6E6E #0B0B0B #D71921"></div>
 
@@ -124,7 +249,8 @@ Fonts: Doto, Space Grotesk, Space Mono, JetBrains Mono Nerd Font.
 - [**Nothing OS**](https://nothing.tech): the look and the Glyph lights.
 - [**Doto**](https://github.com/oliverlalan/Doto): the dot matrix font.
 - [**Gadgetbridge**](https://codeberg.org/Freeyourgadget/Gadgetbridge): the earbuds protocol in `glyph/ear`.
-- [**Caelestia**](https://github.com/caelestia-dots/shell): the shell I used before; the deck and hardware detection follow it.
+- [**Caelestia**](https://github.com/caelestia-dots/shell): the original author's earlier shell; the deck and hardware detection follow it.
+- [**Glyph**](https://github.com/Nebelung-cloud/glyph-rice) by Nebelung: the rice this fork is built on. All of its design is theirs.
 
 <div align="center"><img src="assets/divider-matrix.svg" width="720" alt=""></div>
 
