@@ -310,10 +310,11 @@ Scope {
                                 maximumLineCount: 2
                                 elide: Text.ElideRight
                                 text: Media.player?.trackTitle || "Nothing on"
+                                textFormat: Text.PlainText
                                 font { family: Theme.ui; pixelSize: 17; weight: Font.DemiBold }
                                 color: Theme.fg
                             }
-                            Text { width: parent.width; elide: Text.ElideRight; text: Media.player?.trackArtist ?? ""; font { family: Theme.ui; pixelSize: 13 } color: Theme.grey }
+                            Text { textFormat: Text.PlainText; width: parent.width; elide: Text.ElideRight; text: Media.player?.trackArtist ?? ""; font { family: Theme.ui; pixelSize: 13 } color: Theme.grey }
                         }
                     }
                     Item { width: 1; height: 16 }

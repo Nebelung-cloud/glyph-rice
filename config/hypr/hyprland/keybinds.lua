@@ -191,8 +191,8 @@ hl.bind("SUPER + V", hl.dsp.global("shell:clip"))
 hl.bind("SUPER + Period", hl.dsp.global("shell:charms"))
 hl.bind(
     "CTRL + SHIFT + ALT + V",
-    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"'),
-    { locked = true }
+    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"')
+    -- без locked: на блокировке он набрал бы последнее скопированное в поле пароля любому, кто сел за ноутбук
 )
 
 -- Testing

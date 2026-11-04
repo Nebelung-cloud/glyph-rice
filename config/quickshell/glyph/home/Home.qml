@@ -212,6 +212,7 @@ PanelWindow {
                         topPadding: 10
                         elide: Text.ElideRight
                         text: root.player?.trackTitle || "Nothing on"
+                        textFormat: Text.PlainText
                         font { family: Theme.ui; pixelSize: 26; weight: Font.DemiBold }
                         color: Theme.fg
                     }
@@ -219,6 +220,7 @@ PanelWindow {
                         width: parent.width
                         elide: Text.ElideRight
                         text: root.player?.trackArtist ?? ""
+                        textFormat: Text.PlainText
                         font { family: Theme.ui; pixelSize: 15 }
                         color: Theme.grey
                     }
