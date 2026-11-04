@@ -194,8 +194,8 @@ hl.bind("SUPER + V", hl.dsp.global("shell:clip"))
 hl.bind("SUPER + Period", hl.dsp.global("shell:charms"))
 hl.bind(
     "CTRL + SHIFT + ALT + V",
-    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"'),
-    { locked = true }
+    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"')
+    -- not locked: on the lock screen it would type the last thing copied into the password field, for anyone at the laptop
 )
 
 -- Testing

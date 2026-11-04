@@ -101,6 +101,7 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 46
                 text: root.name
+                textFormat: Text.PlainText
                 font { family: Theme.ui; pixelSize: 22; weight: Font.DemiBold }
                 color: Theme.fg
             }

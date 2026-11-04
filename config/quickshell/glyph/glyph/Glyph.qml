@@ -294,6 +294,7 @@ Scope {
                                         topPadding: 2
                                         elide: Text.ElideRight
                                         text: c.summary
+                                        textFormat: Text.PlainText
                                         font { family: Theme.ui; pixelSize: 17; weight: Font.DemiBold }
                                         color: Theme.fg
                                     }

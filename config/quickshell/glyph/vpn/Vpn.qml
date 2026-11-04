@@ -469,6 +469,7 @@ PanelWindow {
                                 width: parent.width
                                 elide: Text.ElideRight
                                 text: row.w.name ?? ""
+                                textFormat: Text.PlainText
                                 font { family: Theme.ui; pixelSize: 16; weight: Font.DemiBold }
                                 color: row.on ? Theme.ink : Theme.fg
                             }
