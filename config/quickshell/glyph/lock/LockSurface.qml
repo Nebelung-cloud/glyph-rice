@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Networking
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -28,7 +29,15 @@ WlSessionLockSurface {
     // the ring lights up in a wave, the field grows from a dot. Password accepted (auth.leaving) — t back and faster, lock.qml removes the lock
     property real t: 0
     Behavior on t { NumberAnimation { duration: root.auth.leaving ? 450 : 1100 } }
-    Component.onCompleted: t = Qt.binding(() => root.auth.leaving ? 0 : root.ready ? 1 : 0)
+    Component.onCompleted: {
+        t = Qt.binding(() => root.auth.leaving ? 0 : root.ready ? 1 : 0);
+        mainName = Hyprland.focusedMonitor?.name ?? "";
+    }
+    // one screen (prefs → LOOK): the screen in focus at lock time gets the lock, the others a plain cover. Once, not a binding: moving the
+    // cursor mustn't swap them. Typing works from any screen, the buffer is shared through auth
+    property string mainName: ""
+    readonly property bool primary: !Theme.state.lockOneScreen || !mainName || screen?.name === mainName
+    readonly property bool hideLen: Theme.state.lockHideLen
     // the intro waits for the wallpaper to be decoded, then a frame more (600 ms at most): right after boot the disk is cold
     // (the login screen especially), and an intro that plays while images and fonts are still loading stutters. The screen is
     // covered by the background color from the first frame, so waiting doesn't show anything behind the lock
@@ -174,7 +183,7 @@ WlSessionLockSurface {
                     opacity: root.ph(0.75, 1)
                     Repeater {
                         id: typed
-                        model: Math.min(root.auth.buffer.length, 16)
+                        model: root.hideLen ? (root.auth.buffer.length ? 3 : 0) : Math.min(root.auth.buffer.length, 16)
                         // a new dot pops out; while pam thinks — a wave runs over the dots
                         Rectangle {
                             required property int index
@@ -185,11 +194,22 @@ WlSessionLockSurface {
                             color: root.auth.fail ? Theme.red : Theme.fg
                             opacity: root.auth.busy && Math.abs(root.wave * (typed.count + 2) - 1 - index) > 1.2 ? 0.3 : 1
                             NumberAnimation on scale { from: 0.2; to: 1; duration: 180; easing.type: Easing.OutCubic }
+                            // hide length: three fixed dots that pulse on each key
+                            SequentialAnimation on scale {
+                                id: pulse
+                                running: false
+                                NumberAnimation { to: 0.55; duration: 50 }
+                                NumberAnimation { to: 1; duration: 160; easing.type: Easing.OutCubic }
+                            }
+                            Connections {
+                                target: root.auth
+                                function onBufferChanged() { if (root.hideLen && root.auth.buffer.length) pulse.restart(); }
+                            }
                         }
                     }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 2; height: 24; color: Theme.accent; opacity: root.blink ? 1 : 0 }
                     Repeater {
-                        model: Math.max(0, 6 - root.auth.buffer.length)
+                        model: root.hideLen ? 0 : Math.max(0, 6 - root.auth.buffer.length)
                         Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 11; height: 11; radius: 5.5; color: Theme.s3 }
                     }
                 }
@@ -214,4 +234,6 @@ WlSessionLockSurface {
             }
         }
     }
+
+    Rectangle { anchors.fill: parent; color: Theme.bg; visible: !root.primary }
 }
