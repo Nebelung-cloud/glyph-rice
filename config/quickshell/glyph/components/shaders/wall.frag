@@ -28,6 +28,7 @@ layout(std140, binding = 0) uniform buf {
     float glass;  // 0 … 1: Nothing's ribbed glass over any look
     float rib;    // rib width, px
     float bend;   // 0 … 1: how much a rib bends the image
+    float beat;   // 0 … 1: the music's bass
 };
 layout(binding = 1) uniform sampler2D srcA;
 layout(binding = 2) uniform sampler2D srcB;
@@ -74,9 +75,12 @@ void main() {
         col = mix(col, hi.rgb, 0.10 * exp(-pow((u + 0.7) * 9.0, 2.0)));
     }
     col = mix(col, hi.rgb, 0.4 * crest);
+    col = mix(col, hi.rgb, 0.3 * beat * l); // the bright parts of the picture lift on the beat
 
     // a dot: the radius from «the whole cell» (photo) to .3 of the step (like Dm), it swells on the crest
     float r = pitch * mix(0.75, 0.3, d) * (1.0 + 0.55 * crest);
+    // beat: dots swell up to ~75 %, light ones most, but stop short of touching their neighbours
+    r = mix(r, min(r * (1.0 + 0.85 * beat * (0.6 + 0.4 * l)), pitch * 0.48), d);
     float m = 1.0 - smoothstep(r - 0.6, r + 0.6, distance(p, c));
     float a = has > 0.5 ? 1.0 : m * crest;
     fragColor = vec4(mix(bg.rgb, col, m) * a, a) * qt_Opacity;

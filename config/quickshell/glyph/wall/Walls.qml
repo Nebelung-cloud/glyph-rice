@@ -37,6 +37,7 @@ PanelWindow {
     property int pitch: 10
     property int bright: 85
     property bool glass: false
+    property bool pulse: false // the wallpaper swells with the music; starts cava once set
     property int rib: 28
     property int bend: 50
 
@@ -83,6 +84,7 @@ PanelWindow {
         pitch = s.wallPitch;
         bright = s.wallBright;
         glass = s.wallGlass;
+        pulse = s.wallPulse;
         rib = s.wallRib;
         bend = s.wallBend;
         if (!scan.running) {
@@ -101,6 +103,7 @@ PanelWindow {
         s.wallPitch = pitch;
         s.wallBright = bright;
         s.wallGlass = glass;
+        s.wallPulse = pulse;
         s.wallRib = rib;
         s.wallBend = bend;
         close();
@@ -238,6 +241,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
             y: 110
             spacing: 30
             Pick { anchors.right: parent.right; label: "look"; opts: root.looks; cur: root.lookIds.indexOf(root.look); onPicked: i => root.look = root.lookIds[i] }
+            Pick { anchors.right: parent.right; label: "beat · needs cava"; opts: ["still", "music"]; cur: root.pulse ? 1 : 0; onPicked: i => root.pulse = i === 1 }
             Row {
                 anchors.right: parent.right
                 spacing: 36

@@ -15,6 +15,7 @@ Item {
     property bool glass: Theme.state.wallGlass
     property real rib: Theme.state.wallRib
     property real bend: Theme.state.wallBend / 100
+    property real beat: 0 // 0…1 the music's bass (services/Cava)
     property point origin: Qt.point(width / 2, height / 2)
     property bool animate: true // false — change at once, without the wave
     readonly property bool opaque: fx.hasA > 0 && !run.running
@@ -94,6 +95,7 @@ Item {
         readonly property real glass: root.glass ? 1 : 0
         readonly property real rib: Math.max(4, root.rib)
         readonly property real bend: root.bend
+        readonly property real beat: root.beat
         property real dots: root.look === 0 || root.look === 3 ? 1 : 0
         property real mono: root.look < 2 ? 1 : 0
         property real wave: 0
