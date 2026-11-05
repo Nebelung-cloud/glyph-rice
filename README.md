@@ -24,12 +24,13 @@ everything the original does, plus a full System settings app, the best ideas fr
 | **Password windows** | Bluetooth pairing codes, Wi-Fi passwords and admin prompts (polkit) appear as Glyph cards instead of hiding behind the settings. |
 | **Workspace overview** (`Super` `Tab`) | Live thumbnails, drag a window to another workspace, set the number of workspaces. A wrap-around limit that the binds respect. |
 | **Display arrangement** | Choose which side a second screen sits on, mirror it or turn it off. |
-| **Default apps** | Pick from a list of apps that can open each type. `Super` `E` and `Super` `W` follow your choice. |
+| **Default apps** | One click from a list of apps of the right kind for each category, so a code editor never shows up as a browser. `Super` `E` and `Super` `W` follow your choice. |
 | **Lite mode** | Fewer effects for slower machines. Turns on by itself under about 7.5 GB of RAM. |
 | **More color** | A saturation control, Extra Dark, and colors that fade instead of jumping. |
 | **More looks** | Ribbed glass and color dots on the wallpaper, a hazy lock screen, a bar on the right, volume and brightness in the island. |
 | **Glyph greeter** | A greetd login screen with the lock screen's look. The SDDM theme stays available as an option. |
-| **Guided installer** | Menus with tick boxes, a summary before anything changes, `--dry-run` and `--uninstall`. |
+| **Guided installer** | Menus with tick boxes, a summary before anything changes, `--dry-run` and `--uninstall`. Safe to run again, and it stops with a plain message if a step fails. |
+| **System updates** | System → About counts updates and opens one terminal for them, in front of everything. |
 | **Welcome card** | The keys to know, on first login. |
 | **All English** | Code, comments and interface. |
 
@@ -61,10 +62,19 @@ Commits picked directly keep their author. Features ported by hand name their so
 
 Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprland 0.56.
 
+**Tested:**
+
+- Every System and rice settings page, and the panels, in dark and light. Some were also checked with a palette.
+- The update button, with a fake update: one terminal, in front, however many times it's pressed.
+- The installer in a throwaway home with fake system commands: a fresh run, a second run, Recommended, Minimal and Custom through a real terminal, saying no at the summary, a refused package install, a failed service, a too-old Hyprland, `--dry-run` and `--uninstall`.
+- The greeter's install script the same way, then its login screen as a preview window.
+- Every package name in the installer, against the Arch repositories and the AUR.
+
 **Not tested yet, so tell me if something breaks:**
 
-- A full install on a clean system. The installer's menus and its `--dry-run` were run, not a real install from zero.
-- The SDDM option and the greeter's install script from this repository.
+- A real install on a clean system, and the login screen at an actual boot from this repository's script.
+- A real `yay` update through the update button.
+- The SDDM option on a real machine.
 - A second monitor: display arrangement, per-screen bar auto-hide, the lock's "one screen" option.
 - External monitor brightness (DDC), Intel graphics, a rotated screen.
 - Automatic game mode with a real game, and Firefox theming.
@@ -83,7 +93,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 | **Quick** | quick settings, game mode, media, notifications; also opens from the screen edge | `Super` `A` |
 | **Deck** | dashboard from the bottom edge | `Super` `Space` |
 | **System** | network, bluetooth, sound, display, workspaces, power, battery, input, idle, firewall, default apps, about | `Super` `I` |
-| **Prefs** | the rice's look: home, deck, bar, look, style, windows | System → customize the rice |
+| **Prefs** | the rice's look: home, deck, bar, look, style, windows | System → customize the rice; esc comes back |
 | **Overview** | workspaces as live tiles | `Super` `Tab` |
 | **Shot** | screenshots, editor, recording | `Print` |
 | **Clip** | clipboard history | `Super` `V` |
@@ -163,13 +173,13 @@ It checks your machine, explains what will happen, and asks which setup you want
 - **Custom**: choose the login screen, file manager, browser and extras. Move with the arrow keys, tick with space.
 - **Minimal**: only the desktop. Your login screen and browser stay.
 
-Nothing changes until you accept the summary. Files it replaces move to `~/.dots-backup-<date>/`.
+Nothing changes until you accept the summary. Files it replaces move to `~/.dots-backup-<date>/`. If a step fails it stops and says so, and running it again is safe.
 
 | Flag | What it does |
 |---|---|
 | `--dry-run` | The same questions, prints what it would do, changes nothing |
 | `--yes` | No questions, the Recommended setup |
-| `--uninstall` | Removes the links, restores your old files and login screen. Packages stay |
+| `--uninstall` | Removes the links, restores your old files and login screen. Packages stay. With `--yes` it doesn't ask first |
 | `--links` | Symlinks only, on any distro. The packages are then your own, see below |
 | `--sddm` | Only the SDDM theme; run again after editing it |
 
@@ -203,6 +213,16 @@ apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
 hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by default
 ```
 
+### Troubleshooting
+
+**`sudo` says "Sorry, try again" with the right password.** After 3 failed attempts in a short time, the system locks your account for up to 10 minutes, and the lock rejects even the correct password. Abandoned password prompts count as failures. Wait it out, or check with `faillock --user $USER`. The update button tells you when this is the reason.
+
+**The new login screen doesn't work.** `Ctrl` `Alt` `F2`, log in, run `install.sh --uninstall`. It brings back the login screen you had.
+
+**An app is missing from System → Apps.** The list only shows apps whose `.desktop` file says they are that kind of app (`Categories=`) and can open that type (`MimeType=`). Your current default always stays listed, even if it isn't that kind. An app that declares no categories at all is listed too.
+
+**A panel or widget looks empty.** The VPN panel needs Clash Verge and the audio bars widget needs cava. Both are extras in the installer.
+
 ### Sleep on NVIDIA laptops
 
 Some laptops with NVIDIA graphics and firmware that only offers `s2idle` sleep hang on wake. The installer mentions it if yours looks like this, and changes nothing.
@@ -221,7 +241,7 @@ They are specific to that hardware, and `pcie_aspm=off` costs some battery life,
 | | |
 |---|---|
 | **Shell** | `quickshell` (Qt 6.9+) · `hyprland` 0.56+ · `hypridle` · `hyprsunset` · `xdg-desktop-portal-hyprland` · `jq` · `curl` · `python3` · `libqalculate` |
-| **System** | `networkmanager` · `bluez` · `pipewire` · `pipewire-pulse` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `polkit-gnome` · `gnome-keyring` · `geoclue` · `brightnessctl` · `playerctl` · `libnotify` · `python-dbus` · `python-gobject` · `pacman-contrib` · `xdg-utils` · `gtk3` |
+| **System** | `networkmanager` · `bluez` · `pipewire` · `pipewire-pulse` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `polkit-gnome` · `gnome-keyring` · `geoclue` · `brightnessctl` · `playerctl` · `libnotify` · `python-dbus` · `python-gobject` · `pacman-contrib` · `xdg-utils` · `gtk3` · `pciutils` |
 | **Capture** | `grim` · `slurp` · `imagemagick` · `libvips` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |
