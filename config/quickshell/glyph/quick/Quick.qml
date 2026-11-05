@@ -511,11 +511,25 @@ PanelWindow {
         MouseArea {
             id: area
             property real v
+            property real wacc: 0
             anchors.fill: parent
             preventStealing: true
             function set(x) { v = Math.max(0, Math.min(1, x / width)); sl.moved(v); }
-            onPressed: e => { root.pin(); set(e.x); }
+            // pin на отпускании: в панели, открытой наведением, он отдаёт ей клавиатуру (None → Exclusive), и Hyprland на это
+            // отпускает все кнопки мыши — первый drag после peek доезжал до точки клика и обрывался
+            onPressed: e => set(e.x)
             onPositionChanged: e => set(e.x)
+            onReleased: root.pin()
+            // колесо: засечка — 5 %, тачпад (у него фаза жеста, у колеса нет) вчетверо медленнее, иначе свайп — полшкалы.
+            // Копим до 2 %: мелкие шаги тачпада съедает округление подсветки, и каждый пускал бы brightnessctl.
+            // Без pin: прокрутка — не клик, панель с края закрывается сама и клавиатуру не берёт
+            onWheel: e => {
+                wacc += (e.angleDelta.y || e.angleDelta.x) / 120 * 0.05 * (e.phase === Qt.NoScrollPhase ? 1 : 0.25);
+                if (Math.abs(wacc) < 0.02)
+                    return;
+                sl.moved(Math.max(0, Math.min(1, sl.shown + wacc)));
+                wacc = 0;
+            }
         }
     }
 }
