@@ -167,13 +167,13 @@ git clone https://github.com/AMM021/rice_nothing ~/.local/share/glyph
 ~/.local/share/glyph/install.sh
 ```
 
-It checks your machine, explains what will happen, and asks which setup you want:
+It checks your machine and your connection, explains what will happen, and asks which setup you want:
 
-- **Recommended**: the Glyph login screen, Thunar and Zen. No extras.
+- **Recommended**: the Glyph login screen, Thunar, Zen and the starter wallpapers.
 - **Custom**: choose the login screen, file manager, browser and extras. Move with the arrow keys, tick with space.
 - **Minimal**: only the desktop. Your login screen and browser stay.
 
-Nothing changes until you accept the summary. Files it replaces move to `~/.dots-backup-<date>/`. If a step fails it stops and says so, and running it again is safe.
+All the questions come first. At the summary you can install, change your choices or cancel. After that it asks for your password once and runs to the end by itself, so you can walk away. The one exception is a real package conflict, which pacman has to ask you about. Files it replaces move to `~/.dots-backup-<date>/`. If a step fails it stops and says so, and running it again is safe.
 
 | Flag | What it does |
 |---|---|
@@ -185,7 +185,7 @@ Nothing changes until you accept the summary. Files it replaces move to `~/.dots
 
 If a new login screen ever fails: `Ctrl` `Alt` `F2`, log in, run `install.sh --uninstall`.
 
-Wallpapers are read from `~/Pictures/Wallpapers`, and the installer copies [five CC0 ones](assets/wallpapers) there.
+Wallpapers are read from `~/Pictures/Wallpapers`, and the installer can copy [five CC0 ones](assets/wallpapers) there.
 Gifs for the home cat tile come from `~/Pictures/Gifs`: pick one in prefs → home or click the tile. With none there, you get the cat.
 
 | `config/` | goes to |

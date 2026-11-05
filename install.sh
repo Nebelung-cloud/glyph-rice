@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Glyph installer: walks a first-time user through the choices, shows a summary, and only then changes anything.
+# Glyph installer: asks everything first and shows a summary. After your yes and one password it runs to the end by itself.
 #   ./install.sh               the guided install
 #   ./install.sh --dry-run     the same questions, prints what it would do and changes nothing
 #   ./install.sh --yes         no questions, the Recommended setup
@@ -12,6 +12,7 @@ DOTS="$(cd "$(dirname "$0")" && pwd)"
 BACKUP="$HOME/.dots-backup-$(date +%F_%H-%M-%S)"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/rice"
 DRY=0 YES=0
+SETUP=recommended LOGIN=greeter FILES=thunar BROWSER=zen EXTRAS=(wallpapers)
 MIN_HYPRLAND=0.56
 
 PACMAN=(
@@ -188,6 +189,10 @@ check_machine() {
     note "memory:    $(awk '/MemTotal/ {printf "%.1f GB", $2/1048576}' /proc/meminfo)$(awk '/MemTotal/ && $2 < 7500000 {print " · Lite mode turns on by itself"}' /proc/meminfo)"
     note "graphics:  $(lspci 2>/dev/null | grep -E 'VGA|3D' | sed -E 's/^[^:]*: *[^:]*: *//' | cut -c1-60 | paste -sd'·' || echo unknown)"
     note "login now: $(current_dm | grep . || echo none)"
+    if command -v curl >/dev/null && ! curl -fsI --max-time 10 https://archlinux.org >/dev/null; then
+        say "No internet connection, and the install needs one. Connect, then run this again."
+        exit 1
+    fi
     local v
     v=$(pacman -Si hyprland 2>/dev/null | awk '/^Version/ {print $3; exit}' | cut -d- -f1)
     if [ -n "$v" ] && [ "$(vercmp "$v" "$MIN_HYPRLAND")" -lt 0 ]; then
@@ -206,35 +211,43 @@ explain() {
   • Installs the desktop: Hyprland, the Glyph shell, fonts, icons and the apps it calls.
   • Links the configs from this folder into your home, so 'git pull' updates them.
   • Moves anything it replaces to $BACKUP first.
-  • Nothing changes until you say yes to the summary. './install.sh --uninstall' undoes it.
+  • Asks everything first. Nothing changes until you accept the summary, and after your password it needs nothing more from you.
+  • './install.sh --uninstall' undoes it.
 
 EOF
 }
 
 choose() {
-    SETUP=recommended LOGIN=greeter FILES=thunar BROWSER=zen EXTRAS=()
     [ "$YES" = 1 ] && return 0
     pick "Which setup?" recommended \
-        "recommended|Recommended|The Glyph login screen, Thunar, Zen browser. No extras." \
+        "recommended|Recommended|The Glyph login screen, Thunar, Zen browser, starter wallpapers." \
         "custom|Custom|Choose the login screen, apps and extras yourself." \
         "minimal|Minimal|Only the desktop. Keeps your login screen and browser, no extras."
     SETUP=$PICKED
-    if [ "$SETUP" = minimal ]; then LOGIN=keep BROWSER=keep; fi
-    [ "$SETUP" = custom ] || return 0
+    case "$SETUP" in
+        minimal) LOGIN=keep BROWSER=keep EXTRAS=() ;;
+        custom) customize ;;
+    esac
+}
 
+tick_state() { # tick_state <id>: on if it's already chosen
+    case " ${EXTRAS[*]:-} " in *" $1 "*) echo on ;; *) echo off ;; esac
+}
+
+customize() {
     local dm; dm=$(current_dm)
-    pick "Login screen?" greeter \
+    pick "Login screen?" "$LOGIN" \
         "greeter|Glyph greeter|The lock screen's look before login, through greetd. Recommended." \
         "sddm|SDDM theme|The original rice's disc and tachometer, by Nebelung. Installs SDDM." \
         "keep|Keep what I have|${dm:-No display manager}: nothing changes."
     LOGIN=$PICKED
 
-    pick "File manager? (Super+E)" thunar \
+    pick "File manager? (Super+E)" "$FILES" \
         "thunar|Thunar|Small and simple, installed from the repositories." \
         "strata|Strata|Must be installed separately$(strata_present && echo ', found on this machine' || echo ', not found yet: Thunar is set until it is')."
     FILES=$PICKED
 
-    pick "Browser? (Super+W)" zen \
+    pick "Browser? (Super+W)" "$BROWSER" \
         "zen|Zen|From the AUR." \
         "firefox|Firefox|From the repositories." \
         "chromium|Chromium|From the repositories." \
@@ -243,28 +256,54 @@ choose() {
     BROWSER=$PICKED
 
     ticks "Extras?" \
-        "telegram|Telegram|its own workspace on Super+D|off" \
-        "spotify|Spotify|its own workspace on Super+M, with Spicetify|off" \
-        "vpn|Clash Verge|the VPN panel on Super+P|off" \
-        "firewall|Firewall (ufw)|blocks incoming connections, and System gets a page for it|off" \
-        "cava|Cava|the audio bars widget and the wallpaper beat, both off until you turn them on|off" \
-        "brightness|External brightness|ddcutil: the brightness slider for external monitors, experimental|off" \
-        "firefox-theme|Firefox theming|python-pywalfox: Firefox follows your colors, needs its add-on too|off" \
-        "tmux|tmux|with colors that follow your theme|off"
+        "wallpapers|Starter wallpapers|five wallpapers in ~/Pictures/Wallpapers|$(tick_state wallpapers)" \
+        "telegram|Telegram|its own workspace on Super+D|$(tick_state telegram)" \
+        "spotify|Spotify|its own workspace on Super+M, with Spicetify|$(tick_state spotify)" \
+        "vpn|Clash Verge|the VPN panel on Super+P|$(tick_state vpn)" \
+        "firewall|Firewall (ufw)|blocks incoming connections, and System gets a page for it|$(tick_state firewall)" \
+        "cava|Cava|the audio bars widget and the wallpaper beat, both off until you turn them on|$(tick_state cava)" \
+        "brightness|External brightness|ddcutil: the brightness slider for external monitors, experimental|$(tick_state brightness)" \
+        "firefox-theme|Firefox theming|python-pywalfox: Firefox follows your colors, needs its add-on too|$(tick_state firefox-theme)" \
+        "tmux|tmux|with colors that follow your theme|$(tick_state tmux)"
     EXTRAS=("${TICKED[@]}")
 }
 
 summary() {
-    head1 "Summary"
     local label
-    case "$LOGIN" in greeter) label="Glyph greeter (greetd)" ;; sddm) label="SDDM with the Glyph theme" ;; *) label="keep what you have" ;; esac
-    printf '  %-16s %s\n' "login screen" "$label" "file manager" "$FILES" "browser" "$BROWSER" "extras" "${EXTRAS[*]:-none}" "old files go to" "$BACKUP"
-    printf '\n'
-    if [ "$LOGIN" != keep ] && [ -n "$(current_dm)" ] && [ "$(current_dm)" != "$([ "$LOGIN" = greeter ] && echo greetd || echo sddm)" ]; then
-        note "$(current_dm) gets disabled so the new login screen can take over; --uninstall brings it back."
+    while :; do
+        head1 "Summary"
+        case "$LOGIN" in greeter) label="Glyph greeter (greetd)" ;; sddm) label="SDDM with the Glyph theme" ;; *) label="keep what you have" ;; esac
+        printf '  %-16s %s\n' "login screen" "$label" "file manager" "$FILES" "browser" "$BROWSER" "extras" "${EXTRAS[*]:-none}" "old files go to" "$BACKUP"
+        printf '\n'
+        if [ "$LOGIN" != keep ] && [ -n "$(current_dm)" ] && [ "$(current_dm)" != "$([ "$LOGIN" = greeter ] && echo greetd || echo sddm)" ]; then
+            note "$(current_dm) gets disabled so the new login screen can take over; --uninstall brings it back."
+        fi
+        if pacman -Q pulseaudio &>/dev/null; then note "pulseaudio gets replaced by pipewire-pulse."; fi
+        if [ "$DRY" = 1 ]; then note "dry run: nothing below is actually done"; fi
+        printf '\n'
+        pick "Ready?" install \
+            "install|Install|After your password it runs to the end by itself. It can take a while, you can walk away." \
+            "change|Change my choices|Go through the login screen, apps and extras again." \
+            "cancel|Cancel|Nothing has changed."
+        case "$PICKED" in
+            install) return 0 ;;
+            change) customize ;;
+            cancel) say "Nothing changed."; exit 0 ;;
+        esac
+    done
+}
+
+# one password, then the installer keeps sudo alive so nothing stops to ask again
+KEEPER=""
+sudo_once() {
+    [ "$DRY" = 1 ] && return 0
+    if sudo -n true 2>/dev/null; then :; else
+        head1 "Your password, once"
+        sudo -v
     fi
-    if [ "$DRY" = 1 ]; then note "dry run: nothing below is actually done"; fi
-    ask_yes "Go ahead?" y || { say "Nothing changed."; exit 0; }
+    ( trap - ERR; set +e; while kill -0 $$ 2>/dev/null; do sudo -n true; sleep 50; done ) >/dev/null 2>&1 &
+    KEEPER=$!
+    trap '[ -z "$KEEPER" ] || kill "$KEEPER" 2>/dev/null || true' EXIT
 }
 
 packages() {
@@ -281,10 +320,16 @@ packages() {
     # pulseaudio modules require pulseaudio itself — pacman wouldn't let it be replaced with pipewire-pulse.
     # As a list, not grep '^pulseaudio-': pulseaudio-alsa and pulseaudio-qt live fine with pipewire
     local pa; pa=$(pacman -Qq pulseaudio-{bluetooth,jack,lirc,rtp,zeroconf,equalizer,equalizer-ladspa} 2>/dev/null || true)
-    [ -z "$pa" ] || run sudo pacman -R $pa
-    pacman -Q pulseaudio &>/dev/null && say "pacman will ask «Remove pulseaudio?»: answer y, pipewire-pulse replaces it"
-    # no --noconfirm: on a conflict (pulseaudio → pipewire-pulse) it would answer «no» and abort the install
-    run sudo pacman -Syu --needed "${main[@]}"
+    [ -z "$pa" ] || run sudo pacman -R --noconfirm $pa
+    # --noconfirm answers «no» to replacing it, so it goes first; pipewire-pulse takes over in the next step
+    if pacman -Q pulseaudio &>/dev/null; then run sudo pacman -Rdd --noconfirm pulseaudio; fi
+    # an old keyring rejects new packages as badly signed, a common stop on a fresh system
+    run sudo pacman -Sy --needed --noconfirm archlinux-keyring || note "Keyring not updated, continuing."
+    # a real conflict can't be answered for you: only then does pacman get to ask
+    if ! run sudo pacman -Syu --needed --noconfirm "${main[@]}"; then
+        say "pacman needs a decision, so here it is:"
+        run sudo pacman -Syu --needed "${main[@]}"
+    fi
 
     if ! command -v yay >/dev/null; then
         say "yay, for packages from the AUR"
@@ -312,10 +357,10 @@ services() {
         run systemctl --user enable "$s" || say "Could not enable $s for your user, see above. The rest continues."
     done
     run sudo usermod -aG input,video "$USER" # ydotool (uinput), brightnessctl
-    run xdg-user-dirs-update
+    run xdg-user-dirs-update || true
     case " ${EXTRAS[*]:-} " in *" firewall "*)
         run sudo systemctl enable --now ufw
-        run sudo ufw enable ;;
+        run sudo ufw --force enable ;; # --force: it would stop to ask otherwise
     esac
 }
 
@@ -339,14 +384,17 @@ links() {
     if [ "$DRY" = 1 ]; then note "would write glyph to $STATE/shell"; else echo glyph >"$STATE/shell"; fi
     # a few wallpapers to start with, in the picker's folder (Super+Shift+W). Yours are never overwritten
     local w
-    for w in "$DOTS"/assets/wallpapers/*.jpg; do
-        [ -e "$HOME/Pictures/Wallpapers/${w##*/}" ] || run cp "$w" "$HOME/Pictures/Wallpapers/"
-    done
+    case " ${EXTRAS[*]:-} " in *" wallpapers "*)
+        for w in "$DOTS"/assets/wallpapers/*.jpg; do
+            [ -e "$HOME/Pictures/Wallpapers/${w##*/}" ] || run cp "$w" "$HOME/Pictures/Wallpapers/"
+        done ;;
+    esac
     run fc-cache -f
     command -v gsettings >/dev/null || return 0 # --links on a system without GNOME schemas
     # dark mode for browsers, Electron and libadwaita (via the portal) and a dark gtk3 base under our gtk.css
-    run gsettings set org.gnome.desktop.interface color-scheme prefer-dark
-    run gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
+    # outside a session there's no dbus yet, and the shell sets these again at first login
+    run gsettings set org.gnome.desktop.interface color-scheme prefer-dark || true
+    run gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
 }
 
 default_apps() {
@@ -497,6 +545,7 @@ case "$MODE" in
         explain
         choose
         summary
+        sudo_once
         packages
         services
         links
