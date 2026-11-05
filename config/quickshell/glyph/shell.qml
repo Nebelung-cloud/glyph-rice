@@ -46,7 +46,7 @@ ShellRoot {
     // nothing else on Hyprland mounts a plugged-in drive. udiskie skips internal disks, and -n reports through the usual notifications
     Process {
         running: Theme.state.autoMount
-        command: ["sh", "-c", "command -v udiskie >/dev/null && exec udiskie -a -n -T"]
+        command: ["sh", "-c", "command -v udiskie >/dev/null || exit 0; pkill -x -u \"$(id -u)\" udiskie; exec udiskie -a -n -T"] // a restart can leave the last one running
     }
     Lazy { id: overview; component: Overview { onSettingsRequested: system.get().openAt("WORKSPACES") } } // Super+Tab: all workspaces and windows, drag a window onto a workspace
     Lazy { id: power; component: Power {} }
