@@ -1,6 +1,6 @@
 # Changelog
 
-The newest changes come first. To get them, press **update the rice** in System → About, or run `install.sh --update`.
+The newest changes come first. To get them, press **update everything** in System → About, or run `install.sh --update`.
 
 ## November 2026
 
@@ -38,7 +38,6 @@ The newest changes come first. To get them, press **update the rice** in System 
 ### Login screens
 
 - System → About shows your login screen, and **change login screen** opens a menu to pick another.
-
 - New: the **Dial greeter**. Nebelung's camera dial and tachometer, ported from the SDDM theme to greetd, so that look no longer needs SDDM.
 - The existing greeter is now called the **Lock greeter**, after the lock screen look it shares.
 - Switch at any time with `install.sh --lock-greeter` or `install.sh --dial-greeter`.

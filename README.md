@@ -65,7 +65,7 @@ Commits picked directly keep their author. Features ported by hand name their so
 
 <h2 align="center">Tested, and not tested</h2>
 
-Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprland 0.56. Also installed on a second one: Intel and NVIDIA graphics, one screen, EndeavourOS moving from KDE Plasma, Hyprland 0.57.
+Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprland 0.56. Also installed on a second one: Intel and NVIDIA graphics, one screen, EndeavourOS moving from KDE Plasma. Both have now run Hyprland 0.57.
 
 **Tested:**
 
@@ -75,6 +75,8 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - The greeter's install script the same way, then its login screen as a preview window.
 - Every package name in the installer, against the Arch repositories and the AUR.
 - A real install from this repository on the second laptop, keeping its SDDM login screen.
+- A real `install.sh --update` on the second laptop.
+- The Dial greeter at a real boot on the development laptop: a wrong password refused, the right one logging in.
 - A real session lock with typing, on the development laptop.
 - System → Drives with stand-ins for the system tools: the right drives listed, mounting, safely removing, and showing an error.
 - The lockout message on a real session lock, using a stand-in PAM file so the real account was never at risk, and Caps Lock detection.
@@ -84,13 +86,13 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 
 **Not tested yet, so tell me if something breaks:**
 
-- Booting into the Lock greeter or the Dial greeter from this repository's scripts. The Dial greeter was tested as a window with real key presses against a fake greetd: a wrong password refused, the right one starting the chosen session.
-- `--update` and the update everything button on a real update, and the pacman notice during a real `pacman` run. The notice's script and the hook's text were tested, but not pacman running it.
+- A fresh install choosing the Lock greeter from this repository's script. The development laptop's Lock greeter was an earlier copy.
+- The **update everything** button on a real update, and the pacman notice during a real `pacman` run. The notice's script and the hook's text were tested, but not pacman running it.
 - A real `yay` update through the update button.
 - Whether `--fix-plasma` read the passwords from a real KDE Wallet, or they were typed. The format comes from KDE's source code.
 - Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
 - The lock screen's keyboard long term on the laptop where it failed. It worked again once that laptop was updated, but the problem couldn't be reproduced, so the safeguard isn't proven to be the reason.
-- A real USB drive or phone with mounting by itself, and real mounting from System → Drives. udiskie wasn't installed on the development laptop during testing, and it can't create test disks without admin rights.
+- Confirming a real USB drive mounts by itself through udiskie, a phone, and real mounting from System → Drives. A USB drive did appear in Dolphin on the development laptop after a restart.
 - A real lockout on the lock screen or a greeter, and the wording PAM uses there.
 - Installing Dolphin from zero through the installer. It was run on the development laptop, where it was already installed, and its menu fix was checked in a sandbox.
 - The SDDM option on a real machine.
@@ -154,7 +156,8 @@ Wi-Fi names, Bluetooth devices, the hostname and the laptop model are blanked ou
 | ![workspaces](screenshots/system-workspaces.png) **Workspaces** | ![power](screenshots/system-power.png) **Power and Lite mode** |
 | ![battery](screenshots/system-battery.png) **Battery** | ![input](screenshots/system-input.png) **Input** |
 | ![idle](screenshots/system-idle.png) **Idle and lid** | ![firewall](screenshots/system-firewall.png) **Firewall** |
-| ![default apps](screenshots/system-apps.png) **Default apps** | ![about](screenshots/system-about.png) **About** |
+| ![default apps](screenshots/system-apps.png) **Default apps, with the file manager choice** | ![about](screenshots/system-about.png) **About: updates and login screen** |
+| ![drives](screenshots/system-drives.png) **Drives** (nothing plugged in) | |
 
 ### The rice's look
 
