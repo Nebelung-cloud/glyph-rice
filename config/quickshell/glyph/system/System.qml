@@ -85,16 +85,6 @@ PanelWindow {
             e.accepted = true;
         }
 
-        Act {
-            x: 150
-            y: 70
-            icon: "\u{F03D8}"
-            text: "customize the rice"
-            onHit: {
-                root.close();
-                root.customizeRequested();
-            }
-        }
 
         Column {
             x: 150 - 30 * (1 - root.t)
@@ -114,7 +104,7 @@ PanelWindow {
                         width: 22
                         height: 22
                         radius: 11
-                        color: Theme.red
+                        color: Theme.accent
                     }
                     Grow { text: word.modelData; on: word.on; big: 80; small: 38; anchors.verticalCenter: parent.verticalCenter }
                     TapHandler { onTapped: root.go(word.index) }
@@ -142,6 +132,18 @@ PanelWindow {
         IdlePage { id: idle; on: root.cur === "IDLE" }
         FirewallPage { id: fw; on: root.cur === "FIREWALL"; live: root.shown && on }
         AppsPage { id: apps; on: root.cur === "APPS"; live: root.shown && on }
-        AboutPage { id: about; on: root.cur === "ABOUT"; live: root.shown && on }
+        AboutPage { id: about; on: root.cur === "ABOUT"; live: root.shown && on; onDone: root.close() }
+
+        // last in the Tab order: Tab goes to the page's own controls first
+        Act {
+            x: 150
+            y: 70
+            icon: "\u{F03D8}"
+            text: "customize the rice"
+            onHit: {
+                root.close();
+                root.customizeRequested();
+            }
+        }
     }
 }

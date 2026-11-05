@@ -6,7 +6,7 @@
 #   ./install.sh --uninstall   takes the links away and puts your old files and login screen back
 #   ./install.sh --links       symlinks only, on any distro (the packages are then your own, see the README)
 #   ./install.sh --sddm        only the SDDM login theme; run again after edits in config/sddm
-set -euo pipefail
+set -Eeuo pipefail
 
 DOTS="$(cd "$(dirname "$0")" && pwd)"
 BACKUP="$HOME/.dots-backup-$(date +%F_%H-%M-%S)"
@@ -26,7 +26,7 @@ PACMAN=(
     python-dbus python-gobject pacman-contrib
     # utilities called by the binds and the shell; gtk3 for gtk-launch, the file manager and browser binds use it
     brightnessctl playerctl wl-clipboard cliphist grim slurp swappy imagemagick libvips libqalculate
-    gpu-screen-recorder ydotool libnotify trash-cli gtk3
+    gpu-screen-recorder ydotool libnotify trash-cli gtk3 pciutils
     # terminal and console
     kitty fish starship fastfetch btop eza zoxide direnv
     # the sound settings bind
@@ -60,6 +60,8 @@ LINKS=(
 
 # ---- output ----
 RED=$'\e[38;2;215;25;33m' DIM=$'\e[2m' BOLD=$'\e[1m' OFF=$'\e[0m'
+# set -E: a step that fails anywhere stops here with one plain sentence
+trap 'printf "\n%s●%s Stopped at the step above. Nothing after it ran. Fix what it says, then run this again: it is safe to repeat.\n" "$RED" "$OFF"' ERR
 say() { printf '%s●%s %s\n' "$RED" "$OFF" "$*"; }
 note() { printf '  %s%s%s\n' "$DIM" "$*" "$OFF"; }
 head1() { printf '\n%s%s%s\n\n' "$BOLD" "$*" "$OFF"; }
@@ -301,8 +303,14 @@ packages() {
 
 services() {
     head1 "Turning on services"
-    run sudo systemctl enable NetworkManager bluetooth power-profiles-daemon
-    run systemctl --user enable pipewire-pulse.socket wireplumber ydotool
+    # one that can't be enabled (tlp holds power-profiles-daemon's place, no user session yet) shouldn't stop the rest
+    local s
+    for s in NetworkManager bluetooth power-profiles-daemon; do
+        run sudo systemctl enable "$s" || say "Could not enable $s, see above. The rest continues."
+    done
+    for s in pipewire-pulse.socket wireplumber ydotool; do
+        run systemctl --user enable "$s" || say "Could not enable $s for your user, see above. The rest continues."
+    done
     run sudo usermod -aG input,video "$USER" # ydotool (uinput), brightnessctl
     run xdg-user-dirs-update
     case " ${EXTRAS[*]:-} " in *" firewall "*)
@@ -317,7 +325,8 @@ links() {
     for l in "${LINKS[@]}"; do
         read -r src dst <<<"$l"
         src="$DOTS/$src" dst="$HOME/$dst"
-        [ "$(readlink "$dst" 2>/dev/null)" = "$src" ] && continue
+        # gtk and qt files may point at the shell's recolored copies: those are ours too
+        case "$(readlink "$dst" 2>/dev/null)" in "$src" | "$STATE"/glyph/*) continue ;; esac
         if [ -e "$dst" ] || [ -L "$dst" ]; then
             run mkdir -p "$BACKUP/$(dirname "${dst#"$HOME"/}")"
             run mv "$dst" "$BACKUP/${dst#"$HOME"/}"
@@ -329,7 +338,10 @@ links() {
     run mkdir -p "$HOME/.config/demonshot" "$STATE" "$HOME/Pictures/Wallpapers"
     if [ "$DRY" = 1 ]; then note "would write glyph to $STATE/shell"; else echo glyph >"$STATE/shell"; fi
     # a few wallpapers to start with, in the picker's folder (Super+Shift+W). Yours are never overwritten
-    run cp -n "$DOTS"/assets/wallpapers/* "$HOME/Pictures/Wallpapers/"
+    local w
+    for w in "$DOTS"/assets/wallpapers/*.jpg; do
+        [ -e "$HOME/Pictures/Wallpapers/${w##*/}" ] || run cp "$w" "$HOME/Pictures/Wallpapers/"
+    done
     run fc-cache -f
     command -v gsettings >/dev/null || return 0 # --links on a system without GNOME schemas
     # dark mode for browsers, Electron and libadwaita (via the portal) and a dark gtk3 base under our gtk.css
@@ -414,8 +426,8 @@ finish() {
   A welcome card with these appears on your first login.
 
   To undo all of it:  $0 --uninstall
-  Your old files:     $BACKUP
 EOF
+    if [ -d "$BACKUP" ]; then printf '  Your old files:     %s\n' "$BACKUP"; fi
     if [ "$LOGIN" = greeter ]; then
         cat <<EOF
 
@@ -433,7 +445,7 @@ EOF
 
 uninstall() {
     head1 "Uninstalling"
-    ask_yes "Remove the links and restore your old files and login screen? Packages stay installed." n || exit 0
+    [ "$YES" = 1 ] || ask_yes "Remove the links and restore your old files and login screen? Packages stay installed." n || exit 0
     local src dst first
     first=$(find "$HOME" -maxdepth 1 -type d -name '.dots-backup-*' 2>/dev/null | sort | head -n1)
     for l in "${LINKS[@]}"; do
@@ -453,6 +465,7 @@ uninstall() {
     if [ -n "$old" ]; then
         run sudo systemctl disable "$(current_dm)"
         run sudo systemctl enable "$old"
+        run rm "$STATE/previous-dm"
         say "Login screen back to $old."
     elif [ "$(current_dm)" = greetd ] || [ "$(current_dm)" = sddm ]; then
         note "$(current_dm) stays enabled: no earlier login screen is on record."

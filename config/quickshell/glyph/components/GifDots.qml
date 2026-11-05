@@ -14,6 +14,11 @@ Item {
     // the texture source — the effect's sibling with opacity 0, see Wall
     AnimatedImage { id: img; anchors.fill: fx; opacity: 0; source: Gifs.url(root.path); playing: root.playing }
     ShaderEffect {
+        // the wallpaper shader's effects stay off here
+        readonly property real glass: 0
+        readonly property real rib: 1
+        readonly property real bend: 0
+        readonly property real beat: 0
         id: fx
         anchors.fill: parent
         readonly property size size: Qt.size(width, height)

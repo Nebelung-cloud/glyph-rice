@@ -50,6 +50,14 @@ PanelWindow {
         stage.forceActiveFocus();
     }
     function close() { shown = false; }
+    // opened from System — esc goes back there instead of out to the desktop
+    property bool fromSystem: false
+    signal backRequested
+    function leave() {
+        close();
+        if (fromSystem) backRequested();
+        fromSystem = false;
+    }
     function toggle() { shown ? close() : open(); }
     function go(i) {
         sel = (i + sections.length) % sections.length;
@@ -158,7 +166,7 @@ PanelWindow {
             if (e.key === Qt.Key_Up || e.key === Qt.Key_K) root.go(root.sel - 1);
             else if (e.key === Qt.Key_Down || e.key === Qt.Key_J) root.go(root.sel + 1);
             else if (e.key === Qt.Key_Right && stage.activeFocus) stage.nextItemInFocusChain(true)?.forceActiveFocus();
-            else if (e.key === Qt.Key_Escape) root.close();
+            else if (e.key === Qt.Key_Escape) root.leave();
             else return;
             e.accepted = true;
         }
@@ -197,7 +205,7 @@ PanelWindow {
             Lb { text: "↑↓ section" }
             Lb { text: "tab · ←→ change" }
             Lb { visible: !!text; text: root.hints[root.sel] }
-            Lb { text: "esc close"; TapHandler { onTapped: root.close() } }
+            Lb { text: root.fromSystem ? "esc back" : "esc close"; TapHandler { onTapped: root.leave() } }
         }
 
         // ---- HOME: home at a 168/220 scale — the same kinds, order and layout. Click — select, another click or ↵ — the next kind,
@@ -623,7 +631,7 @@ PanelWindow {
                                 Rectangle {
                                     width: 200
                                     height: 125
-                                    radius: 18
+                                    radius: Theme.corner(18)
                                     color: Theme.bg
                                     border { width: ed.on && edges.activeFocus ? 2 : 1; color: ed.on ? Theme.fg : Theme.s3 }
                                     Behavior on border.color { ColorAnimation { duration: Theme.t } }
@@ -713,13 +721,12 @@ PanelWindow {
 
                 Column {
                     spacing: 14
-                    Toggle { width: 200; text: "light"; on: Theme.light; onFlip: Theme.setLight(!Theme.light) }
                     Toggle { width: 200; text: "dot grid"; on: Theme.state.grid; onFlip: Theme.state.grid = !Theme.state.grid }
                     Toggle { width: 200; text: "orb"; on: Theme.state.orb; onFlip: Theme.state.orb = !Theme.state.orb }
                     Toggle { width: 200; text: "24 hours"; on: Theme.state.clock24; onFlip: Theme.state.clock24 = !Theme.state.clock24 }
                     Toggle { width: 200; text: "blink"; on: Theme.state.blink; onFlip: Theme.state.blink = !Theme.state.blink }
                     Toggle { width: 200; text: "edges"; on: Theme.state.edges; onFlip: Theme.state.edges = !Theme.state.edges }
-                    Toggle { width: 200; text: "lights in island"; on: Theme.state.glyphLights === 1; onFlip: Theme.state.glyphLights = Theme.state.glyphLights === 1 ? 0 : 1 }
+                    Toggle { width: 200; text: "island lights"; on: Theme.state.glyphLights === 1; onFlip: Theme.state.glyphLights = Theme.state.glyphLights === 1 ? 0 : 1 }
                     Act {
                         icon: "\u{F02E9}"
                         text: "wallpaper"
@@ -736,12 +743,11 @@ PanelWindow {
             Row {
                 spacing: 12
                 Lb { width: 110; anchors.verticalCenter: parent.verticalCenter; text: "on home" }
-                Toggle { width: 170; text: "clock"; on: Theme.state.homeClock; onFlip: Theme.state.homeClock = !Theme.state.homeClock }
-                Toggle { width: 170; text: "greeting"; on: Theme.state.homeHello; onFlip: Theme.state.homeHello = !Theme.state.homeHello }
-                Toggle { width: 170; text: "widgets"; on: Theme.state.homeBento; onFlip: Theme.state.homeBento = !Theme.state.homeBento }
+                Toggle { text: "clock"; on: Theme.state.homeClock; onFlip: Theme.state.homeClock = !Theme.state.homeClock }
+                Toggle { text: "greeting"; on: Theme.state.homeHello; onFlip: Theme.state.homeHello = !Theme.state.homeHello }
+                Toggle { text: "widgets"; on: Theme.state.homeBento; onFlip: Theme.state.homeBento = !Theme.state.homeBento }
                 Toggle {
                     readonly property bool all: Theme.state.homeClock && Theme.state.homeHello && Theme.state.homeBento
-                    width: 170
                     text: "all"
                     on: all
                     onFlip: {
@@ -755,9 +761,9 @@ PanelWindow {
             Row {
                 spacing: 12
                 Lb { width: 110; anchors.verticalCenter: parent.verticalCenter; text: "on the lock" }
-                Toggle { width: 170; text: "atmosphere"; on: Theme.state.atmosphere; onFlip: Theme.state.atmosphere = !Theme.state.atmosphere }
-                Toggle { width: 170; text: "hide length"; on: Theme.state.lockHideLen; onFlip: Theme.state.lockHideLen = !Theme.state.lockHideLen }
-                Toggle { width: 170; text: "one screen"; on: Theme.state.lockOneScreen; onFlip: Theme.state.lockOneScreen = !Theme.state.lockOneScreen }
+                Toggle { text: "atmosphere"; on: Theme.state.atmosphere; onFlip: Theme.state.atmosphere = !Theme.state.atmosphere }
+                Toggle { text: "hide length"; on: Theme.state.lockHideLen; onFlip: Theme.state.lockHideLen = !Theme.state.lockHideLen }
+                Toggle { text: "one screen"; on: Theme.state.lockOneScreen; onFlip: Theme.state.lockOneScreen = !Theme.state.lockOneScreen }
             }
 
             // the name in the greeting; empty — $USER
@@ -825,7 +831,7 @@ PanelWindow {
                     onPicked: i => Theme.state.paint = ["", "wall", "scheme"][i]
                 }
                 Pick { label: "theme"; opts: ["dark", "light"]; cur: Theme.light ? 1 : 0; onPicked: i => Theme.setLight(i === 1) }
-                Toggle { opacity: Theme.light ? 0.4 : 1; text: "extra dark"; on: Theme.state.extraDark; onFlip: Theme.state.extraDark = !Theme.state.extraDark }
+                Toggle { opacity: Theme.light ? 0.4 : 1; text: "extra dark"; on: Theme.state.extraDark; onFlip: if (!Theme.light) Theme.state.extraDark = !Theme.state.extraDark }
             }
 
             // what the source has. One height for all: Page is centered, and the layout shouldn't jump when the source changes. ponytail: 300 — by
@@ -867,7 +873,7 @@ PanelWindow {
                         }
                         Column {
                             spacing: 6
-                            Lb { text: Theme.tones.length ? "tones · from the wallpaper" : "no colour in it · click it for another" }
+                            Lb { text: Theme.tones.length ? "tones · from the wallpaper" : "no color in it · click it for another" }
                             Row {
                                 Repeater {
                                     model: tint.block("tones").length
@@ -881,13 +887,13 @@ PanelWindow {
                         readonly property var amounts: [50, 75, 100, 125, 150, 200]
                         label: "saturation · %"
                         opts: amounts.map(String)
-                        cur: amounts.indexOf(Theme.state.paintSat)
+                        cur: amounts.reduce((b, v, i) => Math.abs(v - Theme.state.paintSat) < Math.abs(amounts[b] - Theme.state.paintSat) ? i : b, 0) // an older value snaps to the nearest
                         onPicked: i => Theme.state.paintSat = amounts[i]
                     }
                     Column {
                         visible: Theme.state.paint === "wall" && Theme.tones.length > 0
                         spacing: 6
-                        Lb { text: "variant · how much colour, like material you" }
+                        Lb { text: "variant · how much color, like material you" }
                         Row {
                             Repeater {
                                 model: tint.block("variant").length
@@ -994,8 +1000,8 @@ PanelWindow {
             // game mode: starts by itself on a fullscreen game (services/Game), and what stays on in it. Off — game mode drops it
             Row {
                 spacing: 12
-                Toggle { width: 230; text: "auto game mode"; on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
-                Lb { leftPadding: 16; rightPadding: 4; anchors.verticalCenter: parent.verticalCenter; text: "keep in a game" }
+                Toggle { width: 220; text: "auto game mode"; on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
+                Lb { leftPadding: 16; rightPadding: 4; anchors.verticalCenter: parent.verticalCenter; text: "in a game" }
                 Toggle { width: 130; text: "gaps"; on: root.r.gameGaps; onFlip: { root.r.gameGaps = !root.r.gameGaps; Theme.apply(); } }
                 Toggle { width: 130; text: "motion"; on: root.r.gameMotion; onFlip: { root.r.gameMotion = !root.r.gameMotion; Rules.motion(); } }
                 Toggle { width: 130; text: "blur"; on: root.r.gameBlur; onFlip: { root.r.gameBlur = !root.r.gameBlur; Theme.apply(); } }
@@ -1062,7 +1068,7 @@ PanelWindow {
         readonly property real k: width / ((Rules.mon.w || 2880) / Rules.scale)
         width: 760
         height: 475
-        radius: 24
+        radius: Theme.corner(24)
         color: Theme.bg
         border { width: 1; color: Theme.s3 }
         Image {

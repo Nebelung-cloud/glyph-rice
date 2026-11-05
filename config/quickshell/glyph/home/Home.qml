@@ -68,6 +68,7 @@ PanelWindow {
                 y: 448
                 text: `${root.en.toString(clock.date, "dddd · d MMMM")} · week ${root.week(clock.date)}`
                 px: 14
+                color: Theme.state.wall ? Theme.fg : Theme.grey
             }
         }
         Item {
@@ -425,7 +426,8 @@ PanelWindow {
         property string text
         spacing: 10
         Icon { anchors.verticalCenter: parent.verticalCenter; text: parent.icon; font.pixelSize: 16 }
-        Lb { anchors.verticalCenter: parent.verticalCenter; text: parent.text }
+        // on a wallpaper grey gets lost
+        Lb { anchors.verticalCenter: parent.verticalCenter; text: parent.text; color: Theme.state.wall ? Theme.fg : Theme.grey }
     }
     component Stat: Column {
         property string label

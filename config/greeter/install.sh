@@ -54,4 +54,4 @@ usermod -d "$dst/home" greeter
 install -m644 "$here/config.toml" /etc/greetd/config.toml
 
 echo "installed. greetd reads its config only at start: reboot to apply config.toml changes"
-systemctl -q is-enabled greetd || echo "switch to it with:  sudo systemctl disable sddm && sudo systemctl enable greetd"
+systemctl -q is-enabled greetd || echo "if you ran this by hand, switch to it with:  sudo systemctl disable sddm && sudo systemctl enable greetd"

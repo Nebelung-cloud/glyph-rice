@@ -16,7 +16,7 @@ Rectangle {
     activeFocusOnTab: true
     Keys.onPressed: e => {
         if (e.key !== Qt.Key_Return && e.key !== Qt.Key_Enter && e.key !== Qt.Key_Space) return;
-        act.hit();
+        if (!e.isAutoRepeat) act.hit(); // holding the key mustn't repeat the action
         e.accepted = true;
     }
     Rectangle {

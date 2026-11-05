@@ -44,8 +44,8 @@ ShellRoot {
     LazyLoader { active: !Theme.state.welcomed; Welcome {} }
     Lazy { id: overview; component: Overview { onSettingsRequested: system.get().openAt("WORKSPACES") } } // Super+Tab: all workspaces and windows, drag a window onto a workspace
     Lazy { id: power; component: Power {} }
-    Lazy { id: prefs; component: Prefs { onWallRequested: walls.get().open() } }
-    Lazy { id: system; component: System { onCustomizeRequested: prefs.get().open() } } // the quick settings gear: network, bluetooth, sound, display
+    Lazy { id: prefs; component: Prefs { onWallRequested: walls.get().open(); onBackRequested: system.get().open() } }
+    Lazy { id: system; component: System { onCustomizeRequested: { const p = prefs.get(); p.open(); p.fromSystem = true; } } } // the quick settings gear: network, bluetooth, sound, display
     Lazy { id: cal; component: Cal {} }
     Lazy { id: clip; component: Clip {} }
     Lazy { id: charms; component: Charms {} }

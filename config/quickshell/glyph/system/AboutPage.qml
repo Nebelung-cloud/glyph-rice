@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import qs
 import qs.components
@@ -13,9 +14,10 @@ Page {
     caption: `about · ${info.host ?? ""}`
 
     property var info: ({})
+    // started, not bound to live: leaving the page mid-probe killed it, and the half it had printed stayed for good
+    Component.onCompleted: if (live) probe.running = true
     Process {
         id: probe
-        running: root.live && !root.info.os
         command: ["sh", "-c", `. /etc/os-release 2>/dev/null; echo "os=$PRETTY_NAME"
 echo "host=$(cat /proc/sys/kernel/hostname)"
 v=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null); p=$(cat /sys/class/dmi/id/product_version 2>/dev/null)
@@ -61,7 +63,10 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
         checking = true;
         upd.running = true;
     }
-    onLiveChanged: if (live && !checked && !checking) check()
+    onLiveChanged: if (live) {
+        if (!info.os) probe.running = true;
+        if (!checked && !checking) check();
+    }
     Process {
         id: upd
         command: ["sh", "-c", "command -v checkupdates >/dev/null && checkupdates 2>/dev/null; a=$(command -v yay || command -v paru); [ -n \"$a\" ] && \"$a\" -Qua 2>/dev/null | sed 's/^/aur:/'; true"]
@@ -73,9 +78,15 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
             }
         }
     }
+    // System covers the screen and holds the keyboard: it has to leave, or the terminal opens unseen behind it. Pressed again while that
+    // terminal is open — go to it: a second one prompts for sudo as well, and abandoned prompts count as failures and lock the account
+    signal done
     function update() {
-        Quickshell.execDetached(["kitty", "--title", "updates", "sh", "-c",
-            'a=$(command -v yay || command -v paru); if [ -n "$a" ]; then "$a" -Syu; else sudo pacman -Syu; fi; printf "\\ndone · press enter "; read -r _']);
+        const open = Hyprland.toplevels.values.find(t => t.title === "updates");
+        if (open) Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${open.address}" })`);
+        else Quickshell.execDetached(["kitty", "--title", "updates", "bash", Quickshell.shellPath("system/update.sh")]);
+        checked = ""; // count again on the next visit
+        done();
     }
 
     Grid {
@@ -108,9 +119,16 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
                 Lb { anchors.baseline: un.baseline; text: root.checking ? "checking…" : root.checked ? `checked ${root.checked}${root.updates.some(u => u.startsWith("aur:")) ? " · incl. aur" : ""}` : "" }
             }
         }
-        Act { anchors.verticalCenter: parent.verticalCenter; icon: "\u{F030C}"; text: "keys"; onHit: Theme.state.welcomed = false } // the first-run card
         Act { anchors.verticalCenter: parent.verticalCenter; icon: "\u{F0450}"; text: "check"; onHit: if (!root.checking) root.check() }
         Act { anchors.verticalCenter: parent.verticalCenter; visible: root.updates.length > 0; icon: "\u{F06B0}"; text: "update"; onHit: root.update() }
+    }
+    Act {
+        icon: "\u{F030C}"
+        text: "keyboard shortcuts"
+        onHit: {
+            Theme.state.welcomed = false; // the first-run card
+            root.done();
+        }
     }
     Flickable {
         visible: root.updates.length > 0
@@ -124,7 +142,7 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
             spacing: 18
             Repeater {
                 model: root.updates
-                Lb { required property string modelData; text: modelData.replace(/^aur:/, "aur · ").split(" ").slice(0, 1).join(""); px: 10 }
+                Lb { required property string modelData; text: modelData.split(" ")[0].replace(/^aur:/, "aur · "); px: 10 }
             }
         }
     }

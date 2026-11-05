@@ -65,6 +65,11 @@ Item {
     AnimatedImage { id: b; anchors.fill: fx; opacity: 0; playing: root.playing && root.cur === b || run.running }
 
     ShaderEffect {
+        // the wallpaper shader's effects stay off here
+        readonly property real glass: 0
+        readonly property real rib: 1
+        readonly property real bend: 0
+        readonly property real beat: 0
         id: fx
         anchors { fill: parent; margins: 12 }
         readonly property size size: Qt.size(width, height)

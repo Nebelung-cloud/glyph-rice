@@ -79,7 +79,11 @@ PanelWindow {
     readonly property bool connected: want >= 0 ? want === 1 : live
     onLiveChanged: { want = -1; wall(); }
     Timer { id: wantT; interval: 5000; onTriggered: root.want = -1 } // verge stayed silent — show it as it is
+    // not installed (it's an extra in install.sh): say so instead of offering a button that does nothing
+    property bool hasVerge: true
+    Process { running: true; command: ["sh", "-c", "command -v clash-verge"]; onExited: code => root.hasVerge = code === 0 }
     function flip() {
+        if (!hasVerge) return;
         if (!verge) return Quickshell.execDetached(["clash-verge"]); // asleep — wake it
         if (connected) {
             kept = [sys && "System Proxy", tun && "TUN Mode"].filter(Boolean);
@@ -309,7 +313,7 @@ PanelWindow {
                         }
                         Lb {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: !root.verge ? "verge sleeps · tap" : root.connected ? `since ${Qt.formatTime(root.since, "hh:mm")}` : "tap to connect"
+                            text: !root.hasVerge ? "not installed" : !root.verge ? "verge sleeps · tap" : root.connected ? `since ${Qt.formatTime(root.since, "hh:mm")}` : "tap to connect"
                         }
                     }
                     TapHandler { onTapped: root.flip() }
@@ -504,7 +508,7 @@ PanelWindow {
                         TapHandler { onTapped: { root.cur = row.index; root.go(row.index); } }
                     }
                 }
-                Lb { visible: !root.ways.length; anchors.centerIn: list; text: root.verge ? "no nodes" : "clash verge sleeps" }
+                Lb { visible: !root.ways.length; anchors.centerIn: list; text: !root.hasVerge ? "clash verge isn't installed · it's an extra in install.sh" : root.verge ? "no nodes" : "clash verge sleeps" }
             }
         }
 

@@ -22,8 +22,8 @@ return {
     -- Apps
     terminal                   = "kitty", -- not -1: the shared process, once its GL broke after a sleep (AMD and Intel), turned every new window white until a reboot (#12); the cost — ~230 ms instead of ~20
     -- your default apps (System → default apps): gtk-launch starts whatever the type is set to
-    browser                    = [[sh -c 'gtk-launch "$(xdg-mime query default x-scheme-handler/https)"']],
-    fileExplorer               = [[sh -c 'gtk-launch "$(xdg-mime query default inode/directory)"']],
+    browser                    = [[sh -c 'gtk-launch "$(xdg-mime query default x-scheme-handler/https)" || notify-send "No browser set" "Pick one in System → Apps"']],
+    fileExplorer               = [[sh -c 'gtk-launch "$(xdg-mime query default inode/directory)" || notify-send "No file manager set" "Pick one in System → Apps"']],
     audioSettings              = "pavucontrol",
     -- programs for special workspaces (launched if it's empty) and the editor. Binds read them on keypress,
     -- so yours go in user.lua: require("variables").apps.editor = "codium". Not installed — an empty

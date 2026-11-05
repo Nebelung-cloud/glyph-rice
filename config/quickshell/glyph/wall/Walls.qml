@@ -38,6 +38,8 @@ PanelWindow {
     property int bright: 85
     property bool glass: false
     property bool pulse: false // the wallpaper swells with the music; starts cava once set
+    property bool hasCava: false
+    Process { running: true; command: ["sh", "-c", "command -v cava"]; onExited: code => root.hasCava = code === 0 }
     property int rib: 28
     property int bend: 50
 
@@ -241,7 +243,7 @@ magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.j
             y: 110
             spacing: 30
             Pick { anchors.right: parent.right; label: "look"; opts: root.looks; cur: root.lookIds.indexOf(root.look); onPicked: i => root.look = root.lookIds[i] }
-            Pick { anchors.right: parent.right; label: "beat · needs cava"; opts: ["still", "music"]; cur: root.pulse ? 1 : 0; onPicked: i => root.pulse = i === 1 }
+            Pick { visible: root.hasCava; anchors.right: parent.right; label: "beat"; opts: ["still", "music"]; cur: root.pulse ? 1 : 0; onPicked: i => root.pulse = i === 1 }
             Row {
                 anchors.right: parent.right
                 spacing: 36

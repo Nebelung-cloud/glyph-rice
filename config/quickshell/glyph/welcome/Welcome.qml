@@ -21,8 +21,7 @@ PanelWindow {
         ["Super + L", "lock"], ["Super + Esc", "power menu"]
     ]
 
-    property bool ready: false
-    Timer { running: true; interval: 1500; onTriggered: root.ready = true } // after the login settles
+    readonly property bool ready: Theme.warm // after the login settles; asked for later, at once
     property real t: ready ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
     function done() { Theme.state.welcomed = true; }
@@ -107,7 +106,7 @@ PanelWindow {
                 Item {
                     width: parent.width
                     height: 64
-                    Lb { anchors.verticalCenter: parent.verticalCenter; text: "this card again: system → about" }
+                    Lb { anchors.verticalCenter: parent.verticalCenter; text: "this card again: system → about → keyboard shortcuts" }
                     Act { anchors.right: parent.right; icon: "\u{F012C}"; text: "got it"; onHit: root.done() }
                 }
             }

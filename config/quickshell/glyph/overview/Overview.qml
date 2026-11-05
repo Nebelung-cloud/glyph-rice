@@ -135,7 +135,7 @@ PanelWindow {
             Lb { text: "middle click · close" }
             Lb { text: "←→ · ↵ · 1–0 · −/+ count" }
             Lb { visible: root.away > 0; text: `${root.away} window${root.away > 1 ? "s" : ""} past ${String(root.n).padStart(2, "0")}`; color: Theme.fg }
-            Lb { text: "esc"; TapHandler { onTapped: root.close() } }
+            Lb { text: "esc close"; TapHandler { onTapped: root.close() } }
         }
 
         // ---- tiles ----
