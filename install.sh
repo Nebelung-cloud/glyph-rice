@@ -8,6 +8,7 @@
 #   ./install.sh --fix-plasma  coming from KDE Plasma: saves Wi-Fi passwords that were in KDE Wallet, stops Plasma's leftovers starting here
 #   ./install.sh --report      prints what's useful for fixing a problem (no passwords or network names), changes nothing
 #   ./install.sh --links       symlinks only, on any distro (the packages are then your own, see the README)
+#   ./install.sh --file-manager  a menu to change the file manager: Thunar, Dolphin or Strata
 #   ./install.sh --login-screen  a menu to change the login screen
 #   ./install.sh --lock-greeter  switch the login screen to the Lock greeter (greetd)
 #   ./install.sh --dial-greeter  switch the login screen to the Dial greeter (greetd, the SDDM theme's look without SDDM)
@@ -183,6 +184,15 @@ extras_packages() { # id → packages; "aur:" goes through yay
         tmux) echo "tmux" ;;
     esac
 }
+file_manager_packages() {
+    case "$FILES" in
+        # kio-extras: thumbnails, phones, network places; the thumbnailers: video, PDF and photo previews; xdg-menu: see set_file_manager
+        dolphin) echo "dolphin kio-extras ffmpegthumbs kdegraphics-thumbnailers archlinux-xdg-menu kde-cli-tools" ;;
+        # thunar anyway if strata isn't there yet: Super+E needs something to open
+        strata) strata_present || echo thunar ;;
+        *) echo thunar ;;
+    esac
+}
 browser_package() { case "$1" in zen) echo "aur:zen-browser-bin" ;; firefox) echo "firefox" ;; chromium) echo "chromium" ;; chrome) echo "aur:google-chrome" ;; esac; }
 browser_desktop() { case "$1" in zen) echo "zen.desktop" ;; firefox) echo "firefox.desktop" ;; chromium) echo "chromium.desktop" ;; chrome) echo "google-chrome.desktop" ;; esac; }
 
@@ -226,9 +236,13 @@ EOF
 }
 
 choose() {
+    # already on Dolphin, usually from Plasma: stays the file manager unless you pick another
+    case "$(xdg-mime query default inode/directory 2>/dev/null)" in org.kde.dolphin*) FILES=dolphin ;; esac
     [ "$YES" = 1 ] && return 0
+    local fm=Thunar
+    [ "$FILES" != dolphin ] || fm=Dolphin
     pick "Which setup?" recommended \
-        "recommended|Recommended|The Lock greeter, Thunar, Zen browser, starter wallpapers." \
+        "recommended|Recommended|The Lock greeter, $fm, Zen browser, starter wallpapers." \
         "custom|Custom|Choose the login screen, apps and extras yourself." \
         "minimal|Minimal|Only the desktop. Keeps your login screen and browser, no extras."
     SETUP=$PICKED
@@ -236,6 +250,14 @@ choose() {
         minimal) LOGIN=keep BROWSER=keep EXTRAS=() ;;
         custom) customize ;;
     esac
+}
+
+pick_files() {
+    pick "File manager? (Super+E)" "$FILES" \
+        "thunar|Thunar|Small and simple, installed from the repositories." \
+        "dolphin|Dolphin|KDE's file manager: tabs, split view, previews. Brings some KDE libraries, works without Plasma." \
+        "strata|Strata|Must be installed separately$(strata_present && echo ', found on this machine' || echo ', not found yet: Thunar is set until it is')."
+    FILES=$PICKED
 }
 
 pick_login() {
@@ -255,10 +277,7 @@ tick_state() { # tick_state <id>: on if it's already chosen
 customize() {
     pick_login
 
-    pick "File manager? (Super+E)" "$FILES" \
-        "thunar|Thunar|Small and simple, installed from the repositories." \
-        "strata|Strata|Must be installed separately$(strata_present && echo ', found on this machine' || echo ', not found yet: Thunar is set until it is')."
-    FILES=$PICKED
+    pick_files
 
     pick "Browser? (Super+W)" "$BROWSER" \
         "zen|Zen|From the AUR." \
@@ -323,9 +342,7 @@ packages() {
     head1 "Installing packages"
     local main=("${PACMAN[@]}") aur=("${AUR[@]}") p
     add() { for p in "$@"; do case "$p" in aur:*) aur+=("${p#aur:}") ;; *) main+=("$p") ;; esac; done; }
-    [ "$FILES" = thunar ] && main+=(thunar)
-    # thunar anyway if strata isn't there yet: Super+E needs something to open
-    [ "$FILES" = strata ] && ! strata_present && main+=(thunar)
+    main+=($(file_manager_packages))
     case "$LOGIN" in greeter | dial) main+=(greetd cage) ;; sddm) main+=(sddm) ;; esac
     [ "$BROWSER" = keep ] || add $(browser_package "$BROWSER")
     for p in "${EXTRAS[@]}"; do add $(extras_packages "$p"); done
@@ -420,10 +437,30 @@ links() {
     run gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark || true
 }
 
+set_file_manager() {
+    case "$FILES" in
+        strata) if strata_present; then run xdg-mime default io.github.lgse.Strata.desktop inode/directory; else run xdg-mime default thunar.desktop inode/directory; fi ;;
+        dolphin)
+            run xdg-mime default org.kde.dolphin.desktop inode/directory
+            # outside Plasma nothing provides the menu KDE apps read their app list from, and "Open With" comes up empty. Yours is left alone if you have one
+            local menu=$HOME/.config/menus/applications.menu
+            if [ ! -e "$menu" ] && [ -r /etc/xdg/menus/arch-applications.menu ] || [ "$DRY" = 1 ]; then
+                run mkdir -p "${menu%/*}"
+                run cp -n /etc/xdg/menus/arch-applications.menu "$menu" || true
+            fi
+            # "Open Terminal" and the F4 panel use this; a choice you already made stays
+            if [ -z "$(kreadconfig6 --file kdeglobals --group General --key TerminalApplication 2>/dev/null)" ]; then
+                run kwriteconfig6 --file kdeglobals --group General --key TerminalApplication kitty || true
+            fi
+            run kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
+            ;;
+        *) run xdg-mime default thunar.desktop inode/directory ;;
+    esac
+}
+
 default_apps() {
     # Super+E and Super+W open your default apps; System → default apps changes them later
-    if [ "$FILES" = strata ] && strata_present; then run xdg-mime default io.github.lgse.Strata.desktop inode/directory
-    else run xdg-mime default thunar.desktop inode/directory; fi
+    set_file_manager
     if [ "$BROWSER" != keep ]; then run xdg-mime default "$(browser_desktop "$BROWSER")" x-scheme-handler/http x-scheme-handler/https text/html application/xhtml+xml; fi
     case " ${EXTRAS[*]:-} " in *" tmux "*)
         local conf="$HOME/.config/tmux/tmux.conf"
@@ -719,6 +756,7 @@ for a in "$@"; do
         --update) MODE=update ;;
         --update-rest) MODE=update-rest ;;
         --report) MODE=report ;;
+        --file-manager) MODE=file-manager ;;
         --login-screen) MODE=login-screen ;;
         --lock-greeter) MODE=lock-greeter ;;
         --dial-greeter) MODE=dial-greeter ;;
@@ -726,13 +764,25 @@ for a in "$@"; do
         --links) MODE=links ;;
         --sddm) MODE=sddm ;;
         [0-9a-f]*) [ "$MODE" = update-rest ] && OLD=$a ;;
-        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--fix-plasma] [--report] [--uninstall] [--links] [--login-screen] [--lock-greeter] [--dial-greeter] [--sddm]"; exit 1 ;;
+        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--fix-plasma] [--report] [--uninstall] [--links] [--file-manager] [--login-screen] [--lock-greeter] [--dial-greeter] [--sddm]"; exit 1 ;;
     esac
 done
 
 case "$MODE" in
     links) links ;;
     sddm) sddm_theme ;;
+    file-manager)
+        case "$(xdg-mime query default inode/directory 2>/dev/null)" in org.kde.dolphin*) FILES=dolphin ;; io.github.lgse.Strata*) FILES=strata ;; esac
+        pick_files
+        packages_needed=$(file_manager_packages)
+        if [ -n "$packages_needed" ]; then
+            sudo_once
+            # shellcheck disable=SC2086 # one package per word
+            run sudo pacman -S --needed --noconfirm $packages_needed
+        fi
+        set_file_manager
+        say "Done. Super+E opens $FILES now."
+        ;;
     login-screen | lock-greeter | dial-greeter)
         LOGIN=greeter
         [ "$MODE" != dial-greeter ] || LOGIN=dial

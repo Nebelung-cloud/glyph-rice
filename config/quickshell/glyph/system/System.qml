@@ -132,7 +132,7 @@ PanelWindow {
         InputPage { id: input; on: root.cur === "INPUT"; live: root.shown && on }
         IdlePage { id: idle; on: root.cur === "IDLE" }
         FirewallPage { id: fw; on: root.cur === "FIREWALL"; live: root.shown && on }
-        AppsPage { id: apps; on: root.cur === "APPS"; live: root.shown && on }
+        AppsPage { id: apps; on: root.cur === "APPS"; live: root.shown && on; onDone: root.close() }
         AboutPage { id: about; on: root.cur === "ABOUT"; live: root.shown && on; onDone: root.close() }
 
         // last in the Tab order: Tab goes to the page's own controls first

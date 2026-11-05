@@ -27,6 +27,7 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | **Password windows** | Bluetooth pairing codes, Wi-Fi passwords and admin prompts (polkit) appear as Glyph cards instead of hiding behind the settings. |
 | **Workspace overview** (`Super` `Tab`) | Live thumbnails, drag a window to another workspace, set the number of workspaces. A wrap-around limit that the binds respect. |
 | **Display arrangement** | Choose which side a second screen sits on, mirror it or turn it off. |
+| **File manager choice** | Thunar, Dolphin or Strata, at install or later from System → Apps. Dolphin gets what it needs outside Plasma, like thumbnails and a working "Open With". |
 | **Default apps** | One click from a list of apps of the right kind for each category, so a code editor never shows up as a browser. `Super` `E` and `Super` `W` follow your choice. |
 | **Lite mode** | Fewer effects for slower machines. Turns on by itself under about 7.5 GB of RAM. |
 | **More color** | A saturation control, Extra Dark, and colors that fade instead of jumping. |
@@ -91,6 +92,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - The lock screen's keyboard long term on the laptop where it failed. It worked again once that laptop was updated, but the problem couldn't be reproduced, so the safeguard isn't proven to be the reason.
 - A real USB drive or phone with mounting by itself, and real mounting from System → Drives. udiskie wasn't installed on the development laptop during testing, and it can't create test disks without admin rights.
 - A real lockout on the lock screen or a greeter, and the wording PAM uses there.
+- Installing Dolphin from zero through the installer. It was run on the development laptop, where it was already installed, and its menu fix was checked in a sandbox.
 - The SDDM option on a real machine.
 - A second monitor: display arrangement, per-screen bar auto-hide, the lock's "one screen" option.
 - External monitor brightness (DDC), the Intel GPU load reading, a rotated screen.
@@ -186,7 +188,7 @@ git clone https://github.com/AMM021/rice_nothing ~/.local/share/glyph
 
 It checks your machine and your connection, explains what will happen, and asks which setup you want:
 
-- **Recommended**: the Lock greeter, Thunar, Zen and the starter wallpapers.
+- **Recommended**: the Lock greeter, Thunar (or Dolphin if that's already your file manager), Zen and the starter wallpapers.
 - **Custom**: choose the login screen, file manager, browser and extras. Move with the arrow keys, tick with space.
 - **Minimal**: only the desktop. Your login screen and browser stay.
 
@@ -201,6 +203,7 @@ All the questions come first. At the summary you can install, change your choice
 | `--report` | Prints what's useful for fixing a problem. No passwords or network names, safe to paste |
 | `--uninstall` | Removes the links, restores your old files and login screen. Packages stay. With `--yes` it doesn't ask first |
 | `--links` | Symlinks only, on any distro. The packages are then your own, see below |
+| `--file-manager` | A menu to change the file manager. Also in System → Apps |
 | `--login-screen` | A menu to change the login screen. Also in System → About |
 | `--lock-greeter` | Switches the login screen to the Lock greeter |
 | `--dial-greeter` | Switches the login screen to the Dial greeter |
@@ -236,6 +239,14 @@ apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
 
 hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by default
 ```
+
+### Changing your file manager
+
+1. Open System with `Super` `I`, go to **Apps**, and pick **files**.
+2. If the one you want is listed, click it. `Super` `E` opens it from then on.
+3. If not, press **install or switch file manager**, pick Thunar, Dolphin or Strata in the terminal menu, and enter your password if it asks.
+
+Or from a terminal: `~/.local/share/glyph/install.sh --file-manager`.
 
 ### Changing your login screen
 
@@ -324,7 +335,7 @@ They are specific to that hardware, and `pcie_aspm=off` costs some battery life,
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |
 | **Login** | `greetd` and `cage` for the Lock and Dial greeters, or `sddm` 0.21+ (Qt 6 greeter) for the theme |
-| **Optional** | `thunar` or [Strata](https://github.com/lgse/strata) · `cava` · `ddcutil` · `ufw` · `tmux` · `python-pywalfox` · `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` · `libteam` for team connections |
+| **Optional** | `thunar`, `dolphin` (with `kio-extras`, `ffmpegthumbs`, `kdegraphics-thumbnailers`, `archlinux-xdg-menu`, `kde-cli-tools`) or [Strata](https://github.com/lgse/strata) · `cava` · `ddcutil` · `ufw` · `tmux` · `python-pywalfox` · `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` · `libteam` for team connections |
 
 The VPN panel expects Clash Verge in English.
 NixOS: change the `/usr/lib` agent paths in `hypr/hyprland/execs.lua` and the Papirus path in `quickshell/rice/rice`.

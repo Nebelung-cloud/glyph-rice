@@ -4,6 +4,12 @@ The newest changes come first. To get them, press **update the rice** in System 
 
 ## November 2026
 
+### File managers
+
+- New: Dolphin is a choice alongside Thunar and Strata, in the installer's Custom setup, in System → Apps → files, and with `install.sh --file-manager`.
+- Choosing Dolphin also adds thumbnails, phone and network support, the terminal setting, and the menu it needs outside Plasma so "Open With" isn't empty.
+- If Dolphin is already your file manager, for example coming from Plasma, the installer keeps it.
+
 ### Drives
 
 - Fixed: plugged-in drives did nothing. Hyprland has no automounter and the installer never added the tools, so `--update` adds them: `udisks2`, `gvfs`, `udiskie`, and support for NTFS, exFAT, FAT, phones and cameras.

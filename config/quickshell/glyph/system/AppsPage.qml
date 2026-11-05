@@ -2,7 +2,9 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs
+import Quickshell.Hyprland
 import qs.components
+import "../prefs"
 
 // default apps: on the left what the app is for, with the one set now; on the right the apps of that kind (Categories= in their .desktop)
 // that say they can open it (MimeType=). Being able to open a type isn't enough: browsers claim images and video, code editors claim web pages.
@@ -11,6 +13,14 @@ import qs.components
 Page {
     id: root
     property bool live
+    signal done // a terminal opened: System gets out of the way
+    function moreFileManagers() {
+        const open = Hyprland.toplevels.values.find(t => t.title === "file manager");
+        if (open) Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${open.address}" })`);
+        else Quickshell.execDetached(["kitty", "--title", "file manager", "bash", "-c",
+            'r=$(git -C "$(readlink -f "$1")" rev-parse --show-toplevel) && "$r/install.sh" --file-manager; printf "\\npress enter "; read -r _', "bash", Quickshell.shellPath("")]);
+        done();
+    }
     caption: `default apps · ${kinds[sel][0]}`
 
     // a row: the label, the types (the first one is asked about), the kinds of app that belong
@@ -143,7 +153,7 @@ done`]
             ListView {
                 id: list
                 width: parent.width
-                height: 570
+                height: root.sel === 1 ? 490 : 570
                 clip: true
                 spacing: 6
                 model: root.apps
@@ -179,6 +189,8 @@ done`]
                     TapHandler { onTapped: root.set(app.modelData.file) }
                 }
             }
+            // the row for files: Thunar, Dolphin and Strata can be installed from here
+            Act { visible: root.sel === 1; icon: "\u{F0415}"; text: "install or switch file manager"; onHit: root.moreFileManagers() }
         }
     }
 }
