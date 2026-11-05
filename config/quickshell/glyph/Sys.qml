@@ -114,6 +114,30 @@ Singleton {
         onExited: if (root.earNext) { command = root.earNext; root.earNext = null; running = true; }
     }
 
+    // ---- Bluetooth: BlueZ не переподключает устройства после выключения адаптера. Запоминаем подключённые в момент
+    // выключения (любым путём: тумблер, авиарежим, rfkill) и переподключаем их, когда адаптер снова включится ----
+    property var btResume: []
+    Connections {
+        target: Bluetooth.defaultAdapter
+        function onEnabledChanged() {
+            if (Bluetooth.defaultAdapter.enabled) {
+                if (root.btResume.length) btResumeT.restart();
+            } else {
+                root.btResume = Bluetooth.devices.values.filter(d => d.connected).map(d => d.address);
+            }
+        }
+    }
+    // адаптеру нужно время после включения
+    Timer {
+        id: btResumeT
+        interval: 1500
+        onTriggered: {
+            const a = root.btResume;
+            root.btResume = [];
+            for (const d of Bluetooth.devices.values) if (a.includes(d.address) && !d.connected) d.connect();
+        }
+    }
+
     // ---- кофеин: не спать. Ингибитору нужно живое окно — невидимое 0×0, как в demonshot ----
     property bool caffeine: false
     IdleInhibitor {
