@@ -1,4 +1,4 @@
-# rice и прочее из install.sh лежит в ~/.local/bin, а Arch его в PATH не кладёт
+# rice and the rest from install.sh live in ~/.local/bin, and Arch doesn't put it in PATH
 fish_add_path -g ~/.local/bin
 
 if status is-interactive
@@ -12,7 +12,7 @@ if status is-interactive
     # Better ls
     command -v eza &> /dev/null && alias ls='eza --icons --group-directories-first -1'
 
-    # cava точками, как Glyph Matrix (~/.config/cava/dots); обычные столбики — command cava
+    # cava as dots, like the Glyph Matrix (~/.config/cava/dots); plain bars — command cava
     command -v cava &> /dev/null && alias cava ~/.config/cava/dots
 
     # Abbrs

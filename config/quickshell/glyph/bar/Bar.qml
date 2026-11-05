@@ -12,9 +12,10 @@ import qs.components
 import qs.services
 import qs.settings
 
-// бар: пилюля у левого края или сверху — Theme.state.barAt. Первым знак (кольцо из 16 точек) — лаунчер, центр краснеет,
-// пока запись или микрофон. Воркспейсы точками, заголовок окна, часы Doto по центру, трей последним — клик открывает быстрые настройки.
-// Сбоку всё столбиком, сверху — строкой. Что в трее и в каком порядке, есть ли заголовок — Theme.state (настройки, раздел BAR)
+// bar: a pill at the left or right edge, or along the top — Theme.state.barAt. First the mark (a ring of 16 dots) — the launcher, the center
+// turns red while recording or the microphone is on. Workspaces as dots, the window title, a Doto clock in the center, the tray last — a click
+// opens quick settings. At the side everything is a column, on top a row. What's in the tray and in what order, whether there's a title —
+// Theme.state (settings, the BAR section)
 PanelWindow {
     id: root
 
@@ -23,29 +24,74 @@ PanelWindow {
     signal powerClicked
     signal clockClicked
 
-    readonly property bool vert: Theme.state.barAt !== "top" // всё, кроме top (и неизвестное), — слева
-    anchors { left: true; right: !vert; top: true; bottom: vert }
-    implicitWidth: Math.ceil(78 * Theme.s)  // сбоку
-    implicitHeight: Math.ceil(78 * Theme.s) // сверху
+    readonly property bool right_: Theme.barRight
+    readonly property bool vert: Theme.state.barAt !== "top" // anything but top is at the side
+    anchors { left: !right_; right: right_ || !vert; top: true; bottom: vert }
+    implicitWidth: Math.ceil(78 * Theme.s)  // at the side
+    implicitHeight: Math.ceil(78 * Theme.s) // on top
+    // auto-hide, experimental, for OLEDs (burn-in): Theme.state.barHide lists the screens. Hidden: no exclusive zone, input only on a 2 px strip at the
+    // edge. Rest there and the pill slides in over the windows; leave it and it slides back out. From Isaqdn03/glyph-rice
+    readonly property bool autoHide: vert && Theme.state.barHide.includes(screen?.name ?? "")
+    property bool hov: false
+    readonly property bool shown: !autoHide || hov || powOpen || pop.visible
+    property real slide: shown ? 1 : 0
+    Behavior on slide { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+    exclusionMode: autoHide ? ExclusionMode.Ignore : ExclusionMode.Auto
+    mask: Region { item: root.shown ? hitAll : hitEdge }
+    onAutoHideChanged: hov = false
+    Timer { id: showT; interval: 150; onTriggered: root.hov = true }
+    Timer { id: hideT; interval: 500; onTriggered: root.hov = false }
+    Item { id: hitEdge; x: root.right_ ? root.width - 2 : 0; width: 2; height: parent.height }
+    Item { id: hitAll; anchors.fill: parent }
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
 
     readonly property int active: Hyprland.focusedWorkspace?.id ?? 0
-    // шесть точек, больше — если занят или открыт дальний
-    readonly property int count: Math.min(10, Math.max(6, active, ...Hyprland.workspaces.values.filter(w => w.toplevels.values.length).map(w => w.id)))
+    // dots — as many as workspaces (System → workspaces): all, or six and more if a far one is occupied or open; never past the limit
+    readonly property int lim: Theme.state.wsCount
+    readonly property int count: Theme.state.wsBar === 1 ? lim
+        : Math.min(lim, Math.max(Math.min(6, lim), active, ...Hyprland.workspaces.values.filter(w => w.toplevels.values.length).map(w => w.id)))
     readonly property var top: ToplevelManager.activeToplevel
     readonly property var bat: UPower.displayDevice
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
 
-    // hyprland 0.56 с lua: dispatch принимает lua-выражение
+    // hyprland 0.56 with lua: dispatch takes a lua expression
     function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
+
+    // workspace scroll: hover the dots and turn the wheel to move through them. One wheel notch = one workspace;
+    // the delta accumulates and resets after 300 ms without events, so touchpads and hi-res wheels (many small
+    // events per swipe) don't fly through several at once. WheelHandler on a layer-shell surface
+    // gets no wheel, hence the MouseArea at the dots
+    property real wheelAcc: 0
+    Timer { id: wheelIdle; interval: 300; onTriggered: root.wheelAcc = 0 }
+    function nudge(d) {
+        if (!d)
+            return;
+        wheelAcc += d;
+        wheelIdle.restart();
+        if (Math.abs(wheelAcc) >= 120) {
+            const d = wheelAcc > 0 ? -1 : 1, slot = active + d; // within the workspace limit, wrapping like the Super+wheel bind
+            wheelAcc = 0;
+            wheelIdle.stop();
+            if (slot >= 1 && slot <= lim) root.go(slot);
+            else if (Theme.state.wsWrap) root.go(d > 0 ? 1 : lim);
+        }
+    }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
     Stage {
+        HoverHandler {
+            onHoveredChanged: {
+                if (hovered) { hideT.stop(); showT.restart(); }
+                else { showT.stop(); hideT.restart(); }
+            }
+        }
         Rectangle {
             id: pill
-            x: 14 // от краёв экрана
+            // a 14 gap — on the screen-edge side; auto-hide slides it off that edge
+            x: (root.right_ ? 0 : 14) + (root.vert ? (root.right_ ? 80 : -80) * (1 - root.slide) : 0)
+            visible: root.slide > 0
             y: 14
             width: root.vert ? 64 : parent.width - 28
             height: root.vert ? parent.height - 28 : 64
@@ -53,9 +99,7 @@ PanelWindow {
             color: Theme.s1
             border { width: 1; color: Theme.s2 }
 
-            WheelHandler { onWheel: e => root.go(e.angleDelta.y > 0 ? "-1" : "+1") }
-
-            // знак: кольцо из точек, центр — красный, пока что-то пишет
+            // the mark: a ring of dots, the center — red while something is recording
             Item {
                 id: mark
                 x: root.vert ? (parent.width - width) / 2 : 18
@@ -68,12 +112,12 @@ PanelWindow {
                     width: 9
                     height: 9
                     radius: 4.5
-                    color: !Sys.live ? Theme.fg : Qt.colorEqual(Theme.accent, Theme.fg) ? Theme.red : Theme.accent // monochrome: акцент = fg
+                    color: !Sys.live ? Theme.fg : Qt.colorEqual(Theme.accent, Theme.fg) ? Theme.red : Theme.accent // monochrome: accent = fg
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.markClicked() }
             }
 
-            // воркспейсы: текущий вытягивается в белую пилюлю, занятые серые, пустые — линия
+            // workspaces: the current one stretches into a white pill, occupied ones grey, empty ones — a line
             Pile {
                 id: ws
                 x: root.vert ? (parent.width - width) / 2 : mark.x + mark.width + 24
@@ -100,7 +144,27 @@ PanelWindow {
                 }
             }
 
-            // заголовок окна: от воркспейсов до часов, сбоку — повёрнутый
+            // the wheel over the dots moves through workspaces. The area is the stack's sibling (anchoring children in a positioner
+            // breaks the dot layout). A wheel notch is ±120, one workspace; a touchpad sends pixelDelta a few pixels per event —
+            // multiply by 0.4, otherwise one swipe clicks through three
+            MouseArea {
+                anchors {
+                    left: ws.left; right: ws.right; top: ws.top; bottom: ws.bottom
+                    margins: -12
+                }
+                acceptedButtons: Qt.NoButton
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onWheel: wheel => {
+                    const a = wheel.angleDelta.y || wheel.angleDelta.x;
+                    if (a)
+                        root.nudge(a);
+                    else
+                        root.nudge((wheel.pixelDelta.y || wheel.pixelDelta.x) * 0.4);
+                }
+            }
+
+            // the window title: from the workspaces to the clock, rotated at the side
             Item {
                 id: title
                 x: root.vert ? (parent.width - width) / 2 : ws.x + ws.width + 24
@@ -121,7 +185,7 @@ PanelWindow {
                 }
             }
 
-            // часы: сбоку столбиком 14 над 32 и день, сверху строкой. Клик — календарь и фокус-таймер (cal/Cal)
+            // the clock: at the side a column, 14 over 32 and the day, on top a row. A click — calendar and focus timer (cal/Cal)
             Pile {
                 id: clk
                 anchors.centerIn: parent
@@ -138,8 +202,8 @@ PanelWindow {
                 }
             }
 
-            // трей — Theme.state.bar по порядку (настройки, раздел BAR). Раскладка, сеть, bluetooth, звук (колесо — громкость),
-            // уведомления, батарея, бегущий кот: клик открывает быстрые настройки. Режим питания и питание — свои клики
+            // the tray — Theme.state.bar in order (settings, the BAR section). Layout, network, bluetooth, sound (wheel — volume),
+            // notifications, battery, the running cat: a click opens quick settings. Power mode and power — their own clicks
             Pile {
                 x: root.vert ? (parent.width - width) / 2 : parent.width - width - 22
                 y: root.vert ? parent.height - height - 22 : (parent.height - height) / 2
@@ -162,8 +226,8 @@ PanelWindow {
     }
     readonly property var parts: ({ layout: layoutC, wifi: wifiC, bluetooth: btC, sound: soundC, notes: notesC, battery: batC, mode: modeC, power: powerC, cat: catC })
     Component { id: layoutC; Lb { text: Sys.layout; px: 10 } }
-    // кот RunCat: чем больше cpu, тем быстрее бежит (250 мс на кадр в простое, 50 на полной). cpu опрашивается, пока он в трее;
-    // Binding не в делегате — уничтоженный значение не возвращает. Серый как есть, в светлой теме на белом теряется — чёрный, как buds
+    // the RunCat cat: the more cpu, the faster it runs (250 ms a frame idle, 50 at full load). cpu is polled while it's in the tray;
+    // the Binding isn't in the delegate — a destroyed one doesn't restore the value. Grey as is, lost on white in the light theme — black there, like buds
     Component {
         id: catC
         AnimatedImage {
@@ -177,7 +241,7 @@ PanelWindow {
         }
     }
     Binding { target: SysStats; property: "cat"; value: Theme.state.bar.includes("cat") }
-    // сеть: две дуги и точка, концы круглые, как у батареи; выключен — косая черта
+    // network: two arcs and a dot, round ends like the battery; off — a slash
     Component {
         id: wifiC
         Shape {
@@ -213,7 +277,7 @@ PanelWindow {
         id: soundC
         Icon {
             text: Sys.muted ? "\u{F075F}" : "\u{F057E}"
-            WheelHandler { onWheel: e => Sys.setVol(Sys.vol + (e.angleDelta.y > 0 ? 0.05 : -0.05)) }
+            Notch { onNotch: d => Sys.setVol(Sys.vol + d * 0.05) }
         }
     }
     Component {
@@ -223,7 +287,7 @@ PanelWindow {
             color: Notes.list.length ? Theme.fg : Theme.grey
         }
     }
-    // слева батарея стоит, заряд растёт снизу; сверху — лежит, растёт слева. На зарядке — молния первой, заливка дышит, пока заряжается
+    // at the side the battery stands upright, the charge grows from the bottom; on top it lies down, growing from the left. On charge — a bolt first, the fill breathes while charging
     Component {
         id: batC
         Pile {
@@ -232,8 +296,8 @@ PanelWindow {
             spacing: 8
             readonly property bool ac: !UPower.onBattery
             readonly property bool charging: root.bat.state === UPowerDeviceState.Charging
-            // дыхание шагом 20 кадров/с, как шар в home/Back: анимация гнала бы бар на каждом vsync (120 Гц) все часы
-            // зарядки. Косинус с периодом 2,2 с — те же два InOutSine по 1,1 с
+            // breathing at a step of 20 fps, like the orb in home/Back: an animation would drive the bar on every vsync (120 Hz) all the hours
+            // of charging. A cosine with a 2.2 s period — the same two 1.1 s InOutSines
             property real phase: 0
             readonly property real pulse: charging ? 0.675 + 0.325 * Math.cos(phase * Math.PI / 1.1) : 1
             Timer { running: batc.charging; interval: 50; repeat: true; onTriggered: batc.phase = (batc.phase + 0.05) % 2.2; onRunningChanged: batc.phase = 0 }
@@ -254,13 +318,13 @@ PanelWindow {
                     opacity: batc.pulse
                 }
             }
-            // ширина — под «100»: сверху трей прижат вправо, 99 → 100 сдвигал бы всё левее
+            // the width fits «100»: on top the tray is pressed right, 99 → 100 would shift everything left
             Lb { width: full.implicitWidth; horizontalAlignment: Text.AlignHCenter; text: Math.round(root.bat.percentage * 100); px: 10 }
             Lb { id: full; visible: false; text: "100"; px: 10 }
         }
     }
-    // режим питания засечками (Rules.modes): ultra — одна, performance — все; клик — следующий,
-    // наведение (и на батарею) — карточка с выбором
+    // power mode as notches (Rules.modes): ultra — one, performance — all; a click — the next one,
+    // hovering (the battery too) — a card to choose
     Component {
         id: modeC
         Item {
@@ -296,15 +360,15 @@ PanelWindow {
         }
     }
 
-    // ---- батарея и режим питания: навёл на батарею или засечки — карточка сбоку от бара (со стороны экрана), как поповер caelestia.
-    // Заряд Doto, статус, шкала; ниже режимы кругами с засечками — клик выбирает, под курсором — что он делает.
-    // Ушёл и с бара, и с карточки — гаснет ----
+    // ---- battery and power mode: hovered the battery or the notches — a card beside the bar (on the screen side), like caelestia's popover.
+    // The charge in Doto, status, a scale; below the modes as circles with notches — a click picks, under the cursor — what it does.
+    // Left both the bar and the card — it fades out ----
     property bool batHot: false
     property bool tickHot: false
     readonly property bool powHot: batHot || tickHot || popHov.hovered
     readonly property bool batLow: UPower.onBattery && root.bat.percentage < 0.15
-    // карточка встаёт по тому, на что навели (батарея или засечки): сбоку — низом к его низу, сверху — правым краем к его правому;
-    // пока видна — не прыгает
+    // the card lines up with what was hovered (battery or notches): at the side its bottom to the bottom, on top its right edge to the right;
+    // while visible — it doesn't jump
     property point popAt
     function peek(it) { if (!pop.visible) popAt = it.mapToItem(pill, it.width, it.height); }
     property bool powOpen: false
@@ -323,11 +387,11 @@ PanelWindow {
         property real t: root.powOpen ? 1 : 0
         Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
         visible: t > 0
-        // от внутреннего края пилюли бара с зазором 14; сбоку растёт вверх от popAt, сверху — вниз и влево
+        // from the inner edge of the bar pill with a 14 gap; at the side it grows up from popAt, on top — down and to the left
         anchor.item: pill
-        anchor.rect: root.vert ? Qt.rect(pill.width + 14, root.popAt.y, 1, 1) : Qt.rect(root.popAt.x, pill.height + 14, 1, 1)
+        anchor.rect: root.vert ? Qt.rect(root.right_ ? -14 : pill.width + 14, root.popAt.y, 1, 1) : Qt.rect(root.popAt.x, pill.height + 14, 1, 1)
         anchor.edges: Edges.Top | Edges.Left
-        anchor.gravity: root.vert ? Edges.Top | Edges.Right : Edges.Bottom | Edges.Left
+        anchor.gravity: root.vert ? Edges.Top | (root.right_ ? Edges.Left : Edges.Right) : Edges.Bottom | Edges.Left
         implicitWidth: Math.ceil(440 * Theme.s)
         implicitHeight: Math.ceil(card.height * Theme.s)
         color: "transparent"
@@ -341,7 +405,7 @@ PanelWindow {
                 color: Theme.s1
                 border { width: 1; color: Theme.s2 }
                 opacity: pop.t
-                transform: Translate { x: root.vert ? -16 * (1 - pop.t) : 0; y: root.vert ? 0 : -16 * (1 - pop.t) }
+                transform: Translate { x: root.vert ? (root.right_ ? 16 : -16) * (1 - pop.t) : 0; y: root.vert ? 0 : -16 * (1 - pop.t) }
                 HoverHandler { id: popHov }
 
                 Column {
@@ -379,7 +443,7 @@ PanelWindow {
                                     radius: 40
                                     color: mo.on ? Theme.fg : moHov.hovered ? Theme.s3 : Theme.s2
                                     Behavior on color { ColorAnimation { duration: Theme.t } }
-                                    // засечки: сколько горит — такая сила
+                                    // notches: how many are lit — that's the strength
                                     Row {
                                         anchors.centerIn: parent
                                         spacing: 4

@@ -3,16 +3,16 @@ import Quickshell
 import qs
 import qs.components
 
-// макет для STYLE в настройках: рабочий стол в палитре p (Theme.make) — бар, быстрые настройки, kitty, плеер, полоса Glyph, —
-// справа роли выносками, как на чертеже: точка на предмете, линия до роли, образец, hex и что это. Новая палитра перетекает
+// the mock for STYLE in settings: a desktop in palette p (Theme.make) — bar, quick settings, kitty, player, the Glyph bar, —
+// on the right the roles as callouts, like on a blueprint: a point on the object, a line to the role, a swatch, hex and what it is. A new palette flows in
 Item {
     id: root
 
     property var p: Theme.pal
     readonly property var c: p.c
-    readonly property color ink: p.light ? c[1] : c[0] // текст на белом
-    // выноски: y — строка, x — где на макете она упирается в предмет. Цвета — отдельно, по номеру: в roles они пересоздавали бы
-    // выноски на каждую палитру, и образцы прыгали бы, а не перетекали
+    readonly property color ink: p.light ? c[1] : c[0] // text on white
+    // callouts: y — the line, x — where on the mock it meets the object. Colors are separate, by number: in roles they'd recreate
+    // the callouts for every palette, and the swatches would jump rather than flow
     readonly property var roles: [
         { y: 40, x: 607, k: "fg", what: "text · focus · border" },
         { y: 90, x: 560, k: "s1", what: "bar · panels · kitty" },
@@ -42,7 +42,7 @@ Item {
             source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="1" fill="#${Theme.hex(root.c[2])}"/></svg>`)
         }
 
-        // бар: знак, рабочие столы, часы
+        // bar: the mark, workspaces, clock
         Fill {
             x: 12
             y: 12
@@ -69,7 +69,7 @@ Item {
             }
         }
 
-        // быстрые настройки, окно без фокуса: тумблеры как Toggle, громкость, плитки
+        // quick settings, an unfocused window: toggles like Toggle, volume, tiles
         Fill {
             x: 68
             y: 12
@@ -130,7 +130,7 @@ Item {
             }
         }
 
-        // kitty в фокусе: fastfetch, 16 цветов, выделение, курсор
+        // kitty focused: fastfetch, 16 colors, a selection, the cursor
         Fill {
             x: 276
             y: 12
@@ -181,7 +181,7 @@ Item {
             }
         }
 
-        // плеер: обложка точками, прогресс, play — акцент
+        // player: a dotted cover, progress, play — the accent
         Fill {
             x: 68
             y: 252
@@ -211,11 +211,11 @@ Item {
                 Icon { anchors.centerIn: parent; text: "\u{F040A}"; color: Theme.on(root.p.accent); font.pixelSize: 26 }
             }
         }
-        // полоса Glyph снизу: батарея на исходе
+        // the Glyph bar at the bottom: battery running low
         Seg { x: 470; y: 380; width: 130; height: 4; n: 10; f: 1; on: root.p.red }
     }
 
-    // выноски: точка на предмете, линия до роли; справа — образец, hex и что это
+    // callouts: a point on the object, a line to the role; on the right — a swatch, hex and what it is
     Repeater {
         model: root.roles
         Item {
@@ -246,7 +246,7 @@ Item {
                 columns: 8
                 spacing: 3
                 Repeater {
-                    model: rl.c ? 0 : 16 // сетка — только у ansi
+                    model: rl.c ? 0 : 16 // the grid — only for ansi
                     Fill { required property int index; width: 7; height: 7; radius: 3.5; color: root.p.ansi[index] }
                 }
             }
@@ -254,7 +254,7 @@ Item {
         }
     }
 
-    // заливка и подписи перетекают в новую палитру; Cap — как Lb, Mono — строка терминала
+    // the fill and labels flow into the new palette; Cap — like Lb, Mono — a terminal line
     component Fill: Rectangle {
         Behavior on color { ColorAnimation { duration: Theme.t } }
         Behavior on border.color { ColorAnimation { duration: Theme.t } }

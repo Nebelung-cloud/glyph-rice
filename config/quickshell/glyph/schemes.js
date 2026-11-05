@@ -1,8 +1,8 @@
 .pragma library
 
-// палитры для «цвет → palette» (Theme.pal). c — серые по ролям Theme: bg, s1, s2, s3, mute, grey, fg (s1 — основной фон
-// палитры, его же берёт kitty; bg — темнее у тёмных, у светлых — плотнее). accent — «живое», red — тревога, ansi — 16 цветов
-// терминала из kovidgoyal/kitty-themes. group — блок в лаунчере и настройках; тема ←→ меняет палитру на пару из той же group
+// palettes for «color → palette» (Theme.pal). c — greys by Theme's roles: bg, s1, s2, s3, mute, grey, fg (s1 — the palette's main
+// background, kitty takes it too; bg — darker on dark ones, denser on light ones). accent — «live», red — alarm, ansi — 16 terminal
+// colors from kovidgoyal/kitty-themes. group — a block in the launcher and settings; theme ←→ swaps the palette for its pair from the same group
 const ALL = [
     { id: "mocha", name: "mocha", group: "catppuccin", light: false,
       c: ["#181825", "#1E1E2E", "#313244", "#45475A", "#585B70", "#7F849C", "#CDD6F4"], accent: "#CBA6F7", red: "#F38BA8",
@@ -49,15 +49,15 @@ const ALL = [
 ];
 const GROUPS = ["catppuccin", "rosé pine", "gruvbox", "more"];
 
-// ---- обои → палитра, как dynamic в caelestia (material you). Тон обоев — исходный цвет, вариант решает, куда повернуть оттенок
-// акцента и сколько цвета дать ему и серым. Раскладка — от base (палитра nothing той же темы): серые той же светлоты, акцент —
-// светлоты красного (в тёмной — светлее: на чёрном тусклый акцент теряется), терминал — пастель glyph, повёрнутая к акценту
-// не больше 15° (harmonize в material). ponytail: не hct, а oklch — у серых светлота та же (L oklab = ∛Y), цветность ≈ hct / 360,
-// оттенки чуть другие; content и fidelity — без dislike и температур. Вне sRGB — цветность вниз, пока не влезет ----
-// a — акцент (primary), n — поверхности bg, s1, s2, fg (neutral), v — линии и метки s3, mute, grey (neutral variant):
-// [поворот оттенка°, цветность hct]. src — цветность — доля цветности тона; keep — акцент — сам тон, и светлота его (но не
-// темнее 0.6 на чёрном и не светлее красного на белом — иначе не читается).
-// По порядку — сколько цвета
+// ---- wallpaper → palette, like dynamic in caelestia (material you). A wallpaper tone is the source color, the variant decides how far to turn the accent's
+// hue and how much color it and the greys get. The layout comes from base (the nothing palette of the same theme): greys of the same lightness, the accent at
+// red's lightness (lighter in dark: a dull accent gets lost on black), the terminal — glyph's pastel, turned toward the accent
+// by at most 15° (harmonize in material). ponytail: not hct but oklch — greys keep their lightness (L oklab = ∛Y), chroma ≈ hct / 360,
+// hues slightly different; content and fidelity — without dislike and temperatures. Outside sRGB — chroma down until it fits ----
+// a — the accent (primary), n — the surfaces bg, s1, s2, fg (neutral), v — lines and labels s3, mute, grey (neutral variant):
+// [hue turn°, hct chroma]. src — chroma as a share of the tone's chroma; keep — the accent is the tone itself, with its lightness (but no
+// darker than 0.6 on black and no lighter than red on white — otherwise it's unreadable).
+// In order of how much color
 const VARIANTS = [
     { id: "monochrome", name: "monochrome", a: [0, 0], n: [0, 0], v: [0, 0] },
     { id: "neutral", name: "neutral", a: [0, 12], n: [0, 2], v: [0, 2] },
@@ -81,7 +81,7 @@ function lch(x) {
     const A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s, B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
     return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, Math.hypot(A, B), (Math.atan2(B, A) * 180 / Math.PI + 360) % 360];
 }
-// oklch → линейный sRGB
+// oklch → linear sRGB
 function rgb(L, C, h) {
     const A = C * Math.cos(h * Math.PI / 180), B = C * Math.sin(h * Math.PI / 180);
     const l = Math.pow(L + 0.3963377774 * A + 0.2158037573 * B, 3), m = Math.pow(L - 0.1055613458 * A - 0.0638541728 * B, 3);
@@ -89,7 +89,7 @@ function rgb(L, C, h) {
     return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
             -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
 }
-// oklch → "#RRGGBB"; не влезло в sRGB — цветность делением пополам, 12 шагов
+// oklch → "#RRGGBB"; outside sRGB — halve the chroma, 12 steps
 function hex(L, C, h) {
     const ok = c => rgb(L, c, h).every(v => v > -1e-4 && v < 1 + 1e-4);
     if (!ok(C)) {
@@ -100,16 +100,29 @@ function hex(L, C, h) {
     return "#" + rgb(L, C, h).map(v => Math.round(gam(Math.min(1, Math.max(0, v))) * 255).toString(16).padStart(2, "0")).join("").toUpperCase();
 }
 
-// палитра из тона src по варианту id; base — { light, c, red, ansi } nothing той же темы
-function dynamic(src, id, base) {
+// Extra Dark (like in Nothing OS 4): a dark palette with a pure black background and surfaces a quarter darker; hue and accent stay
+function extraDark(p) {
+    const d = (x, k) => { const [l, c, h] = lch(x); return hex(l * k, c * k, h); };
+    return Object.assign({}, p, { c: ["#000000", d(p.c[1], 0.7), d(p.c[2], 0.75), d(p.c[3], 0.8), p.c[4], p.c[5], p.c[6]] });
+}
+
+// a palette from tone src by variant id; base — { light, c, red, ansi } of nothing in the same theme; sat — %, the saturation dial
+function dynamic(src, id, base, sat) {
     const v = VARIANTS.find(x => x.id === id) ?? VARIANTS[2], [sl, sc, sh] = lch(src);
-    const at = ([d, k]) => [(sh + d + 360) % 360, v.src ? sc * k : k / 360];
+    const amount = (sat ?? 100) / 100; // the saturation dial
+    const at = ([d, k]) => [(sh + d + 360) % 360, (v.src ? sc * k : k / 360) * amount];
     const [nh, nc] = at(v.n), [vh, vc] = at(v.v), [ah, ac] = at(v.a);
-    const grey = (x, i) => { const l = lch(x)[0]; return i >= 3 && i < 6 ? hex(l, vc, vh) : hex(l, nc, nh); };
+    // light: at the edges of lightness the hue has nowhere to live, so white is lowered and the near-black text lifted into a deep tone
+    const grey = (x, i) => {
+        const l = lch(x)[0];
+        if (i >= 3 && i < 6) return hex(l, vc, vh);
+        if (base.light && nc > 0) return i === 6 ? hex(Math.max(l, 0.22), nc * 2.5, nh) : hex(Math.min(l, 1 - nc), nc, nh);
+        return hex(l, nc, nh);
+    };
     const c = base.c.map(grey), rl = lch(base.red)[0];
     const al = base.light ? (v.keep ? Math.min(sl, rl) : rl) : v.keep ? Math.max(sl, 0.6) : Math.max(rl, 0.7);
     const accent = !ac ? c[6] : hex(al, ac, ah);
-    // терминал: серые — как поверхности, цветные — к акценту, цветность — по акценту (у monochrome — серые)
+    // terminal: greys — like the surfaces, colored ones — toward the accent, chroma by the accent (monochrome — greys)
     const ansi = base.ansi.map(x => {
         const [l, cc, h] = lch(x);
         if (cc < 0.03) return hex(l, nc, nh);

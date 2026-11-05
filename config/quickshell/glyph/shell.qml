@@ -1,6 +1,10 @@
+//@ pragma IconTheme Rice
+// our own icon theme, not qtengine's: if it didn't load Qt looks only in hicolor, and kcalc and the like get empty circles (#11)
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
+import qs.services
 import "bar"
 import "buds"
 import "cal"
@@ -10,33 +14,50 @@ import "deck"
 import "glyph"
 import "home"
 import "launcher"
+import "overview"
 import "power"
 import "prefs"
 import "quick"
 import "settings"
 import "shot"
+import "system"
 import "vpn"
 import "wall"
+import "welcome"
 
-// glyph: rice в духе nothing os. Дом на обоях, бар, лаунчер, быстрые настройки,
-// Glyph-полосы по краям вместо OSD, остров уведомлений, меню питания, настройки, deck (дашборд снизу), буфер обмена, чары (эмодзи и символы), скриншоты, vpn, обои. Блокировка — отдельный процесс (lock.qml).
-// Переключается с demonshot через `rice switch` / приложение Rice — бинды hypr общие (shell:*), каждый шелл берёт свои
+// glyph: a rice in the spirit of nothing os. Home on the wallpaper, bar, launcher, quick settings,
+// Glyph bars along the edges instead of an OSD, the notification island, power menu, settings, deck (bottom dashboard), clipboard, charms (emoji and symbols), screenshots, vpn, wallpapers. The lock — a separate process (lock.qml).
+// Switches from demonshot via `rice switch` / the Rice app — hypr binds are shared (shell:*), each shell takes its own
 ShellRoot {
     id: shell
 
+    // always built: the launcher and quick settings open instantly, the deck catches the bottom edge, the screenshot freezes the
+    // screen at once, the vpn watches for sign-in pages in the background. The rest — Lazy: built when first opened, freed later
     Launcher { id: launcher }
-    Quick { id: quick; onPowerRequested: power.open(); onSettingsRequested: prefs.open() }
-    Power { id: power }
-    Prefs { id: prefs; onWallRequested: walls.open() }
+    Quick { id: quick; onPowerRequested: power.get().open(); onSettingsRequested: system.get().open() }
+    Agent {} // bluetooth and network ask for a code or password — a window (system/agent.py)
+    Auth {} // polkit asks for your password (pkexec, firewall, battery, hostname) — above every panel
     Glyph {}
     Buds {}
-    Cal { id: cal }
-    Clip { id: clip }
-    Charms { id: charms }
     Deck { id: deck }
     Shot { id: shot }
     Vpn { id: vpn }
-    Walls { id: walls }
+    LazyLoader { active: !Theme.state.welcomed; Welcome {} }
+    // nothing else on Hyprland mounts a plugged-in drive. udiskie skips internal disks, and -n reports through the usual notifications
+    Process {
+        running: Theme.state.autoMount
+        command: ["sh", "-c", "command -v udiskie >/dev/null || exit 0; pkill -x -u \"$(id -u)\" udiskie; exec udiskie -a -n -T"] // a restart can leave the last one running
+    }
+    Lazy { id: overview; component: Overview { onSettingsRequested: system.get().openAt("WORKSPACES") } } // Super+Tab: all workspaces and windows, drag a window onto a workspace
+    Lazy { id: power; component: Power {} }
+    Lazy { id: prefs; component: Prefs { onWallRequested: walls.get().open(); onBackRequested: system.get().open() } }
+    Lazy { id: system; component: System { onCustomizeRequested: { const p = prefs.get(); p.open(); p.fromSystem = true; } } } // the quick settings gear: network, bluetooth, sound, display
+    Lazy { id: cal; component: Cal {} }
+    Lazy { id: clip; component: Clip {} }
+    Lazy { id: charms; component: Charms {} }
+    Lazy { id: walls; component: Walls {} }
+    readonly property bool gaming: Game.on // a singleton only lives once something touches it
+    function togglePower() { const p = power.get(); p.visible ? p.close() : p.open(); }
 
     Variants {
         model: Quickshell.screens
@@ -50,42 +71,47 @@ ShellRoot {
                 screen: s.modelData
                 onMarkClicked: launcher.toggle()
                 onTrayClicked: quick.toggle()
-                onPowerClicked: power.visible ? power.close() : power.open()
-                onClockClicked: cal.toggle()
+                onPowerClicked: shell.togglePower()
+                onClockClicked: cal.get().toggle()
             }
         }
     }
 
-    // hypr как у demonshot: его Rules (settings/Rules.qml, тот же ~/.config/demonshot/rules.json) ставит монитор, ввод,
-    // движение, ночник и hypridle; сверху Theme.apply — свои цвета рамок, скругление и kitty. Его же зовём при смене темы
+    // hypr like demonshot's: its Rules (settings/Rules.qml, the same ~/.config/demonshot/rules.json) sets the monitor, input,
+    // motion, night light and hypridle; on top Theme.apply — its own border colors, rounding and kitty. We call it on a theme change too
     Component.onCompleted: {
         hypr();
-        if (Theme.state.paint) Theme.apps(); // rice start ставит ссылки на term/ — цвет надо вернуть
+        Theme.apps(); // rice start puts the links back on term/ — the color has to return; waits for the login to settle
         Rules.night();
         Rules.idle();
     }
-    // то, что живёт в конфиге hypr. Он перечитывает его сам: сохранили любой файл hypr (ссылки живые — и git pull, и смена
-    // ветки), hyprctl reload — и возвращает умолчания variables.lua: рамки demonshot, монитор, ввод, анимации. Накладываем
-    // своё заново. hyprctl eval configreloaded не шлёт — петли нет. Ночник и hypridle — свои процессы, reload их не трогает
+    // what lives in the hypr config. It reloads it by itself: any hypr file saved (the links are live — both git pull and a branch
+    // switch), hyprctl reload — and it returns the variables.lua defaults: demonshot borders, monitor, input, animations. We lay
+    // ours on again. hyprctl eval doesn't send configreloaded — no loop. Night light and hypridle are their own processes, reload doesn't touch them
     function hypr() {
         Rules.monitor();
         Rules.input();
         Rules.motion();
         Theme.apply();
+        Theme.workspaces();
     }
     Connections {
         target: Hyprland
-        function onRawEvent(e) { if (e.name === "configreloaded") shell.hypr(); }
+        function onRawEvent(e) {
+            if (e.name === "configreloaded") shell.hypr();
+            else if (/^monitor(added|removed)/.test(e.name)) Rules.reread(); // a screen came or went — System → display shows it
+        }
     }
+    // the palette changed — theme, wallpaper, color from the wallpaper: repaint hypr, kitty and the apps. callLater — one repaint per turn
     Connections {
         target: Theme
         function onGreysChanged() { paint.restart(); }
     }
-    // сменились тема или цвет (style, новые обои) — окна, kitty, gtk и qt. Через 300 мс: тона новых обоев приходят не сразу,
-    // а gtk не стоит дёргать дважды
+    // the theme or color changed (style, a new wallpaper) — windows, kitty, gtk and qt. After 300 ms: a new wallpaper's tones
+    // don't arrive at once, and gtk shouldn't be poked twice
     Timer { id: paint; interval: 300; onTriggered: { Theme.apply(); Theme.apps(); } }
-    // тона обоев (Theme.pick) — здесь, не в Theme: его грузит и лок, ему хватает готовых из glyph.json. Пусто — копия обоев не
-    // загрузилась (серые дают 16 цветов): старые тона остаются. Новые обои — с первого тона
+    // the wallpaper's tones (Theme.pick) — here, not in Theme: the lock loads it too, and the ready ones in glyph.json are enough
+    // for it. Empty — the wallpaper copy didn't load (greys give 16 colors): the old tones stay. A new wallpaper starts on the first tone
     ColorQuantizer {
         source: Theme.url(Theme.wallSrc(Theme.state.wall))
         depth: 4
@@ -101,39 +127,48 @@ ShellRoot {
     Connections {
         target: Theme.state
         function onRoundingChanged() { Theme.apply(); }
+        function onWsCountChanged() { Theme.workspaces(); }
+        function onWsWrapChanged() { Theme.workspaces(); }
+        function onWsAnimChanged() { Theme.workspaces(); }
+        function onWsBlurSpecialChanged() { Theme.workspaces(); }
+        function onLiteChanged() { Theme.apply(); }
     }
-    // режим ultra включает/снимает blur и тени поверх настроек — окна перекрасить (герцы и движение ставит сам Rules.setMode).
-    // Игровой — то же и ещё анимации
+    // ultra mode turns blur and shadows off/on over the settings — repaint the windows (Rules.setMode sets hertz and motion itself).
+    // Game mode — the same plus animations
     Connections {
         target: Rules.store
         function onUltraChanged() { Theme.apply(); }
         function onGameChanged() { Rules.motion(); Theme.apply(); }
     }
 
-    // тап Super — лаунчер на отпускании; любой Super+<key> по пути шлёт interrupt, и лаунчер не открывается
+    // tap Super — the launcher on release; any Super+<key> on the way sends an interrupt, and the launcher doesn't open
     property bool interrupted: false
     Shortcut {
         name: "launcher"
-        description: "лаунчер (тап Super)"
+        description: "launcher (tap Super)"
         onReleased: {
             if (!shell.interrupted) launcher.toggle();
             shell.interrupted = false;
         }
     }
-    Shortcut { name: "launcherArm"; description: "нажатие Super — сброс interrupt"; onPressed: shell.interrupted = false }
-    Shortcut { name: "launcherInterrupt"; description: "Super+<key> — не открывать лаунчер"; onPressed: shell.interrupted = true }
-    // Super+Space (алтарь у demonshot) — deck, дашборд снизу: лаунчер и так на тапе Super
-    Shortcut { name: "altar"; description: "deck: дашборд снизу"; onPressed: deck.toggle() }
-    Shortcut { name: "quick"; description: "быстрые настройки"; onPressed: quick.toggle() }
-    Shortcut { name: "ward"; description: "быстрые настройки"; onPressed: quick.toggle() } // Super+N у demonshot — те же тумблеры
-    Shortcut { name: "settings"; description: "настройки"; onPressed: prefs.toggle() }
-    Shortcut { name: "power"; description: "меню питания"; onPressed: power.visible ? power.close() : power.open() }
-    Shortcut { name: "shot"; description: "скриншот"; onPressed: shot.open() }
+    Shortcut { name: "launcherArm"; description: "Super pressed — reset the interrupt"; onPressed: shell.interrupted = false }
+    Shortcut { name: "launcherInterrupt"; description: "Super+<key> — don't open the launcher"; onPressed: shell.interrupted = true }
+    // Super+Space (the altar in demonshot) — deck, the bottom dashboard: the launcher is on a Super tap anyway
+    Shortcut { name: "altar"; description: "deck: bottom dashboard"; onPressed: deck.toggle() }
+    Shortcut { name: "quick"; description: "quick settings"; onPressed: quick.toggle() }
+    Shortcut { name: "ward"; description: "quick settings"; onPressed: quick.toggle() } // Super+N in demonshot — the same toggles
+    // Super+I — system; the rice look (Prefs) — from there, «customize the rice»
+    Shortcut { name: "settings"; description: "system: network, bluetooth, sound, display"; onPressed: system.get().toggle() }
+    Shortcut { name: "power"; description: "power menu"; onPressed: shell.togglePower() }
+    Shortcut { name: "shot"; description: "screenshot"; onPressed: shot.open() }
     Shortcut { name: "pact"; description: "vpn: clash verge"; onPressed: vpn.toggle() }
-    Shortcut { name: "clip"; description: "буфер обмена"; onPressed: clip.toggle() }
-    Shortcut { name: "charms"; description: "эмодзи, каомодзи, символы"; onPressed: charms.toggle() }
-    Shortcut { name: "wall"; description: "обои"; onPressed: walls.toggle() }
-    Shortcut { name: "game"; description: "игровой режим"; onPressed: Rules.store.game = !Rules.store.game }
+    Shortcut { name: "clip"; description: "clipboard"; onPressed: clip.get().toggle() }
+    Shortcut { name: "charms"; description: "emoji, kaomoji, symbols"; onPressed: charms.get().toggle() }
+    Shortcut { name: "wall"; description: "wallpapers"; onPressed: walls.get().toggle() }
+    Shortcut { name: "overview"; description: "workspace overview"; onPressed: overview.get().toggle() }
+    Shortcut { name: "game"; description: "game mode"; onPressed: Rules.store.game = !Rules.store.game }
+    Shortcut { name: "lidClose"; description: "lid closed (System → idle)"; onPressed: Sys.lid(true) }
+    Shortcut { name: "lidOpen"; description: "lid opened"; onPressed: Sys.lid(false) }
 
     component Shortcut: GlobalShortcut { appid: "shell" }
 }

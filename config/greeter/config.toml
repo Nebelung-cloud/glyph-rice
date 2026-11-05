@@ -1,0 +1,8 @@
+# Lock greeter: cage runs quickshell full screen. Installed by config/greeter/install.sh
+# cage offers no server-side decorations, so Qt would draw its own title bar without the env var
+[terminal]
+vt = 1
+
+[default_session]
+command = "env XDG_STATE_HOME=/var/lib/greetd/state QT_WAYLAND_DISABLE_WINDOWDECORATION=1 cage -s -- qs -p /var/lib/greetd/shell/greeter.qml"
+user = "greeter"

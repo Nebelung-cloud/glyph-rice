@@ -6,21 +6,23 @@ import Quickshell.Services.Pam
 import Quickshell.Wayland
 import "lock"
 
-// блокировка — отдельный процесс, как в demonshot: qs -p …/glyph/lock.qml (его зовёт `rice lock`). Разблокировались — выходим.
-// Упал шелл — лок живёт; упал лок — Hyprland держит экран закрытым, SUPER+ALT+L поднимает его заново
+// lock — a separate process, like in demonshot: qs -p …/glyph/lock.qml (`rice lock` calls it). Unlocked — we exit.
+// The shell crashed — the lock lives on; the lock crashed — Hyprland keeps the screen closed, SUPER+ALT+L brings it back
 ShellRoot {
     id: shell
-    // hot-reload пересоздаёт WlSessionLock: старый умирает, процесс висит без экрана
+    // hot-reload recreates WlSessionLock: the old one dies, the process hangs without a screen
     settings.watchFiles: false
 
     QtObject {
         id: gate
         property string buffer: ""
         property bool fail: false
-        property bool leaving: false // пароль принят: поверхность доигрывает уход, потом unlockT снимает лок
+        property bool leaving: false // password accepted: the surface finishes its exit, then unlockT removes the lock
+        property string why: "" // what PAM said, like how long the account is locked for
         readonly property bool busy: pam.active
         function submit() {
             if (!buffer || pam.active || leaving) return;
+            why = "";
             pam.start();
         }
     }
@@ -30,6 +32,7 @@ ShellRoot {
         config: "lock"
         configDirectory: Quickshell.shellPath("pam")
         onResponseRequiredChanged: if (responseRequired) respond(gate.buffer)
+        onPamMessage: if (!responseRequired && message) gate.why = message.trim().replace(/\s*\n\s*/g, " · ")
         onCompleted: res => {
             gate.buffer = "";
             if (res === PamResult.Success) {
@@ -55,7 +58,7 @@ ShellRoot {
     WlSessionLock {
         id: lock
         locked: true
-        // ponytail: lockedChanged после locked = false не приходит (quickshell 0.3.2), а secure падает — выходим по нему
+        // ponytail: lockedChanged doesn't arrive after locked = false (quickshell 0.3.2), but secure drops — we exit on that
         onSecureChanged: if (!secure) Qt.quit()
 
         LockSurface { auth: gate; layout: shell.layout }

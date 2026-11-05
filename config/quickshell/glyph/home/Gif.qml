@@ -1,26 +1,27 @@
 import QtQuick
 import qs
+import qs.components
 import qs.services
 
-// гифка плитки-кота — Gifs.cur (services/Gifs: папка гифок, выбор здесь или в настройках → home). Серой матрицей точек
-// через шейдер обоев, как и раньше. Клик — следующая, колесо — листать; новая приходит волной шейдера от клика (из центра,
-// если выбрали в настройках)
+// the home cat tile's gif — Gifs.cur (services/Gifs: a folder of gifs, picked here or in settings → home). A grey dot matrix
+// via the wallpaper shader, as before. A click — the next one, the wheel — pages through; the new one arrives in a shader wave from the click (from the center
+// if picked in settings)
 Item {
     id: root
 
     property bool playing: true
-    property color bg // цвет плитки: прозрачное в гифке — в него
+    property color bg // the tile's color: the gif's transparent parts go to it
 
     function step(d, at) {
         if (at) fx.origin = at;
         Gifs.step(d);
     }
 
-    // как в components/Wall: одна на экране, другая в пути; волна дошла — меняются ролями, старая выгружается
+    // like in components/Wall: one on screen, another on the way; the wave arrives — they swap roles, the old one unloads
     property bool flip: false
     readonly property AnimatedImage cur: flip ? b : a
     readonly property AnimatedImage next: flip ? a : b
-    property string shown: "-" // ещё ничего
+    property string shown: "-" // nothing yet
     property string coming
 
     readonly property string want: Gifs.cur
@@ -36,7 +37,7 @@ Item {
         }
         if (want === shown) return;
         coming = want;
-        next.source = Gifs.url(want); // локальные файлы грузятся синхронно
+        next.source = Gifs.url(want); // local files load synchronously
         if (shown === "-") swap();
         else run.restart();
     }
@@ -60,11 +61,16 @@ Item {
         }
     }
 
-    // источники текстур — соседи эффекта с opacity 0, см. Wall
+    // the texture sources — the effect's siblings with opacity 0, see Wall
     AnimatedImage { id: a; anchors.fill: fx; opacity: 0; playing: root.playing && root.cur === a || run.running }
     AnimatedImage { id: b; anchors.fill: fx; opacity: 0; playing: root.playing && root.cur === b || run.running }
 
     ShaderEffect {
+        // the wallpaper shader's effects stay off here
+        readonly property real glass: 0
+        readonly property real rib: 1
+        readonly property real bend: 0
+        readonly property real beat: 0
         id: fx
         anchors { fill: parent; margins: 12 }
         readonly property size size: Qt.size(width, height)
@@ -87,15 +93,6 @@ Item {
     }
 
     TapHandler { onTapped: p => root.step(1, root.mapToItem(fx, p.position)) }
-    WheelHandler {
-        property real acc: 0
-        onWheel: w => {
-            acc += w.angleDelta.y || w.angleDelta.x;
-            while (Math.abs(acc) >= 120) {
-                root.step(acc > 0 ? -1 : 1);
-                acc -= Math.sign(acc) * 120;
-            }
-        }
-    }
+    Notch { onNotch: d => root.step(-d) }
     HoverHandler { cursorShape: Gifs.list.length > 1 ? Qt.PointingHandCursor : Qt.ArrowCursor }
 }

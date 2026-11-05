@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-# наушники Nothing / CMF по их RFCOMM-протоколу (подсмотрен в Gadgetbridge: service/devices/nothing/NothingProtocol.java)
-#   ear MAC          → {"mode": 4, "l": 100, "r": 95, "case": 80}  (case — только когда наушники в кейсе)
-#   ear MAC mode N   → поставить режим, ответ тот же
-# режимы: 1 high, 2 mid, 3 low, 4 adaptive, 5 off, 7 transparency
+# Nothing / CMF earbuds via their RFCOMM protocol (borrowed from Gadgetbridge: service/devices/nothing/NothingProtocol.java)
+#   ear MAC          → {"mode": 4, "l": 100, "r": 95, "case": 80}  (case — only when the earbuds are in the case)
+#   ear MAC mode N   → set the mode, the answer is the same
+# modes: 1 high, 2 mid, 3 low, 4 adaptive, 5 off, 7 transparency
 import json, re, socket, struct, sys, uuid
 
 CTRL = uuid.UUID("aeac4a03-dff5-498f-843a-34487cf133eb").bytes
 
 
-# канал не постоянный у разных моделей — спросить SDP: у сервиса CTRL в списке протоколов RFCOMM (uuid16 0003) и номер
+# the channel differs between models — ask SDP: the CTRL service has RFCOMM (uuid16 0003) in its protocol list and the number
 def channel(mac):
     q = b"\x35\x11\x1c" + CTRL + b"\xff\xff\x35\x03\x09\x00\x04\x00"
     with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_SEQPACKET, socket.BTPROTO_L2CAP) as s:
@@ -30,7 +30,7 @@ def crc(b):  # CRC-16/MODBUS
     return c
 
 
-# кадр: 55, control, команда, длина, номер, данные, crc. Ответ приходит с командой без бита 0x8000
+# frame: 55, control, command, length, number, data, crc. The answer comes with the command without bit 0x8000
 def ask(s, reqs):
     for cmd, p in reqs:
         m = struct.pack("<BHHHB", 0x55, 0x120, cmd, len(p), 0) + p
@@ -39,7 +39,7 @@ def ask(s, reqs):
     got, buf = {}, b""
     while want - got.keys():
         d = s.recv(1024)
-        if not d:  # наушники ушли посреди обмена — recv отдаёт b"" без конца, цикл крутился бы вечно
+        if not d:  # the earbuds left mid-exchange — recv returns b"" endlessly, the loop would spin forever
             sys.exit("closed")
         buf += d
         while buf and buf[0] != 0x55:
@@ -61,7 +61,7 @@ with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOM
     s.connect((mac, channel(mac)))
     got = ask(s, reqs + [(0xC007, b""), (0xC01E, b"")])
 
-# заряд: число батарей, дальше пары (2 левый, 3 правый, 4 кейс; уровень & 7f). Режим: 01 MM 00 …
+# battery: the number of batteries, then pairs (2 left, 3 right, 4 case; level & 7f). Mode: 01 MM 00 …
 bat, mode = got[0x4007], got[0x401E]
 out = {"mode": mode[1]}
 for i in range(bat[0]):

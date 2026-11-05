@@ -2,9 +2,9 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Rice — переключатель шеллов (qs -c rice, «switch shell» в Prefs glyph — когда шеллов больше одного).
-// Карточка на каждый шелл — папку в ~/.config/quickshell с rice.json, нарисованную его цветами и шрифтом.
-// ←→ выбрать, Enter или клик — `rice switch`: текущий гаснет, hypr возвращается к конфигу, поднимается выбранный
+// Rice — the shell switcher (qs -c rice, «switch shell» in glyph Prefs — when there's more than one shell).
+// A card for each shell — a folder in ~/.config/quickshell with rice.json, drawn in its colors and font.
+// ←→ to pick, Enter or click — `rice switch`: the current one stops, hypr returns to its config, the picked one starts
 ShellRoot {
     id: root
 
@@ -24,7 +24,7 @@ ShellRoot {
                     const t = l.indexOf("\t");
                     try { return Object.assign({ id: l.slice(0, t) }, JSON.parse(l.slice(t + 1))); } catch (e) { return null; }
                 }).filter(Boolean);
-                root.sel = Math.max(0, root.shells.findIndex(s => s.id !== cur)); // по умолчанию — «другой»
+                root.sel = Math.max(0, root.shells.findIndex(s => s.id !== cur)); // by default — «the other one»
             }
         }
     }
@@ -41,7 +41,7 @@ ShellRoot {
         color: "#0B0B0B"
         implicitWidth: 1040
         implicitHeight: 600
-        onVisibleChanged: if (!visible) Qt.quit() // закрыли окно (Super+C) — выходим
+        onVisibleChanged: if (!visible) Qt.quit() // the window was closed (Super+C) — quit
 
         Item {
             anchors.fill: parent
@@ -85,7 +85,7 @@ ShellRoot {
         }
     }
 
-    // карточка шелла в его цветах: мини-рабочий стол, имя его шрифтом, палитра. Выбранная — обводка акцентом
+    // a shell's card in its colors: a mini desktop, the name in its font, the palette. The selected one — outlined in the accent
     component Card: Rectangle {
         id: card
         required property var modelData
@@ -101,7 +101,7 @@ ShellRoot {
         border { width: on ? 2 : 1; color: on ? m.accent : m.line }
         Behavior on border.color { ColorAnimation { duration: 200 } }
 
-        // мини-рабочий стол: бар слева, окно с акцентной рамкой у фокуса
+        // mini desktop: bar on the left, a window with an accent frame on the focused one
         Rectangle {
             id: desk
             x: 18
@@ -182,7 +182,7 @@ ShellRoot {
             }
         }
 
-        // сейчас этот: точка акцентом и «current»
+        // this one is current: an accent dot and «current»
         Row {
             visible: card.live
             anchors { right: parent.right; rightMargin: 26; bottom: parent.bottom; bottomMargin: 24 }

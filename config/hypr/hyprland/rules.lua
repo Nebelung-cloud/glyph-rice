@@ -6,7 +6,7 @@ local vars = require("variables")
 
 hl.window_rule({ match = { fullscreen = false }, opacity = vars.windowOpacity .. " override" })
 
--- приложения (kitty) сами просят maximize при открытии — игнорируем, тайлинг решает сам
+-- apps (kitty) ask for maximize on open — ignore it, tiling decides
 hl.window_rule({ match = { class = ".*" }, suppress_event = "maximize" })
 
 hl.window_rule({ match = { float = true, xwayland = false }, center = true }) -- Center all floating windows (not xwayland cause popups)
@@ -44,7 +44,7 @@ hl.window_rule({
 hl.window_rule({ match = { tag = "opaque_app" }, opaque = true })
 
 -- Sized & Centered Floaters
-hl.window_rule({ match = { class = "org.quickshell", title = "Rice" }, float = true, center = true }) -- переключатель шеллов
+hl.window_rule({ match = { class = "org.quickshell", title = "Rice" }, float = true, center = true }) -- shell switcher
 hl.window_rule({ match = { class = "kitty", title = "nmtui" }, tag = "+float_60_70" })
 hl.window_rule({ match = { class = "org.pulseaudio.pavucontrol|yad-icon-browser" }, tag = "+float_60_70" })
 hl.window_rule({ match = { class = "org.gnome.Settings" }, tag = "+float_70_80" })
@@ -113,7 +113,7 @@ hl.window_rule({
     },
     workspace = "special:music",
 })
-hl.window_rule({ match = { initial_title = "Spotify( \\(?Free\\)?)?" }, workspace = "special:music" }) -- Spotify wayland, it has no class for some reason; regex (re2), не lua-паттерн
+hl.window_rule({ match = { initial_title = "Spotify( \\(?Free\\)?)?" }, workspace = "special:music" }) -- Spotify wayland, it has no class for some reason; regex (re2), not a lua pattern
 hl.window_rule({ match = { class = "discord|equibop|vesktop|whatsapp|org\\.telegram\\.desktop|TelegramDesktop" }, workspace = "special:communication" })
 hl.window_rule({ match = { class = "Todoist|io\\.github\\.alainm23\\.planify" }, workspace = "special:todo" })
 
@@ -127,9 +127,9 @@ hl.layer_rule({ match = { namespace = "selection" }, animation = "fade" })      
 hl.layer_rule({ match = { namespace = "wayfreeze" }, animation = "fade" })                  -- wayfreeze
 hl.layer_rule({ match = { namespace = "launcher" }, animation = "popin 80%", blur = true }) -- Fuzzel
 
--- Shell: все окна demonshot анимируют себя сами (slam), компоновщик не мешает
+-- Shell: all demonshot windows animate themselves (slam), the compositor stays out of the way
 hl.layer_rule({ match = { namespace = "demonshot-.*" }, no_anim = true })
--- glyph: полосы-OSD, остров, быстрые настройки и свои модули рисуют появление сами — компоновщик не мешает (и не тормозит OSD);
--- меню питания своей анимации нет — мягкий fade
+-- glyph: OSD bars, the island, quick settings and its own modules draw their appearance themselves — the compositor stays out of the way (and doesn't slow the OSD);
+-- the power menu has no animation of its own — a soft fade
 hl.layer_rule({ match = { namespace = "glyph-power" }, animation = "fade" })
-hl.layer_rule({ match = { namespace = "glyph-(launcher|edge|island|buds|quick|home|bar|caffeine|shot|clip|charms|vpn|deck|prefs|hot|cal|wall|back)" }, no_anim = true })
+hl.layer_rule({ match = { namespace = "glyph-(launcher|edge|island|buds|quick|home|bar|caffeine|shot|clip|charms|vpn|deck|prefs|hot|cal|wall|back|system|agent|overview)" }, no_anim = true })

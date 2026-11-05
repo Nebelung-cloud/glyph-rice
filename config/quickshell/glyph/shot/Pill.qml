@@ -1,7 +1,7 @@
 import QtQuick
 import qs
 
-// пилюля поверх кадра: Surface с обводкой Raised, содержимое рядом по центру. Клик по ней не уходит в кадр под ней
+// a pill over the frame: Surface with a Raised outline, the content side by side in the center. A click on it doesn't go to the frame under it
 Rectangle {
     default property alias content: row.data
     property alias spacing: row.spacing

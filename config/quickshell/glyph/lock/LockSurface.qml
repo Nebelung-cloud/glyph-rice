@@ -1,5 +1,8 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
+import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -7,12 +10,12 @@ import qs
 import qs.components
 import qs.services
 
-// блокировка: часы Doto на всю ширину, дата и погода метками, по углам раскладка/сеть/батарея и счёт уведомлений.
-// Внизу аватар в кольце точек, имя и поле-пилюля: введённое — белые точки, каретка красная. Неверный пароль — всё красное, поле трясётся
+// lock: a full-width Doto clock, the date and weather as labels, the layout/network/battery and the notification count in the corners.
+// At the bottom an avatar in a ring of dots, the name and a pill field: what's typed — white dots, the caret red. A wrong password — everything red, the field shakes
 WlSessionLockSurface {
     id: root
 
-    required property var auth // { buffer, fail, busy, leaving, submit() } из lock.qml
+    required property var auth // { buffer, fail, busy, leaving, submit() } from lock.qml
     property string layout: "en"
 
     color: Theme.bg
@@ -23,15 +26,52 @@ WlSessionLockSurface {
     property bool blink: true
     Timer { running: true; interval: 500; repeat: true; onTriggered: root.blink = !root.blink }
 
-    // появление: t 0→1 линейно, у каждого элемента своя фаза с ease-out-quart (как glide): шар и часы, метки, аватар —
-    // кольцо загорается волной, поле вырастает из точки. Пароль принят (auth.leaving) — t назад и быстрее, лок снимает lock.qml
+    // appearance: t 0→1 linear, each element has its own phase with ease-out-quart (like glide): orb and clock, labels, avatar —
+    // the ring lights up in a wave, the field grows from a dot. Password accepted (auth.leaving) — t back and faster, lock.qml removes the lock
     property real t: 0
     Behavior on t { NumberAnimation { duration: root.auth.leaving ? 450 : 1100 } }
-    Component.onCompleted: t = Qt.binding(() => root.auth.leaving ? 0 : 1)
+    Component.onCompleted: {
+        t = Qt.binding(() => root.auth.leaving ? 0 : root.ready ? 1 : 0);
+        mainName = Hyprland.focusedMonitor?.name ?? "";
+    }
+    // from SenulMapa/glyph-rice, like hide length below. One screen (prefs → LOOK): the screen in focus at lock time gets the lock, the others a plain cover. Once, not a binding: moving the
+    // cursor mustn't swap them. Typing works from any screen, the buffer is shared through auth
+    property string mainName: ""
+    readonly property bool primary: !Theme.state.lockOneScreen || !mainName || screen?.name === mainName
+    readonly property bool hideLen: Theme.state.lockHideLen
+    // the intro waits for the wallpaper to be decoded, then a frame more (600 ms at most): right after boot the disk is cold
+    // (the login screen especially), and an intro that plays while images and fonts are still loading stutters. The screen is
+    // covered by the background color from the first frame, so waiting doesn't show anything behind the lock
+    property bool ready: false
+    Timer { running: !root.ready && (wall.opaque || !Theme.state.wall); interval: 30; onTriggered: root.ready = true }
+    Timer { running: !root.ready; interval: 600; onTriggered: root.ready = true }
     function ph(a, b) { const x = Math.max(0, Math.min(1, (t - a) / (b - a))); return 1 - Math.pow(1 - x, 4); }
-    // проверка пароля: по введённым точкам бежит волна
+    // password check: a wave runs over the typed dots
     property real wave: 0
     NumberAnimation on wave { running: root.auth.busy; from: 0; to: 1; duration: 700; loops: Animation.Infinite }
+
+    // caps lock: a password typed with it on looks like a wrong one
+    property bool caps: false
+    Process {
+        id: capsCheck
+        command: ["sh", "-c", "cat /sys/class/leds/*capslock/brightness 2>/dev/null | sort -rn | head -1"]
+        stdout: StdioCollector { onStreamFinished: root.caps = +text.trim() > 0 }
+    }
+    Timer { running: true; repeat: true; interval: 700; onTriggered: capsCheck.running = true }
+
+    // sleep, reboot and power off, like the Lock greeter's list. Reboot and power off take a second press: a locked session can hold unsaved work
+    readonly property bool power: true // false in the Lock greeter, which has its own list
+    readonly property var powerActs: [["sleep", "suspend"], ["reboot", "reboot"], ["power off", "poweroff"]]
+    property int armed: -1
+    Timer { id: disarm; interval: 5000; onTriggered: root.armed = -1 }
+    function powerAct(i) {
+        if (i > 0 && armed !== i) { armed = i; disarm.restart(); return; }
+        armed = -1;
+        Quickshell.execDetached(["systemctl", powerActs[i][1]]);
+    }
+
+    // if the view ever loses the keys (a monitor waking, focus arriving late), take them back: there's nothing else to click on a lock
+    Timer { running: !stage.activeFocus; interval: 300; repeat: true; onTriggered: stage.forceActiveFocus() } // lock-focus
 
     Stage {
         id: stage
@@ -42,6 +82,7 @@ WlSessionLockSurface {
             if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) root.auth.submit();
             else if (e.key === Qt.Key_Escape) root.auth.buffer = "";
             else if (e.key === Qt.Key_Backspace) root.auth.buffer = root.auth.buffer.slice(0, -1);
+            else if (root.power && e.key >= Qt.Key_F10 && e.key <= Qt.Key_F12) { if (!e.isAutoRepeat) root.powerAct(e.key - Qt.Key_F10); }
             else if (e.text && e.text.charCodeAt(0) >= 32) { root.auth.buffer += e.text; root.auth.fail = false; }
             else return;
             e.accepted = true;
@@ -50,7 +91,26 @@ WlSessionLockSurface {
         Item {
             opacity: root.ph(0, 0.6)
             Orb { visible: Theme.state.orb; x: stage.width - 720; y: stage.height - 580 }
-            Wall { width: stage.width; height: stage.height; path: Theme.wallSrc(Theme.state.wall) }
+            // Atmosphere (Theme.state.atmosphere, like in Nothing OS): while locked — the wallpaper in a haze, a little closer and slowly
+            // breathing; password accepted — sharpness and scale return as the lock leaves
+            Wall {
+                id: wall
+                width: stage.width
+                height: stage.height
+                path: Theme.wallSrc(Theme.state.wall)
+                property real haze: Theme.state.atmosphere && !Theme.state.lite && !root.auth.leaving ? 1 : 0
+                Behavior on haze { NumberAnimation { duration: 450; easing.type: Easing.OutCubic } }
+                property real breathe: 0
+                SequentialAnimation on breathe {
+                    running: wall.haze > 0
+                    loops: Animation.Infinite
+                    NumberAnimation { to: 1; duration: 8000; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 0; duration: 8000; easing.type: Easing.InOutSine }
+                }
+                scale: 1 + wall.haze * (0.05 + 0.03 * wall.breathe)
+                layer.enabled: wall.haze > 0
+                layer.effect: MultiEffect { blurEnabled: true; blurMax: 64; blur: wall.haze }
+            }
         }
 
         Lb {
@@ -98,14 +158,28 @@ WlSessionLockSurface {
             }
             Lb { visible: root.bat.isLaptopBattery; anchors.verticalCenter: parent.verticalCenter; text: Math.round(root.bat.percentage * 100) }
         }
-        Row {
-            visible: Theme.state.unread > 0
-            opacity: root.ph(0.45, 0.85)
+        Column {
             x: 44
             anchors { bottom: parent.bottom; bottomMargin: 44 }
-            spacing: 16
-            Icon { anchors.verticalCenter: parent.verticalCenter; text: "\u{F009A}"; font.pixelSize: 17 }
-            Lb { anchors.verticalCenter: parent.verticalCenter; text: `${Theme.state.unread} notifications` }
+            spacing: 36
+            opacity: root.ph(0.45, 0.85)
+            transform: Translate { x: -24 * (1 - root.ph(0.45, 0.85)) }
+
+            Row {
+                visible: Theme.state.unread > 0
+                spacing: 16
+                Icon { anchors.verticalCenter: parent.verticalCenter; text: "\u{F009A}"; font.pixelSize: 17 }
+                Lb { anchors.verticalCenter: parent.verticalCenter; text: `${Theme.state.unread} notifications` }
+            }
+            Pick {
+                visible: root.power && root.primary
+                enabled: !root.auth.leaving
+                label: "power"
+                hint: "f10 f11 f12"
+                model: root.powerActs.map((p, i) => i === root.armed ? `press again to ${p[0]}` : p[0])
+                current: root.armed
+                onPicked: i => root.powerAct(i)
+            }
         }
 
         Column {
@@ -118,8 +192,8 @@ WlSessionLockSurface {
                 height: 96
                 opacity: root.ph(0.3, 0.7)
                 transform: Translate { y: 24 * (1 - root.ph(0.3, 0.7)) }
-                Ring { anchors.fill: parent; n: 32; f: root.t > 0.35 ? 1 : 0 } // загорается и гаснет волной по кругу
-                // ~/.face точками, как обложки; нет файла — градиент Art
+                Ring { anchors.fill: parent; n: 32; f: root.t > 0.35 ? 1 : 0 } // lights up and dims in a wave around the circle
+                // ~/.face as dots, like covers; no file — the Art gradient
                 Art { anchors { fill: parent; margins: 18 } url: `file://${Quickshell.env("HOME")}/.face`; step: 3 }
             }
             Text {
@@ -131,11 +205,11 @@ WlSessionLockSurface {
                 transform: Translate { y: 16 * (1 - root.ph(0.4, 0.75)) }
             }
 
-            // поле: введённые — точки, после каретки — погасшие до шести
+            // the field: typed — dots, after the caret — dimmed ones up to six
             Rectangle {
                 id: pwd
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: 58 + (380 - 58) * root.ph(0.5, 0.9) // вырастает из точки в пилюлю
+                width: 58 + (380 - 58) * root.ph(0.5, 0.9) // grows from a dot into a pill
                 height: 58
                 radius: Theme.corner(29)
                 opacity: root.ph(0.45, 0.6)
@@ -148,8 +222,8 @@ WlSessionLockSurface {
                     opacity: root.ph(0.75, 1)
                     Repeater {
                         id: typed
-                        model: Math.min(root.auth.buffer.length, 16)
-                        // новая точка выщёлкивается; пока pam думает — по точкам бежит волна
+                        model: root.hideLen ? (root.auth.buffer.length ? 3 : 0) : Math.min(root.auth.buffer.length, 16)
+                        // a new dot pops out; while pam thinks — a wave runs over the dots
                         Rectangle {
                             required property int index
                             anchors.verticalCenter: parent.verticalCenter
@@ -159,11 +233,22 @@ WlSessionLockSurface {
                             color: root.auth.fail ? Theme.red : Theme.fg
                             opacity: root.auth.busy && Math.abs(root.wave * (typed.count + 2) - 1 - index) > 1.2 ? 0.3 : 1
                             NumberAnimation on scale { from: 0.2; to: 1; duration: 180; easing.type: Easing.OutCubic }
+                            // hide length: three fixed dots that pulse on each key
+                            SequentialAnimation on scale {
+                                id: pulse
+                                running: false
+                                NumberAnimation { to: 0.55; duration: 50 }
+                                NumberAnimation { to: 1; duration: 160; easing.type: Easing.OutCubic }
+                            }
+                            Connections {
+                                target: root.auth
+                                function onBufferChanged() { if (root.hideLen && root.auth.buffer.length) pulse.restart(); }
+                            }
                         }
                     }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 2; height: 24; color: Theme.accent; opacity: root.blink ? 1 : 0 }
                     Repeater {
-                        model: Math.max(0, 6 - root.auth.buffer.length)
+                        model: root.hideLen ? 0 : Math.max(0, 6 - root.auth.buffer.length)
                         Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 11; height: 11; radius: 5.5; color: Theme.s3 }
                     }
                 }
@@ -180,12 +265,24 @@ WlSessionLockSurface {
                     function onFailChanged() { if (root.auth.fail) shake.restart(); }
                 }
             }
-            Lb {
+            // on its own background: over a wallpaper a thin line of red or grey can't be read, and this is the one line that has to be
+            Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
+                width: status.implicitWidth + 40
+                height: status.implicitHeight + 20
+                radius: Theme.corner(height / 2)
+                color: Theme.s1
                 opacity: root.ph(0.8, 1)
-                text: root.auth.busy ? "checking…" : root.auth.fail ? "wrong password · try again" : "enter password"
-                color: root.auth.fail ? Theme.red : Theme.grey
+                Lb {
+                    id: status
+                    anchors.centerIn: parent
+                        text: root.auth.busy ? "checking…" : root.auth.fail ? root.auth.why || (root.caps ? "wrong password · caps lock is on" : "wrong password · try again")
+                            : root.caps ? "caps lock is on" : "enter password"
+                        color: root.auth.fail ? Theme.red : root.caps ? Theme.fg : Theme.grey
+                }
             }
         }
     }
+
+    Rectangle { anchors.fill: parent; color: Theme.bg; visible: !root.primary }
 }

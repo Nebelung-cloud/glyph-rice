@@ -1,19 +1,20 @@
 #!/bin/sh
-# rice — какой шелл quickshell сейчас живой (demonshot, glyph…) и переключение между ними.
-#   rice                текущий
-#   rice list           все шеллы: папки в ~/.config/quickshell с rice.json
-#   rice start          поднять текущий (hypr на старте)
-#   rice restart|kill   перезапустить (и hypr) / погасить текущий
-#   rice switch <имя>   погасить текущий, вернуть hypr к его конфигу, поднять другой
-#   rice lock           блокировка текущего шелла (бинд, hypridle, меню питания)
+# rice — which quickshell shell is alive right now (demonshot, glyph…) and switching between them.
+#   rice                the current one
+#   rice list           all shells: folders in ~/.config/quickshell with rice.json
+#   rice start          start the current one (hypr on startup)
+#   rice restart|kill   restart (hypr too) / stop the current one
+#   rice switch <name>  stop the current one, return hypr to its config, start another
+#   rice lock           lock with the current shell (bind, hypridle, power menu)
+#   rice update         get the newest version of the rice
 q=$HOME/.config/quickshell
 state=${XDG_STATE_HOME:-$HOME/.local/state}/rice
 cur=$(cat "$state/shell" 2>/dev/null)
 [ -f "$q/$cur/rice.json" ] || cur=glyph
 
-# терминал и приложения в духе шелла: ~/.config/<f> ссылается на term/<f> шелла. starship и fastfetch читают конфиг на каждый
-# запуск, открытые cava (USR1) и btop (USR2) перечитывают по сигналу, gtk — при смене темы (дёргаем туда-обратно),
-# qt (qtengine.colors из ~/.config/qtengine/config.json) — при следующем запуске. Настоящий файл (не ссылку) не трогаем
+# terminal and apps in the shell's style: ~/.config/<f> links to the shell's term/<f>. starship and fastfetch read the config on every
+# launch, open cava (USR1) and btop (USR2) reload on a signal, gtk — on a theme change (we flip it back and forth),
+# qt (qtengine.colors from ~/.config/qtengine/config.json) — on the next launch. A real file (not a link) is left alone
 term() {
     for f in starship.toml fastfetch cava btop gtk-3.0/gtk.css gtk-4.0/gtk.css qtengine.colors; do
         [ -e "$q/$1/term/$f" ] || continue
@@ -23,13 +24,19 @@ term() {
     pkill -USR1 -x cava; pkill -USR2 -x btop
     folders "$1"
     g=org.gnome.desktop.interface
+    # at login nothing is open yet to reload: just make sure the icon theme is ours, without the flips — each one makes
+    # every gtk app and the portal reload its theme, a visible hitch right after logging in
+    if [ "${2:-}" = login ]; then
+        [ "$(gsettings get $g icon-theme)" = "'Rice'" ] || gsettings set $g icon-theme Rice
+        return 0
+    fi
     t=$(gsettings get $g gtk-theme)
     gsettings set $g gtk-theme Adwaita; gsettings set $g gtk-theme "$t"
     gsettings set $g icon-theme Papirus-Dark; gsettings set $g icon-theme Rice
 }
 
-# папки в цвет шелла (term/folders: grey, carmine… — цвета Papirus): тема значков Rice поверх Papirus-Dark, где folder-*/user-*
-# ссылаются на нужный цвет — то же, что делает papirus-folders, только у себя в ~/.local/share и без sudo. Её же берёт qtengine
+# folders in the shell's color (term/folders: grey, carmine… — Papirus colors): the Rice icon theme on top of Papirus-Dark, where folder-*/user-*
+# link to the right color — the same as papirus-folders does, only in our own ~/.local/share and without sudo. qtengine uses it too
 folders() {
     c=$(cat "$q/$1/term/folders" 2>/dev/null) || return 0
     d=${XDG_DATA_HOME:-$HOME/.local/share}/icons/Rice
@@ -56,8 +63,8 @@ Type=Fixed
     echo "$c" > "$d/color"
 }
 
-# погасить все экземпляры шелла и дождаться: qs kill гасит один, а лишние копии рисуют всё дважды и держат dbus-имена
-# (уведомления, трей) — новый шелл их не получит
+# stop every instance of the shell and wait: qs kill stops one, and extra copies draw everything twice and hold the dbus names
+# (notifications, tray) — the new shell wouldn't get them
 pids() { qs list --all 2>/dev/null | awk -v p="$q/$1/shell.qml" '$1 == "Process" { pid = $3 } $1 == "Config" && $3 == p { print pid }'; }
 stop() {
     pids=$(pids "$1")
@@ -75,17 +82,18 @@ stop() {
 case $1 in
     "") echo "$cur" ;;
     list) for f in "$q"/*/rice.json; do basename "$(dirname "$f")"; done ;;
-    start) [ -n "$(pids "$cur")" ] && exit 0; mkdir -p "$state"; term "$cur"; exec qs -p "$q/$cur" -d ;;
-    restart) term "$cur"; stop "$cur"; hyprctl reload >/dev/null; exec qs -p "$q/$cur" -d ;; # reload снимает и залипшую плашку ошибок hypr
+    start) [ -n "$(pids "$cur")" ] && exit 0; mkdir -p "$state"; term "$cur" login; exec qs -p "$q/$cur" -d ;;
+    restart) term "$cur"; stop "$cur"; hyprctl reload >/dev/null; exec qs -p "$q/$cur" -d ;; # the reload also clears a stuck hypr error bar
     kill) stop "$cur" ;;
     switch)
-        [ -f "$q/$2/rice.json" ] || { echo "rice: нет шелла «$2»" >&2; exit 1; }
+        [ -f "$q/$2/rice.json" ] || { echo "rice: no shell «$2»" >&2; exit 1; }
         mkdir -p "$state"
         echo "$2" > "$state/shell"
         stop "$cur"
-        hyprctl reload >/dev/null # снять вид прошлого шелла: новый накладывает свой поверх конфига hypr
+        hyprctl reload >/dev/null # drop the previous shell's look: the new one lays its own on top of the hypr config
         term "$2"
         exec qs -p "$q/$2" -d ;;
+    update) exec "$(dirname "$(readlink -f "$0")")/../../../install.sh" --update ;;
     lock) pgrep -f '^qs .*/lock[.]qml' >/dev/null || exec qs -p "$q/$cur/lock.qml" ;;
-    *) sed -n '2,8s/^# //p' "$0"; exit 1 ;;
+    *) sed -n '2,9s/^# //p' "$0"; exit 1 ;;
 esac

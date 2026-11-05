@@ -1,11 +1,11 @@
 local vars = require("variables")
 local fn   = require("hyprland.functions")
 
--- глобалки шелла — shell:<имя>: их регистрирует тот шелл, что сейчас живой (demonshot, glyph), чего у него нет — молчит
--- Launcher: тап Super открывает на отпускании. Без interrupt-ов Super+1 тоже открыл бы лаунчер,
--- поэтому каждый Super+<key> не поглощая шлёт launcherInterrupt (bindin catchall сломан с 0.55)
+-- shell globals — shell:<name>: registered by whichever shell is alive (demonshot, glyph); what it doesn't have stays silent
+-- Launcher: tapping Super opens it on release. Without interrupts Super+1 would open the launcher too,
+-- so every Super+<key> sends launcherInterrupt without consuming (bindin catchall is broken since 0.55)
 hl.bind("SUPER + SUPER_L", hl.dsp.global("shell:launcher"), { release = true })
--- после Super+<key> release-бинд выше не срабатывает и interrupt залипает — сбрасываем на нажатии Super
+-- after Super+<key> the release bind above doesn't fire and the interrupt sticks — reset it on Super press
 hl.bind("SUPER_L", hl.dsp.global("shell:launcherArm"), { ignore_mods = true, non_consuming = true })
 for _, key in ipairs({
     -- secondary modifiers: cover every Super+Mod+key combo
@@ -17,7 +17,7 @@ for _, key in ipairs({
     "Z", "X", "U", "S", "H", "I", "space", "Escape",
     "Comma", "Period", "Minus", "Equal", "Backslash",
     "left", "right", "up", "down",
-    "Page_Up", "Page_Down", "F12",
+    "Page_Up", "Page_Down", "F12", "Tab",
     "mouse:272", "mouse:273", "mouse:274", "mouse:275", "mouse:276", "mouse:277",
     "mouse_up", "mouse_down",
 }) do
@@ -27,16 +27,17 @@ end
 -- Misc
 hl.bind(vars.kbAltar, hl.dsp.global("shell:altar"))
 hl.bind("SUPER + I", hl.dsp.global("shell:settings"))
+hl.bind("SUPER + Tab", hl.dsp.global("shell:overview")) -- workspace overview
 hl.bind("SUPER + N", hl.dsp.global("shell:ward"))
 hl.bind("SUPER + P", hl.dsp.global("shell:pact"))
-hl.bind("SUPER + A", hl.dsp.global("shell:quick")) -- быстрые настройки glyph
-hl.bind("SUPER + SHIFT + W", hl.dsp.global("shell:wall")) -- обои glyph
+hl.bind("SUPER + A", hl.dsp.global("shell:quick")) -- glyph quick settings
+hl.bind("SUPER + SHIFT + W", hl.dsp.global("shell:wall")) -- glyph wallpapers
 hl.bind(vars.kbSession, hl.dsp.global("shell:power"))
 hl.bind(vars.kbPower, hl.dsp.global("shell:power"))
 hl.bind(vars.kbLock, hl.dsp.exec_cmd(vars.lockCmd))
-hl.bind(vars.kbRestoreLock, hl.dsp.exec_cmd(vars.lockCmd), { locked = true }) -- лок упал — поднять заново (сессия ещё заблокирована → нужен locked)
+hl.bind(vars.kbRestoreLock, hl.dsp.exec_cmd(vars.lockCmd), { locked = true }) -- the lock crashed — bring it back (the session is still locked → needs locked)
 
--- Brightness: ставит шелл (services/Backlight) — OSD двигается сразу, brightnessctl догоняет
+-- Brightness: set by the shell (services/Backlight) — the OSD moves at once, brightnessctl catches up
 hl.bind("XF86MonBrightnessUp", hl.dsp.global("shell:briUp"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.global("shell:briDown"), { locked = true, repeating = true })
 
@@ -62,25 +63,25 @@ for i = 1, 10 do
     hl.bind(vars.kbMoveWinToWsGroup .. " + " .. key, fn.wsaction("move", "group", i))
 end
 
--- Go to workspace -1/+1
-hl.bind("SUPER + mouse_down", hl.dsp.focus({ workspace = "-1" }))
-hl.bind("SUPER + mouse_up", hl.dsp.focus({ workspace = "+1" }))
-hl.bind(vars.kbPrevWs, hl.dsp.focus({ workspace = "-1" }), { repeating = true })
-hl.bind(vars.kbNextWs, hl.dsp.focus({ workspace = "+1" }), { repeating = true })
-hl.bind("SUPER + Page_Up", hl.dsp.focus({ workspace = "-1" }), { repeating = true })
-hl.bind("SUPER + Page_down", hl.dsp.focus({ workspace = "+1" }), { repeating = true })
+-- Go to workspace -1/+1 (within the workspace count, wrapping — System → workspaces)
+hl.bind("SUPER + mouse_down", fn.wsstep(-1))
+hl.bind("SUPER + mouse_up", fn.wsstep(1))
+hl.bind(vars.kbPrevWs, fn.wsstep(-1), { repeating = true })
+hl.bind(vars.kbNextWs, fn.wsstep(1), { repeating = true })
+hl.bind("SUPER + Page_Up", fn.wsstep(-1), { repeating = true })
+hl.bind("SUPER + Page_down", fn.wsstep(1), { repeating = true })
 
 -- Go to workspace group -1/+1
 hl.bind("CTRL + SUPER + mouse_down", hl.dsp.focus({ workspace = "-10" }))
 hl.bind("CTRL + SUPER + mouse_up", hl.dsp.focus({ workspace = "+10" }))
 
 -- Move window to workspace -1/+1
-hl.bind("SUPER + ALT + Page_Up", hl.dsp.window.move({ workspace = "-1" }), { repeating = true })
-hl.bind("SUPER + ALT + Page_Down", hl.dsp.window.move({ workspace = "+1" }), { repeating = true })
-hl.bind("SUPER + ALT + mouse_down", hl.dsp.window.move({ workspace = "-1" }))
-hl.bind("SUPER + ALT + mouse_up", hl.dsp.window.move({ workspace = "+1" }))
-hl.bind("CTRL + SUPER + SHIFT + right", hl.dsp.window.move({ workspace = "+1" }), { repeating = true })
-hl.bind("CTRL + SUPER + SHIFT + left", hl.dsp.window.move({ workspace = "-1" }), { repeating = true })
+hl.bind("SUPER + ALT + Page_Up", fn.wsstep(-1, true), { repeating = true })
+hl.bind("SUPER + ALT + Page_Down", fn.wsstep(1, true), { repeating = true })
+hl.bind("SUPER + ALT + mouse_down", fn.wsstep(-1, true))
+hl.bind("SUPER + ALT + mouse_up", fn.wsstep(1, true))
+hl.bind("CTRL + SUPER + SHIFT + right", fn.wsstep(1, true), { repeating = true })
+hl.bind("CTRL + SUPER + SHIFT + left", fn.wsstep(-1, true), { repeating = true })
 
 -- Move window to/from special workspace
 hl.bind("CTRL + SUPER + SHIFT + up", hl.dsp.window.move({ workspace = "special:special" }))
@@ -116,9 +117,8 @@ hl.bind("SUPER + ALT + right", hl.dsp.window.resize(fn.resize_active_window(10, 
 hl.bind("SUPER + ALT + up", hl.dsp.window.resize(fn.resize_active_window(0, -10)), { repeating = true })
 hl.bind("SUPER + ALT + down", hl.dsp.window.resize(fn.resize_active_window(0, 10)), { repeating = true })
 
-hl.bind("SUPER + SHIFT + mouse:272", hl.dsp.window.drag(), { mouse = true })
-hl.bind(vars.kbMoveWindow, hl.dsp.window.drag(), { mouse = true })
-hl.bind("SUPER + mouse:272", hl.dsp.window.resize(), { mouse = true })
+-- mouse: Super + drag — move the window (tiled and floating alike), hold Super+X and move — resize
+hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(vars.kbResizeWindow, hl.dsp.window.resize(), { mouse = true })
 hl.bind("CTRL + SUPER + Backslash", hl.dsp.window.center())
 hl.bind("CTRL + SUPER + ALT + Backslash", hl.dsp.window.resize(fn.resize_by_screen(55, 70)))
@@ -164,6 +164,9 @@ hl.bind("SUPER + SHIFT + ALT + R", fn.record(true, false))
 hl.bind("SUPER + SHIFT + C", hl.dsp.exec_cmd("hyprpicker -a"))
 hl.bind("SUPER + SHIFT + U", hl.dsp.exec_cmd("hyprctl kill"))
 -- Volume
+-- lid: what to do is decided by the shell (System → idle → lid closed); on «sleep» logind suspends by itself
+hl.bind("switch:on:Lid Switch", hl.dsp.global("shell:lidClose"), { locked = true })
+hl.bind("switch:off:Lid Switch", hl.dsp.global("shell:lidOpen"), { locked = true })
 hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true })
 hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
 hl.bind("SUPER + SHIFT + M", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
@@ -191,8 +194,8 @@ hl.bind("SUPER + V", hl.dsp.global("shell:clip"))
 hl.bind("SUPER + Period", hl.dsp.global("shell:charms"))
 hl.bind(
     "CTRL + SHIFT + ALT + V",
-    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"'),
-    { locked = true }
+    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"')
+    -- not locked: on the lock screen it would type the last thing copied into the password field, for anyone at the laptop
 )
 
 -- Testing

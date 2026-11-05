@@ -1,6 +1,6 @@
-/* glyph: чёрный, белые точки, один красный — палитра Theme.qml. Вкл и выбранное — белое с чёрным текстом, кнопки и поля — пилюли,
-   красный — только опасное. Ссылку ~/.config/gtk-{3,4}.0/gtk.css ставит `rice` (term), у demonshot своя.
-   Правила пользовательского css сильнее темы при любой специфичности: что задано здесь, задано и для всех состояний */
+/* glyph: black, white dots, one red — the Theme.qml palette. On and selected — white with black text, buttons and fields — pills,
+   red — only for danger. `rice` (term) sets the ~/.config/gtk-{3,4}.0/gtk.css link, demonshot has its own.
+   User css rules beat the theme at any specificity: what's set here is set for all states too */
 @define-color accent_color #F2F2F2;
 @define-color accent_bg_color #F2F2F2;
 @define-color accent_fg_color #000000;
@@ -38,7 +38,7 @@
 
 window, popover, menu { font-family: "Space Grotesk"; }
 
-/* ---- пилюли; в склеенных группах внутренние углы прямые ---- */
+/* ---- pills; in joined groups the inner corners are square ---- */
 button, entry { border-radius: 999px; }
 entry { padding-left: 14px; padding-right: 14px; }
 .linked:not(.vertical) > button:not(:first-child), .linked:not(.vertical) > entry:not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; }
@@ -46,19 +46,19 @@ entry { padding-left: 14px; padding-right: 14px; }
 .linked.vertical > button, .linked.vertical > entry { border-radius: 12px; }
 popover > contents, popover.background { border-radius: 24px; }
 
-/* вкл — белая дорожка, чёрный бегунок (белый на белом пропал бы) */
+/* on — a white track, a black knob (white on white would disappear) */
 switch:checked slider { background-color: #000000; }
 
 scrollbar slider { border-radius: 999px; background-color: #4A4A4A; }
 scrollbar slider:hover, scrollbar slider:active { background-color: #8C8C8C; }
 
-/* ---- thunar: файлы — карточка s1 на чёрном, слева ярлыки, путь и строка состояния — Space Mono ---- */
+/* ---- thunar: files — an s1 card on black, shortcuts on the left, the path and status bar — Space Mono ---- */
 .thunar paned > separator { min-width: 12px; background: none; box-shadow: none; }
 
 .thunar .standard-view { background-color: #0E0E0E; border-radius: 28px; padding: 10px; margin: 0 12px 0 0; }
 .thunar .standard-view .view:not(.rubberband), .thunar .standard-view .view *:not(.rubberband) { background-color: transparent; }
 .thunar .standard-view .view:selected, .thunar .standard-view .view *:selected { background-color: #F2F2F2; color: #000000; border-radius: 14px; }
-/* в таблице (подробный вид) у каждой колонки свой фон — скругление порезало бы строку на пилюли */
+/* in a table (detailed view) each column has its own background — rounding would cut the row into pills */
 .thunar .standard-view treeview.view:selected, .thunar .standard-view treeview.view *:selected { border-radius: 0; }
 .thunar .rubberband { background-color: alpha(#F2F2F2, 0.08); border: 1px solid alpha(#F2F2F2, 0.4); }
 

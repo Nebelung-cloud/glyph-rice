@@ -1,5 +1,5 @@
-# glyph: ~/dir › — каталог серым, стрелка белая, ошибка красная. Цвета — номерами ANSI, светлая тема kitty их переставит.
-# ~/.config/starship.toml ссылается сюда, пока жив glyph (rice)
+# glyph: ~/dir › — the directory in grey, the arrow white, an error red. Colors — as ANSI numbers, kitty's light theme rearranges them.
+# ~/.config/starship.toml links here while glyph is alive (rice)
 add_newline = false
 format = "$directory$git_branch$git_status$cmd_duration$character"
 

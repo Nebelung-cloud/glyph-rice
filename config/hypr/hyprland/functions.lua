@@ -1,10 +1,15 @@
 local vars = require("variables")
 
+-- workspace limit within a group of ten and wrap-around: set by the shell (Theme.workspaces → glyph_ws_limit, glyph_ws_wrap), without the shell — 10 and wrapping
+local function ws_limit() return glyph_ws_limit or 10 end
+
 local function wsaction(action, range, i)
     return function()
         local activews = hl.get_active_workspace()
         if activews then
             local id = activews.id
+            -- Super+N past the limit — ignored (groups, Ctrl+Super+N, have no limit)
+            if range ~= "group" and i > ws_limit() then return end
             local s  = (i - 1) * 10 + (id % 10)
             local t  = math.floor((id - 1) / 10) * 10 + i
             local z  = (range == "group") and s or t
@@ -15,6 +20,26 @@ local function wsaction(action, range, i)
                 return hl.dispatch(hl.dsp.focus({ workspace = z }))
             end
         end
+    end
+end
+
+-- neighbouring workspace ±1 within the group of ten: past the last — the first (and back), if glyph_ws_wrap; otherwise stay.
+-- move — move the window there, otherwise go there
+local function wsstep(d, move)
+    return function()
+        local a = hl.get_active_workspace()
+        if not a or a.id < 1 then return end
+        local base, n = math.floor((a.id - 1) / 10) * 10, ws_limit()
+        local slot = a.id - base
+        local t = slot + d
+        if slot > n then t = (d > 0) and 1 or n -- we're past the limit (it was lowered) — back inside it
+        elseif t > n then t = (glyph_ws_wrap == false) and n or 1
+        elseif t < 1 then t = (glyph_ws_wrap == false) and 1 or n end
+        if base + t == a.id then return end
+        if move then
+            return hl.dispatch(hl.dsp.window.move({ workspace = base + t }))
+        end
+        return hl.dispatch(hl.dsp.focus({ workspace = base + t }))
     end
 end
 
@@ -78,22 +103,22 @@ local function move_actions(win)
     end
 end
 
--- special ws: открыть/закрыть, а если там пусто — запустить его программу из vars.apps (замена caelestia toggle).
--- apps читаем при нажатии, а не при загрузке: user.lua грузится после биндов и меняет их там
+-- special ws: open/close, and if it's empty — launch its program from vars.apps (replaces caelestia toggle).
+-- apps are read on keypress, not at load: user.lua loads after the binds and changes them there
 local function toggle_special(name)
     return function()
         local cmd = vars.apps[name]
         for _, ws in ipairs(hl.get_workspaces()) do
             if ws.name == "special:" .. name and ws.windows > 0 then cmd = nil end
         end
-        -- сначала показать, потом запускать: hypr открывает окно там, где был фокус в момент запуска,
-        -- и при обратном порядке прятал воркспейс, едва окно появится
+        -- show first, then launch: hypr opens the window where focus was at launch time,
+        -- and in the reverse order it would hide the workspace as soon as the window appeared
         hl.dispatch(hl.dsp.workspace.toggle_special(name))
         if cmd then hl.exec_cmd(cmd) end
     end
 end
 
--- запись экрана gpu-screen-recorder: тот же бинд ещё раз — стоп
+-- gpu-screen-recorder screen recording: the same bind again — stop
 local function record(region, sound)
     return function()
         local mon = hl.get_active_monitor()
@@ -110,5 +135,6 @@ return {
     resize_by_screen     = resize_by_screen,
     resize_active_window = resize_active_window,
     wsaction             = wsaction,
+    wsstep               = wsstep,
     move_actions         = move_actions,
 }

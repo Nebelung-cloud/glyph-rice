@@ -20,6 +20,12 @@ hl.config({
         background_color             = "rgb(" .. scheme.void .. ")",
     },
 
+    -- no auto-HDR: a Chromium/Electron window in fullscreen switched the panel to HDR — a modeset (the screen blinks,
+    -- the compositor stalls ~1 s), and SDR in HDR is darker
+    render = {
+        cm_auto_hdr = 0,
+    },
+
     debug = {
         error_position = 1
     }

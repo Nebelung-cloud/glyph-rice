@@ -11,16 +11,16 @@ import Quickshell.Wayland
 import qs.services
 import qs.settings
 
-// то, что трогают бар, быстрые настройки, Glyph и лок: звук, яркость, раскладка, запись, ночник, авиарежим, кофеин, vpn
+// what the bar, quick settings, Glyph and the lock touch: sound, brightness, layout, recording, night light, airplane mode, caffeine, vpn
 Singleton {
     id: root
 
-    // deck (панель снизу) открыта — SysStats нужен подробный опрос, как на пустом воркспейсе (Home)
+    // the deck (the bottom panel) is open — SysStats needs detailed polling, like on an empty workspace (Home)
     property bool deckOpen: false
-    // пикер обоев открыт — дом меняет обои сразу, без волны: её уже показал пикер
+    // the wallpaper picker is open — home changes the wallpaper at once, without the wave: the picker already showed it
     property bool wallOpen: false
 
-    // ---- звук ----
+    // ---- sound ----
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var mic: Pipewire.defaultAudioSource
     PwObjectTracker { objects: [root.sink, root.mic] }
@@ -32,17 +32,42 @@ Singleton {
         sink.audio.muted = false;
         sink.audio.volume = Math.max(0, Math.min(1, v));
     }
-    // микрофон кто-то слушает — центр знака в баре краснеет
+    // someone is listening to the microphone — the center of the mark in the bar turns red
     PwNodeLinkTracker { id: micUse; node: root.mic }
     readonly property bool live: rec || micUse.linkGroups.length > 0
 
-    // ---- яркость: общий с demonshot Backlight (устройство ищет brightnessctl) ----
+    // ---- lid: not «sleep» — we hold logind (handle-lid-switch), closing and opening is caught by hypr (switch:on/off:Lid Switch →
+    // shell:lidClose/lidOpen). No lid (a PC) — no choice either ----
+    property bool hasLid: false
+    Process {
+        running: true
+        command: ["sh", "-c", "ls /proc/acpi/button/lid/*/state"]
+        onExited: code => root.hasLid = code === 0
+    }
+    Process {
+        running: root.hasLid && Rules.store.lid !== "sleep"
+        command: ["systemd-inhibit", "--what=handle-lid-switch", "--who=glyph", "--why=lid action set in System", "--mode=block", "sleep", "infinity"]
+    }
+    function lid(closed) {
+        const a = Rules.store.lid, dpms = x => Quickshell.execDetached(["hyprctl", "dispatch", `hl.dsp.dpms({action = "${x}"})`]);
+        if (!closed) return a === "sleep" || a === "nothing" || dpms("on");
+        if (a === "lock") Quickshell.execDetached(["loginctl", "lock-session"]);
+        if (a === "screen off" || a === "lock") dpms("off");
+    }
+
+    // ---- brightness: Backlight shared with demonshot (brightnessctl finds the device) ----
     readonly property real bri: Backlight.value
-    readonly property bool hasBri: !!Backlight.dev // нет подсветки (ПК с монитором) — регуляторов яркости нет
+    readonly property bool hasBri: !!Backlight.dev // no backlight (a PC with a monitor) — no brightness controls
     function setBri(v) { Backlight.set(v); }
+    // brightness of the monitor where the panel was opened: built-in — backlight, external — DDC. The panel lives on
+    // one screen, but Super+A and a peek from the hot edge open it «on» Hyprland's focus
+    property string panelMon: ""
+    readonly property bool panelBriExternal: panelMon !== "" && !panelMon.startsWith("eDP")
+    readonly property real panelBri: panelBriExternal ? Backlight.ddc : Backlight.value
+    function setPanelBri(v) { panelBriExternal ? Backlight.setDdc(v) : Backlight.set(v); }
     Binding { target: Backlight; property: "steps"; value: Theme.state.briSteps }
 
-    // ---- раскладка: старт — main-клавиатура из hyprctl, дальше событие activelayout ----
+    // ---- layout: at start — the main keyboard from hyprctl, then the activelayout event ----
     property string kbd: ""
     Process {
         running: true
@@ -55,8 +80,8 @@ Singleton {
     }
     readonly property string layout: kbd.slice(0, 2).toLowerCase() // "English (US)" → en
 
-    // ---- запись и авиарежим: их же включают бинды hypr, поэтому опрос. Ночник — общий с demonshot, в его rules.json
-    // ponytail: pgrep раз в 3 с; станет заметно — следить за процессами через systemd-run --scope ----
+    // ---- recording and airplane mode: hypr binds toggle them too, hence polling. Night light — shared with demonshot, in its rules.json
+    // ponytail: pgrep every 3 s; if it gets noticeable — watch processes via systemd-run --scope ----
     property bool rec: false
     readonly property bool night: Rules.store.night
     property bool air: false
@@ -74,14 +99,14 @@ Singleton {
     Timer { running: true; repeat: true; interval: 3000; triggeredOnStart: true; onTriggered: poll.running = true }
 
     function sh(c) { Quickshell.execDetached(["sh", "-c", c]); }
-    // настройки записи из Theme.state (quick/Rec) → флаги gpu-screen-recorder; их же берёт скриншотилка
+    // recording settings from Theme.state (quick/Rec) → gpu-screen-recorder flags; the screenshot tool uses them too
     readonly property var recFps: [30, 60, 120]
     function recArgs() {
         const st = Theme.state;
         const a = ["", "default_output", "default_input", "default_output|default_input"][st.recAudio];
         return `-f ${st.recFps} -q ${["medium", "high", "very_high", "ultra"][st.recQuality]} -cursor ${st.recCursor ? "yes" : "no"}` + (a ? ` -a "${a}"` : "");
     }
-    // второй раз — стоп. Область — slurp; отменили выбор — gsr не стартует, rec поправит опрос
+    // the second time — stop. Region — slurp; selection cancelled — gsr doesn't start, polling fixes rec
     function toggleRec() {
         const w = Theme.state.recArea ? `-w region -region "$(slurp -f %wx%h+%x+%y)"` : `-w ${Hyprland.focusedMonitor?.name ?? "screen"}`;
         sh(`pkill -INT -f '^gpu-screen-recorder' || exec gpu-screen-recorder ${w} ${recArgs()} -o "$(xdg-user-dir VIDEOS)/rec-$(date +%F_%H-%M-%S).mp4"`);
@@ -91,13 +116,13 @@ Singleton {
     function toggleAir() { Quickshell.execDetached(["rfkill", air ? "unblock" : "block", "all"]); air = !air; }
     function toggleMic() { if (mic?.audio) mic.audio.muted = !mic.audio.muted; }
 
-    // ---- наушники Nothing / CMF: шумодав и заряд через ./ear (их RFCOMM-протокол). Спрашиваем при открытии быстрых настроек.
-    // ponytail: узнаём по имени, как Gadgetbridge; не Nothing — ear не ответит, ear останется null ----
+    // ---- Nothing / CMF earbuds: noise cancelling and battery via ./ear (their RFCOMM protocol). Asked when quick settings open.
+    // ponytail: recognised by name, like Gadgetbridge; not Nothing — ear won't answer, ear stays null ----
     readonly property var buds: Bluetooth.devices.values.find(d => d.connected && /^(nothing|cmf|ear)\b/i.test(d.name)) ?? null
     property var ear: null // {mode, l, r, case?}
     onBudsChanged: ear = null
-    // сразу после подключения канал ещё не готов — спрашивать раз в 2 с, пока не ответят. ponytail: не Nothing с похожим
-    // именем так и будет опрашиваться, пока подключено
+    // right after connecting the channel isn't ready yet — ask every 2 s until they answer. ponytail: a non-Nothing device with a similar
+    // name will keep being polled while connected
     Timer { interval: 2000; repeat: true; running: !!root.buds && !root.ear; onTriggered: root.earRun([]) }
     readonly property var ancModes: [[5, "off"], [7, "transp"], [3, "low"], [2, "mid"], [1, "high"], [4, "auto"]]
     property var earNext: null
@@ -114,7 +139,7 @@ Singleton {
         onExited: if (root.earNext) { command = root.earNext; root.earNext = null; running = true; }
     }
 
-    // ---- кофеин: не спать. Ингибитору нужно живое окно — невидимое 0×0, как в demonshot ----
+    // ---- caffeine: don't sleep. The inhibitor needs a live window — an invisible 0×0, like in demonshot ----
     property bool caffeine: false
     IdleInhibitor {
         enabled: root.caffeine
@@ -128,8 +153,8 @@ Singleton {
         }
     }
 
-    // ---- vpn: clash verge через пункты его трея, как договор в demonshot.
-    // ponytail: подписи английские (language: en в verge); другой язык — поменять строки ----
+    // ---- vpn: clash verge via its tray menu items, like the pact in demonshot.
+    // ponytail: the labels are English (language: en in verge); another language — change the strings ----
     readonly property var verge: SystemTray.items.values.find(i => i.title === "clash-verge" || i.id.includes("clash-verge")) ?? null
     QsMenuOpener { id: vmenu; menu: root.verge?.menu ?? null }
     readonly property var vpnItems: ["System Proxy", "TUN Mode"]
@@ -137,11 +162,11 @@ Singleton {
     readonly property bool vpn: vpnItems.some(l => vpnItem(l)?.checkState === Qt.Checked)
     property var queue: []
     function toggleVpn() {
-        if (!verge) return Quickshell.execDetached(["clash-verge"]); // спит — разбудить
+        if (!verge) return Quickshell.execDetached(["clash-verge"]); // asleep — wake it
         queue = vpn ? vpnItems.filter(l => vpnItem(l)?.checkState === Qt.Checked) : vpnItems;
         presser.start();
     }
-    // verge пересобирает меню после каждого нажатия — по одному
+    // verge rebuilds the menu after every click — one at a time
     Timer {
         id: presser
         interval: 350

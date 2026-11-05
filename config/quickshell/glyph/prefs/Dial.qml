@@ -2,9 +2,9 @@ import QtQuick
 import qs
 import qs.components
 
-// число кольцом точек: горит доля от 12 по часовой, голова крупнее, в центре Doto. Тянуть по кругу, колесо, ←→ — шаг.
-// Пока крутят — своё v (по нему же живёт превью), наружу moved(v) один раз: на отпускании или через 250 мс тишины.
-// live — на каждый шаг (яркость). Свои точки, не Ring: его волна 8 мс на точку под пальцем выглядит как лаг
+// a number as a ring of dots: a fraction lit clockwise from 12, the head larger, Doto in the center. Drag around the circle, the wheel, ←→ — a step.
+// While turning — its own v (the preview lives on it too), moved(v) goes out once: on release or after 250 ms of quiet.
+// live — on every step (brightness). Its own dots, not Ring: its 8 ms per dot wave under the finger looks like lag
 Column {
     id: root
 
@@ -68,9 +68,9 @@ Column {
             property real last: -1
             property real acc: 0
             function at(x, y) {
-                if (Math.hypot(x - width / 2, y - height / 2) < width * 0.2) return; // центр — не угол
+                if (Math.hypot(x - width / 2, y - height / 2) < width * 0.2) return; // the center — not an angle
                 const f = (Math.atan2(x - width / 2, height / 2 - y) / (2 * Math.PI) + 1) % 1;
-                if (last >= 0 && Math.abs(f - last) > 0.5) return root.put(last > 0.5 ? root.to : root.from); // через 12 не перескакивать
+                if (last >= 0 && Math.abs(f - last) > 0.5) return root.put(last > 0.5 ? root.to : root.from); // don't jump across 12
                 last = f;
                 root.put(root.from + f * (root.to - root.from));
             }
@@ -80,7 +80,7 @@ Column {
                 wait.stop();
                 if (root.v !== root.value) root.moved(root.v);
             }
-            // тачпад шлёт мелкие дельты — копим до щелчка колеса
+            // the touchpad sends small deltas — accumulate up to a wheel click
             onWheel: w => {
                 acc += w.angleDelta.y;
                 while (Math.abs(acc) >= 120) {
@@ -90,7 +90,7 @@ Column {
             }
         }
     }
-    // подпись; в фокусе — белый чип
+    // the label; in focus — a white chip
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         width: lab.implicitWidth + 24

@@ -1,5 +1,5 @@
 #%PAM-1.0
-# блокировка glyph: пароль через pam_unix, faillock считает неудачи
+# glyph lock: the password via pam_unix, faillock counts failures
 
 auth    required                    pam_faillock.so     preauth
 auth    [success=1 default=bad]     pam_unix.so         nullok

@@ -1,4 +1,4 @@
-# glyph: чёрный, выделение белое с чёрным текстом, красный — только опасное (палитра Theme.qml)
+# glyph: black, the selection white with black text, red — only for danger (the Theme.qml palette)
 [Colors:Button]
 BackgroundAlternate=#2A2A2A
 BackgroundNormal=#000000

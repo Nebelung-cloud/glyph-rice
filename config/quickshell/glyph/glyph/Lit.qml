@@ -3,13 +3,15 @@ import QtQuick.Effects
 import qs
 import qs.components
 
-// шкала у края экрана: горящие сегменты светятся, погасшие лежат отдельно, без эффекта — иначе свечение обводило бы и серые
+// a scale at the screen edge: lit segments glow, dimmed ones lie separately, without the effect — otherwise the glow would outline the grey ones too
 Item {
     id: root
 
     property int n
     property real f
+    property int from: 0
     property bool vertical
+    property color on: Theme.fg
 
     Seg { anchors.fill: parent; n: root.n; vertical: root.vertical; f: 0 }
     Seg {
@@ -17,6 +19,8 @@ Item {
         n: root.n
         vertical: root.vertical
         f: root.f
+        from: root.from
+        on: root.on
         off: "transparent"
         layer.enabled: true
         layer.effect: MultiEffect {
