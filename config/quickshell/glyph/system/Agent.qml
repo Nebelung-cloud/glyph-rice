@@ -102,7 +102,7 @@ PanelWindow {
                 width: parent.width - 72
                 spacing: 18
                 Lb { text: root.head }
-                Text { width: parent.width; elide: Text.ElideRight; text: root.title; font { family: Theme.ui; pixelSize: 30; weight: Font.DemiBold } color: Theme.fg }
+                Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: root.title; font { family: Theme.ui; pixelSize: 30; weight: Font.DemiBold } color: Theme.fg }
                 Num { visible: !!root.cur?.code; text: root.cur?.code ?? ""; font.pixelSize: 96; font.letterSpacing: 8 }
                 Lb { width: parent.width; wrapMode: Text.Wrap; text: root.what; color: root.cur?.retry ? Theme.red : Theme.grey }
 

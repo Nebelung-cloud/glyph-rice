@@ -52,7 +52,7 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
         ["device", info.model], ["system", info.os], ["kernel", info.kernel], ["processor", info.cpu ? `${info.cpu} · ${info.cores} threads` : ""],
         ["graphics", (info.gpu ?? []).join("  ·  ") + (info.nvidia ? `  ·  nvidia ${info.nvidia}` : "")],
         ["memory", info.mem ? `${info.mem} gb` : ""], ["storage", info.disk], ["bios", info.bios],
-        ["hyprland", info.hypr], ["quickshell", info.qs]
+        ["hyprland", info.hypr], ["quickshell", info.qs], ["login screen", login]
     ].filter(r => r[1])
 
     // ---- updates: on the button and once on the first opening ----
@@ -67,6 +67,7 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
         if (!info.os) probe.running = true;
         if (!checked && !checking) check();
         riceCheck.running = true;
+        loginCheck.running = true;
     }
     Process {
         id: upd
@@ -86,14 +87,6 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
         command: ["sh", "-c", 'r=$(git -C "$(readlink -f "$1")" rev-parse --show-toplevel) && git -C "$r" fetch -q && git -C "$r" rev-list --count "HEAD..@{u}"', "sh", Quickshell.shellPath("")]
         stdout: StdioCollector { onStreamFinished: root.riceNew = text.trim() === "" ? -1 : +text.trim() }
     }
-    function riceUpdate() {
-        const open = Hyprland.toplevels.values.find(t => t.title === "updates");
-        if (open) Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${open.address}" })`);
-        else Quickshell.execDetached(["kitty", "--title", "updates", "bash", "-c",
-            'r=$(git -C "$(readlink -f "$1")" rev-parse --show-toplevel) && "$r/install.sh" --update; printf "\\ndone · press enter "; read -r _', "bash", Quickshell.shellPath("")]);
-        riceNew = -1;
-        done();
-    }
     // System covers the screen and holds the keyboard: it has to leave, or the terminal opens unseen behind it. Pressed again while that
     // terminal is open — go to it: a second one prompts for sudo as well, and abandoned prompts count as failures and lock the account
     signal done
@@ -102,6 +95,21 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
         if (open) Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${open.address}" })`);
         else Quickshell.execDetached(["kitty", "--title", "updates", "bash", Quickshell.shellPath("system/update.sh")]);
         checked = ""; // count again on the next visit
+        riceNew = -1;
+        done();
+    }
+    // the login screen: which one now, and a terminal with the menu to change it
+    property string login: ""
+    Process {
+        id: loginCheck
+        command: ["sh", "-c", 'case "$(systemctl show -p Id --value display-manager.service)" in greetd*) grep -qs /dial/ /etc/greetd/config.toml && echo "dial greeter" || echo "lock greeter" ;; sddm*) echo "sddm" ;; display-manager*|"") echo "none" ;; *) systemctl show -p Id --value display-manager.service | sed "s/.service//" ;; esac']
+        stdout: StdioCollector { onStreamFinished: root.login = text.trim() }
+    }
+    function changeLogin() {
+        const open = Hyprland.toplevels.values.find(t => t.title === "login screen");
+        if (open) Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${open.address}" })`);
+        else Quickshell.execDetached(["kitty", "--title", "login screen", "bash", "-c",
+            'r=$(git -C "$(readlink -f "$1")" rev-parse --show-toplevel) && "$r/install.sh" --login-screen; printf "\\npress enter "; read -r _', "bash", Quickshell.shellPath("")]);
         done();
     }
 
@@ -116,6 +124,7 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
                 required property int index
                 width: index % 2 ? 760 : implicitWidth
                 wrapMode: Text.Wrap
+                textFormat: Text.PlainText
                 text: modelData
                 font { family: index % 2 ? Theme.ui : Theme.mono; pixelSize: index % 2 ? 17 : 11; capitalization: index % 2 ? Font.MixedCase : Font.AllUppercase; letterSpacing: index % 2 ? 0 : 1.5 }
                 color: index % 2 ? Theme.fg : Theme.grey
@@ -136,7 +145,7 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
             }
         }
         Act { anchors.verticalCenter: parent.verticalCenter; icon: "\u{F0450}"; text: "check"; onHit: if (!root.checking) root.check() }
-        Act { anchors.verticalCenter: parent.verticalCenter; visible: root.updates.length > 0; icon: "\u{F06B0}"; text: "update"; onHit: root.update() }
+        Act { anchors.verticalCenter: parent.verticalCenter; visible: root.updates.length > 0 || root.riceNew > 0; icon: "\u{F06B0}"; text: "update everything"; onHit: root.update() }
     }
     Row {
         spacing: 20
@@ -146,15 +155,18 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
             Lb { text: "the rice" }
             Lb { color: Theme.fg; text: root.riceNew < 0 ? "couldn't check for updates" : root.riceNew === 0 ? "up to date" : `${root.riceNew} new ${root.riceNew === 1 ? "change" : "changes"}` }
         }
-        Act { anchors.verticalCenter: parent.verticalCenter; visible: root.riceNew > 0; icon: "\u{F06B0}"; text: "update the rice"; onHit: root.riceUpdate() }
     }
-    Act {
-        icon: "\u{F030C}"
-        text: "keyboard shortcuts"
-        onHit: {
-            Theme.state.welcomed = false; // the first-run card
-            root.done();
+    Row {
+        spacing: 20
+        Act {
+            icon: "\u{F030C}"
+            text: "keyboard shortcuts"
+            onHit: {
+                Theme.state.welcomed = false; // the first-run card
+                root.done();
+            }
         }
+        Act { icon: "\u{F0341}"; text: "change login screen"; onHit: root.changeLogin() }
     }
     Flickable {
         visible: root.updates.length > 0

@@ -42,7 +42,7 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | Feature | Where | Author |
 |---|---|---|
 | Palettes, top bar, corners dial, GIF tile, RunCat, SDDM theme, lock before sleep | prefs → STYLE, BAR, WINDOWS | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) |
-| No auto-HDR, deck over fullscreen, VPN behind a captive portal, plain kitty, theme icons in the launcher | automatic | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch |
+| No auto-HDR, deck over fullscreen, VPN behind a captive portal, plain kitty, theme icons in the launcher, plain-text names for security, one step per wheel notch, wheel on the volume ring | automatic | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch |
 | Live level meter | System → Sound | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch, [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
 | Scroll over the workspace dots, scroll over the sliders, first-drag fix | bar, quick settings | [rawnullbyte](https://github.com/rawnullbyte/glyph-rice) |
 | External monitor brightness (experimental) | quick settings | [rawnullbyte](https://github.com/rawnullbyte/glyph-rice), [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
@@ -81,7 +81,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 **Not tested yet, so tell me if something breaks:**
 
 - Booting into the Lock greeter or the Dial greeter from this repository's scripts. The Dial greeter was tested as a window with real key presses against a fake greetd: a wrong password refused, the right one starting the chosen session.
-- `--update` and its button on a real update.
+- `--update` and the update everything button on a real update, and the pacman notice during a real `pacman` run. The notice's script and the hook's text were tested, but not pacman running it.
 - A real `yay` update through the update button.
 - Whether `--fix-plasma` read the passwords from a real KDE Wallet, or they were typed. The format comes from KDE's source code.
 - Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
@@ -191,11 +191,12 @@ All the questions come first. At the summary you can install, change your choice
 |---|---|
 | `--dry-run` | The same questions, prints what it would do, changes nothing |
 | `--yes` | No questions, the Recommended setup |
-| `--update` | Gets the newest version, adds any new packages, keeps your choices and settings. Also in System → About |
+| `--update` | Gets the newest version, adds any new packages, keeps your choices and settings. Also in System → About, and as `rice update` |
 | `--fix-plasma` | Coming from KDE Plasma: copies Wi-Fi passwords out of KDE Wallet into their network profiles, so they connect at boot (it asks only for what the wallet doesn't have), and stops Plasma's `xwaylandvideobridge` starting under Hyprland. Plasma itself isn't touched |
 | `--report` | Prints what's useful for fixing a problem. No passwords or network names, safe to paste |
 | `--uninstall` | Removes the links, restores your old files and login screen. Packages stay. With `--yes` it doesn't ask first |
 | `--links` | Symlinks only, on any distro. The packages are then your own, see below |
+| `--login-screen` | A menu to change the login screen. Also in System → About |
 | `--lock-greeter` | Switches the login screen to the Lock greeter |
 | `--dial-greeter` | Switches the login screen to the Dial greeter |
 | `--sddm` | Only the SDDM theme; run again after editing it |
@@ -231,6 +232,19 @@ apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
 hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by default
 ```
 
+### Changing your login screen
+
+The easy way, with nothing to type:
+
+1. Open System with `Super` `I`, go down to **About**, and press **change login screen**. About also shows which one you have now.
+2. A terminal opens with a menu. Move with **↑ ↓**, press **Enter** on the one you want.
+3. Enter your password when it asks.
+4. Reboot. Close the terminal first, and save anything open.
+
+Or from a terminal: `~/.local/share/glyph/install.sh --login-screen`.
+
+If the new one fails at boot, press `Ctrl` `Alt` `F2`, log in, and run `~/.local/share/glyph/install.sh --lock-greeter` to get back to a known one.
+
 ### Login screens
 
 | Choice | Runs on | Look |
@@ -240,7 +254,7 @@ hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by de
 | **SDDM dial theme** | SDDM | The original theme with the same look |
 | **Keep what I have** | | Changes nothing |
 
-Pick one during install, or switch later with `install.sh --lock-greeter` or `install.sh --dial-greeter`, then reboot. `--uninstall` brings back the login screen you had before.
+`--lock-greeter` and `--dial-greeter` switch straight to one without the menu. `--uninstall` brings back the login screen you had before, and also removes the rice's links.
 
 ### Coming from KDE Plasma
 
@@ -254,7 +268,13 @@ Networks found in the wallet are ticked already, so press Enter. The wallet may 
 
 ### Updating
 
-System → About shows when the rice has new changes, with a button that opens a terminal and updates it. Or run `install.sh --update`. It only asks for a password if a new package or the login screen needs it. Local edits to tracked files make it stop before changing anything, so keep yours in `hypr/user.lua`.
+The rice and your system update together:
+
+- **Easiest:** System → About shows new system packages and new rice changes. Press **update everything**. A terminal opens, gets the rice first, then the system.
+- **Only the rice:** run `rice update`.
+- **If you update your system yourself** with `pacman` or `yay`: at the end it tells you when the rice has new changes. It only tells you, and then you run `rice update`.
+
+An update keeps your settings, and it only asks for a password if a new package or the login screen needs it. Local edits to tracked files make it stop before changing anything, so keep yours in `hypr/user.lua`.
 
 ### Troubleshooting
 

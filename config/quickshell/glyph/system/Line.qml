@@ -50,7 +50,7 @@ Rectangle {
     }
     Column {
         anchors { left: ic.right; leftMargin: 16; right: parent.right; rightMargin: 20; verticalCenter: parent.verticalCenter }
-        Text { width: parent.width; elide: Text.ElideRight; text: root.title; font { family: Theme.ui; pixelSize: 17; weight: Font.DemiBold } color: Theme.fg }
+        Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: root.title; font { family: Theme.ui; pixelSize: 17; weight: Font.DemiBold } color: Theme.fg }
         Lb { width: parent.width; elide: Text.ElideRight; px: 10; text: root.sub; visible: !!text }
     }
     HoverHandler { id: hov; cursorShape: Qt.PointingHandCursor }

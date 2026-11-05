@@ -26,7 +26,7 @@ Singleton {
         onTriggered: root.position = root.player?.position ?? 0
     }
 
-    // новый трек — позицию сразу, не ждать опроса
+    // a new track: the position at once, without waiting for the poll
     readonly property string track: player ? `${player.trackArtist}\n${player.trackTitle}` : ""
     onTrackChanged: position = player?.position ?? 0
 }

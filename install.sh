@@ -8,6 +8,7 @@
 #   ./install.sh --fix-plasma  coming from KDE Plasma: saves Wi-Fi passwords that were in KDE Wallet, stops Plasma's leftovers starting here
 #   ./install.sh --report      prints what's useful for fixing a problem (no passwords or network names), changes nothing
 #   ./install.sh --links       symlinks only, on any distro (the packages are then your own, see the README)
+#   ./install.sh --login-screen  a menu to change the login screen
 #   ./install.sh --lock-greeter  switch the login screen to the Lock greeter (greetd)
 #   ./install.sh --dial-greeter  switch the login screen to the Dial greeter (greetd, the SDDM theme's look without SDDM)
 #   ./install.sh --sddm        only the SDDM login theme; run again after edits in config/sddm
@@ -235,11 +236,7 @@ choose() {
     esac
 }
 
-tick_state() { # tick_state <id>: on if it's already chosen
-    case " ${EXTRAS[*]:-} " in *" $1 "*) echo on ;; *) echo off ;; esac
-}
-
-customize() {
+pick_login() {
     local dm; dm=$(current_dm)
     pick "Login screen?" "$LOGIN" \
         "greeter|Lock greeter|Looks like the lock screen: big dot clock, password field. Through greetd. Recommended." \
@@ -247,6 +244,14 @@ customize() {
         "sddm|SDDM dial theme|The same dial as the original SDDM theme. Installs SDDM, which the Dial greeter avoids." \
         "keep|Keep what I have|${dm:-No display manager}: nothing changes."
     LOGIN=$PICKED
+}
+
+tick_state() { # tick_state <id>: on if it's already chosen
+    case " ${EXTRAS[*]:-} " in *" $1 "*) echo on ;; *) echo off ;; esac
+}
+
+customize() {
+    pick_login
 
     pick "File manager? (Super+E)" "$FILES" \
         "thunar|Thunar|Small and simple, installed from the repositories." \
@@ -364,10 +369,20 @@ services() {
     done
     run sudo usermod -aG input,video "$USER" # ydotool (uinput), brightnessctl
     run xdg-user-dirs-update || true
+    pacman_hook
     case " ${EXTRAS[*]:-} " in *" firewall "*)
         run sudo systemctl enable --now ufw
         run sudo ufw --force enable ;; # --force: it would stop to ask otherwise
     esac
+}
+
+# after a system update, pacman says if the rice has news. It runs as you, never as root: the script lives in your home, and root shouldn't execute that
+pacman_hook() {
+    [ -e /etc/pacman.d/hooks/glyph-rice.hook ] && return 0
+    run sudo mkdir -p /etc/pacman.d/hooks
+    if [ "$DRY" = 1 ]; then note "would add the pacman hook"; return 0; fi
+    printf '[Trigger]\nOperation = Upgrade\nType = Package\nTarget = *\n\n[Action]\nDescription = Checking for rice updates...\nWhen = PostTransaction\nExec = /usr/bin/runuser -u %s -- /usr/bin/env HOME=%s /usr/bin/bash %s/config/pacman/rice-notify.sh\n' "$USER" "$HOME" "$DOTS" \
+        | sudo tee /etc/pacman.d/hooks/glyph-rice.hook >/dev/null || say "Could not add the pacman hook. The rice still updates from System → About."
 }
 
 links() {
@@ -521,7 +536,10 @@ update_rest() { # step 2: whatever the new version needs. Asks for a password on
     local greeter_changed="" greeter_script=greeter watch='^config/greeter/|glyph/lock/|glyph/Theme.qml|glyph/components/'
     if grep -qs '/dial/' /etc/greetd/config.toml; then greeter_script=greeter-dial watch='^config/greeter-dial/'; fi
     if [ "$(current_dm)" = greetd ] && git -C "$DOTS" diff --name-only "$old" HEAD | grep -qE "$watch"; then greeter_changed=1; fi
-    if [ -n "$missing$aur_missing$greeter_changed" ]; then sudo_once; fi
+    local hook_missing=""
+    if [ ! -e /etc/pacman.d/hooks/glyph-rice.hook ]; then hook_missing=1; fi
+    if [ -n "$missing$aur_missing$greeter_changed$hook_missing" ]; then sudo_once; fi
+    if [ -n "$hook_missing" ]; then pacman_hook; fi
     # shellcheck disable=SC2086 # one package per word
     if [ -n "$missing" ]; then run sudo pacman -S --needed --noconfirm $missing; fi
     # shellcheck disable=SC2086
@@ -682,6 +700,7 @@ uninstall() {
     elif [ "$(current_dm)" = greetd ] || [ "$(current_dm)" = sddm ]; then
         note "$(current_dm) stays enabled: no earlier login screen is on record."
     fi
+    if [ -e /etc/pacman.d/hooks/glyph-rice.hook ]; then run sudo rm /etc/pacman.d/hooks/glyph-rice.hook; fi
     say "Done. Packages, your settings in $STATE and any backup that's left stay in place."
 }
 
@@ -697,23 +716,29 @@ for a in "$@"; do
         --update) MODE=update ;;
         --update-rest) MODE=update-rest ;;
         --report) MODE=report ;;
+        --login-screen) MODE=login-screen ;;
         --lock-greeter) MODE=lock-greeter ;;
         --dial-greeter) MODE=dial-greeter ;;
         --fix-plasma) MODE=fix-plasma ;;
         --links) MODE=links ;;
         --sddm) MODE=sddm ;;
         [0-9a-f]*) [ "$MODE" = update-rest ] && OLD=$a ;;
-        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--fix-plasma] [--report] [--uninstall] [--links] [--lock-greeter] [--dial-greeter] [--sddm]"; exit 1 ;;
+        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--fix-plasma] [--report] [--uninstall] [--links] [--login-screen] [--lock-greeter] [--dial-greeter] [--sddm]"; exit 1 ;;
     esac
 done
 
 case "$MODE" in
     links) links ;;
     sddm) sddm_theme ;;
-    lock-greeter | dial-greeter)
-        sudo_once
+    login-screen | lock-greeter | dial-greeter)
         LOGIN=greeter
-        [ "$MODE" = lock-greeter ] || LOGIN=dial
+        [ "$MODE" != dial-greeter ] || LOGIN=dial
+        if [ "$MODE" = login-screen ]; then
+            pick_login
+            if [ "$LOGIN" = keep ]; then say "Nothing changed."; exit 0; fi
+        fi
+        sudo_once
+        if [ "$LOGIN" = sddm ]; then run sudo pacman -S --needed --noconfirm sddm; fi
         login_screen
         say "Done. Reboot to see it. If it ever fails: Ctrl+Alt+F2, log in, run  $0 --uninstall"
         ;;

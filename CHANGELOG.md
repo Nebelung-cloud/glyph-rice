@@ -4,7 +4,21 @@ The newest changes come first. To get them, press **update the rice** in System 
 
 ## November 2026
 
+### Security, from the original repo
+
+- Names from other people, like a Wi-Fi network, a Bluetooth device or a notification title, now always show as plain text. Before, a name containing an image tag made the shell download that image, so a neighbor's network name could reach out to a server. This also covers this fork's own System pages.
+- The lyrics lookup is gone. Nothing showed them, but every track was sent to a website.
+- `Ctrl` `Shift` `Alt` `V` no longer works on the lock screen, where it typed the last thing copied into the password field.
+
+### Updates together
+
+- System → About now has one **update everything** button: the rice first, then the system.
+- `rice update` updates just the rice.
+- Updating with `pacman` or `yay` yourself now ends with a notice if the rice has new changes.
+
 ### Login screens
+
+- System → About shows your login screen, and **change login screen** opens a menu to pick another.
 
 - New: the **Dial greeter**. Nebelung's camera dial and tachometer, ported from the SDDM theme to greetd, so that look no longer needs SDDM.
 - The existing greeter is now called the **Lock greeter**, after the lock screen look it shares.
@@ -36,6 +50,7 @@ The newest changes come first. To get them, press **update the rice** in System 
 - Fixed: the update button opened its terminal hidden behind System, and each press opened another one. The abandoned password prompts could lock the account, so even the right `sudo` password was rejected. System now closes first, a second press goes to the open terminal, and the terminal explains a lock.
 - Fixed: the default apps list showed apps of the wrong kind, like a code editor under web browsers. It now checks what kind of app each one is, and a pick only sets the file types that app handles.
 - Fixed: About could stay half empty after leaving it while it loaded, and its update list said "aur" instead of package names.
+- A hi-res mouse wheel moves the volume icon and the gif tile one step per notch, and the wheel on home's volume ring changes the volume.
 - Better keyboard use: Tab starts on the page, the Apps page works with arrow keys, and holding a key no longer repeats an action.
 - The keyboard shortcuts card opens straight away.
 

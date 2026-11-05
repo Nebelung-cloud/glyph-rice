@@ -157,7 +157,7 @@ Column {
 
     Row {
         spacing: 18
-        Text { text: root.v["connection.id"] || "new connection"; font { family: Theme.ui; pixelSize: 32; weight: Font.DemiBold } color: Theme.fg }
+        Text { textFormat: Text.PlainText; text: root.v["connection.id"] || "new connection"; font { family: Theme.ui; pixelSize: 32; weight: Font.DemiBold } color: Theme.fg }
         Lb { anchors.verticalCenter: parent.verticalCenter; text: `${Conn.typeName(root.type)}${root.extra["connection.port-type"] || root.v["connection.port-type"] ? " · port" : ""} · ${root.uuid ? "edit" : "new"}` }
     }
 

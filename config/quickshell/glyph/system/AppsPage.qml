@@ -125,6 +125,7 @@ done`]
                         width: 230
                         horizontalAlignment: Text.AlignRight
                         elide: Text.ElideRight
+                        textFormat: Text.PlainText
                         text: root.nameOf(row.index)
                         font { family: Theme.ui; pixelSize: 16 }
                         color: row.on ? Theme.ink : Theme.fg
@@ -168,6 +169,7 @@ done`]
                     Text {
                         anchors { left: parent.left; leftMargin: 28; right: mark.left; rightMargin: 16; verticalCenter: parent.verticalCenter }
                         elide: Text.ElideRight
+                        textFormat: Text.PlainText
                         text: app.modelData.name
                         font { family: Theme.ui; pixelSize: 17; weight: app.on ? Font.DemiBold : Font.Normal }
                         color: Theme.fg

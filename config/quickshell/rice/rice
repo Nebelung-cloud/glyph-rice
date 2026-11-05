@@ -6,6 +6,7 @@
 #   rice restart|kill   restart (hypr too) / stop the current one
 #   rice switch <name>  stop the current one, return hypr to its config, start another
 #   rice lock           lock with the current shell (bind, hypridle, power menu)
+#   rice update         get the newest version of the rice
 q=$HOME/.config/quickshell
 state=${XDG_STATE_HOME:-$HOME/.local/state}/rice
 cur=$(cat "$state/shell" 2>/dev/null)
@@ -92,6 +93,7 @@ case $1 in
         hyprctl reload >/dev/null # drop the previous shell's look: the new one lays its own on top of the hypr config
         term "$2"
         exec qs -p "$q/$2" -d ;;
+    update) exec "$(dirname "$(readlink -f "$0")")/../../../install.sh" --update ;;
     lock) pgrep -f '^qs .*/lock[.]qml' >/dev/null || exec qs -p "$q/$cur/lock.qml" ;;
-    *) sed -n '2,8s/^# //p' "$0"; exit 1 ;;
+    *) sed -n '2,9s/^# //p' "$0"; exit 1 ;;
 esac

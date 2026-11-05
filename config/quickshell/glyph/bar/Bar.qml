@@ -277,7 +277,7 @@ PanelWindow {
         id: soundC
         Icon {
             text: Sys.muted ? "\u{F075F}" : "\u{F057E}"
-            WheelHandler { onWheel: e => Sys.setVol(Sys.vol + (e.angleDelta.y > 0 ? 0.05 : -0.05)) }
+            Notch { onNotch: d => Sys.setVol(Sys.vol + d * 0.05) }
         }
     }
     Component {

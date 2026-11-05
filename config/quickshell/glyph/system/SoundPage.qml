@@ -142,6 +142,7 @@ Page {
                         x: 8
                         width: parent.width - 16
                         elide: Text.ElideRight
+                        textFormat: Text.PlainText
                         text: app.modelData.properties["application.name"] || root.label(app.modelData)
                         font { family: Theme.ui; pixelSize: 15; weight: Font.DemiBold }
                         color: Theme.fg

@@ -250,7 +250,7 @@ PanelWindow {
             id: budsW
             W {
                 round: true
-                Notch { onNotch: d => Sys.setVol(Sys.vol + d * 0.05) } // колесо — громкость, и при наушниках: их заряд колесом не крутят
+                Notch { onNotch: d => Sys.setVol(Sys.vol + d * 0.05) } // the wheel is the volume, with buds too: no wheel turns their charge
                 Ring { anchors { fill: parent; margins: 12 } f: root.buds ? root.buds.battery : Sys.vol }
                 Column {
                     anchors.centerIn: parent

@@ -96,7 +96,7 @@ Page {
                 visible: !!root.dev
                 width: parent.width
                 spacing: 6
-                Text { width: parent.width; elide: Text.ElideRight; text: root.dev ? root.dev.name || root.dev.address : ""; font { family: Theme.ui; pixelSize: 32; weight: Font.DemiBold } color: Theme.fg }
+                Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: root.dev ? root.dev.name || root.dev.address : ""; font { family: Theme.ui; pixelSize: 32; weight: Font.DemiBold } color: Theme.fg }
                 Lb { text: root.dev ? `${root.status(root.dev)} · ${root.dev.address}` : "" }
             }
             Row {

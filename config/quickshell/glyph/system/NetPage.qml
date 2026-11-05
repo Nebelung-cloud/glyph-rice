@@ -331,7 +331,7 @@ Page {
                     visible: root.any
                     width: parent.width
                     spacing: 6
-                    Text { width: parent.width; elide: Text.ElideRight; text: root.net?.name ?? root.prof?.name ?? ""; font { family: Theme.ui; pixelSize: 32; weight: Font.DemiBold } color: Theme.fg }
+                    Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: root.net?.name ?? root.prof?.name ?? ""; font { family: Theme.ui; pixelSize: 32; weight: Font.DemiBold } color: Theme.fg }
                     Lb {
                         width: parent.width
                         elide: Text.ElideRight

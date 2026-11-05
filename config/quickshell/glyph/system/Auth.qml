@@ -73,6 +73,7 @@ PanelWindow {
                 Text {
                     width: parent.width
                     wrapMode: Text.Wrap
+                    textFormat: Text.PlainText
                     text: root.flow?.message ?? ""
                     font { family: Theme.ui; pixelSize: 22; weight: Font.DemiBold }
                     color: Theme.fg

@@ -71,7 +71,7 @@ Rectangle {
                 }
                 Column {
                     anchors { left: ic.right; leftMargin: 14; right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
-                    Text { width: parent.width; elide: Text.ElideRight; text: root.name(row.o); font { family: Theme.ui; pixelSize: 15; weight: Font.DemiBold } color: Theme.fg }
+                    Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: root.name(row.o); font { family: Theme.ui; pixelSize: 15; weight: Font.DemiBold } color: Theme.fg }
                     Lb { px: 10; text: row.on ? `default · ${row.k[0]}` : row.k[0] }
                 }
                 HoverHandler { id: hov; cursorShape: Qt.PointingHandCursor }
