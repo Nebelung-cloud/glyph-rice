@@ -5,6 +5,7 @@
 #   ./install.sh --yes         no questions, the Recommended setup
 #   ./install.sh --uninstall   takes the links away and puts your old files and login screen back
 #   ./install.sh --update      gets the newest version of the rice, adds any new packages, keeps your choices and settings
+#   ./install.sh --fix-plasma  coming from KDE Plasma: saves Wi-Fi passwords that were in KDE Wallet, stops Plasma's leftovers starting here
 #   ./install.sh --report      prints what's useful for fixing a problem (no passwords or network names), changes nothing
 #   ./install.sh --links       symlinks only, on any distro (the packages are then your own, see the README)
 #   ./install.sh --sddm        only the SDDM login theme; run again after edits in config/sddm
@@ -524,6 +525,58 @@ update_rest() { # step 2: whatever the new version needs. Asks for a password on
     say "Updated. Your choices and settings are as they were."
 }
 
+fix_plasma() { # things that worked under Plasma because Plasma's own helpers were running
+    head1 "Fixing what Plasma left behind"
+    # ---- Wi-Fi: a password kept in KDE Wallet (flag 1) or asked for every time (flag 2) isn't there at boot, and a private profile waits for a login ----
+    local u name flags perm why items=() active
+    active=$(nmcli -g UUID,ACTIVE connection show 2>/dev/null | awk -F: '$2 == "yes" {print $1}')
+    while IFS=: read -r u t; do
+        [ "$t" = 802-11-wireless ] || continue
+        flags=$(nmcli -g 802-11-wireless-security.psk-flags connection show "$u" 2>/dev/null)
+        perm=$(nmcli -g connection.permissions connection show "$u" 2>/dev/null)
+        case "$flags" in 1) why="password in KDE Wallet" ;; 2) why="asks every time" ;; *) why="" ;; esac
+        if [ -z "$why" ] && [ -z "$perm" ]; then continue; fi
+        name=$(nmcli -g connection.id connection show "$u" 2>/dev/null | tr -d '|' | cut -c1-22)
+        # a menu row is "id|label|what|on": the network in use is ticked already
+        items+=("$u|$name|${why:-only connects after login}|$(case "$active" in *"$u"*) echo on ;; *) echo off ;; esac)")
+    done < <(nmcli -g UUID,TYPE connection show 2>/dev/null)
+    if [ ${#items[@]} -eq 0 ]; then
+        say "Wi-Fi: every saved network is fine."
+    else
+        ticks "Which networks should connect by themselves at boot?" "${items[@]}"
+        for u in "${TICKED[@]}"; do
+            name=$(nmcli -g connection.id connection show "$u")
+            flags=$(nmcli -g 802-11-wireless-security.psk-flags connection show "$u")
+            if [ "$flags" = 1 ] || [ "$flags" = 2 ]; then
+                local p=""
+                while :; do
+                    read -rsp "Password for $name (nothing shows as you type, Enter alone skips it): " p </dev/tty; echo
+                    [ -z "$p" ] || [ ${#p} -ge 8 ] && break
+                    say "Wi-Fi passwords have at least 8 characters."
+                done
+                if [ -z "$p" ]; then note "Skipped $name."; continue; fi
+                if [ "$DRY" = 1 ]; then note "would save the password for $name"; continue; fi
+                nmcli connection modify "$u" 802-11-wireless-security.psk-flags 0 802-11-wireless-security.psk "$p" connection.permissions "" \
+                    && say "Saved $name." || say "Could not save $name, see above."
+            elif [ "$DRY" = 1 ]; then note "would make $name connect before login"
+            else
+                nmcli connection modify "$u" connection.permissions "" && say "$name now connects before login." || say "Could not change $name, see above."
+            fi
+        done
+    fi
+    # ---- autostart: Plasma's helpers that make no sense here. Plasma keeps them, this only applies under Hyprland ----
+    local f d
+    for f in $(grep -lsE 'xwaylandvideobridge' /etc/xdg/autostart/*.desktop); do
+        d=$HOME/.config/autostart/${f##*/}
+        if grep -qs 'NotShowIn=.*Hyprland' "$d"; then continue; fi
+        if [ "$DRY" = 1 ]; then note "would stop ${f##*/} under Hyprland"; continue; fi
+        mkdir -p "$HOME/.config/autostart"
+        { grep -v '^NotShowIn=' "$f"; echo 'NotShowIn=Hyprland;'; } >"$d"
+        say "Stopped xwaylandvideobridge under Hyprland. To undo: delete $d"
+    done
+    say "Done. Reboot to check."
+}
+
 report() { # safe to paste: nothing here names a network, a device or a password
     set +eE +o pipefail; trap - ERR # a report keeps going past anything it can't read
     printf '== system\n%s · %s\n' "$(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-unknown}")" "$(uname -r)"
@@ -596,10 +649,11 @@ for a in "$@"; do
         --update) MODE=update ;;
         --update-rest) MODE=update-rest ;;
         --report) MODE=report ;;
+        --fix-plasma) MODE=fix-plasma ;;
         --links) MODE=links ;;
         --sddm) MODE=sddm ;;
         [0-9a-f]*) [ "$MODE" = update-rest ] && OLD=$a ;;
-        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--report] [--uninstall] [--links] [--sddm]"; exit 1 ;;
+        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--fix-plasma] [--report] [--uninstall] [--links] [--sddm]"; exit 1 ;;
     esac
 done
 
@@ -609,6 +663,7 @@ case "$MODE" in
     update) update ;;
     update-rest) update_rest "$OLD" ;;
     report) report ;;
+    fix-plasma) fix_plasma ;;
     uninstall) uninstall ;;
     install)
         check_machine

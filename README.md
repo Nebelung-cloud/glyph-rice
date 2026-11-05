@@ -182,6 +182,7 @@ All the questions come first. At the summary you can install, change your choice
 | `--dry-run` | The same questions, prints what it would do, changes nothing |
 | `--yes` | No questions, the Recommended setup |
 | `--update` | Gets the newest version, adds any new packages, keeps your choices and settings. Also in System → About |
+| `--fix-plasma` | Coming from KDE Plasma: saves Wi-Fi passwords that were in KDE Wallet, so they connect at boot, and stops Plasma's `xwaylandvideobridge` starting under Hyprland. Plasma itself isn't touched |
 | `--report` | Prints what's useful for fixing a problem. No passwords or network names, safe to paste |
 | `--uninstall` | Removes the links, restores your old files and login screen. Packages stay. With `--yes` it doesn't ask first |
 | `--links` | Symlinks only, on any distro. The packages are then your own, see below |
@@ -223,7 +224,9 @@ System → About shows when the rice has new changes, with a button that opens a
 
 ### Troubleshooting
 
-**Wi-Fi asks for its password at every boot.** Type it once more on this version: it now saves into the profile. If it still asks, run `install.sh --report` and send the result.
+**Wi-Fi asks for its password at every boot, or has no internet until you reconnect.** Common after KDE Plasma, which keeps passwords in KDE Wallet, out of reach here. Run `install.sh --fix-plasma` and pick the networks. If it still happens, run `install.sh --report` and send the result.
+
+**`xwaylandvideobridge` runs at every login.** It's a Plasma helper, and `install.sh --fix-plasma` stops it under Hyprland. If screen sharing from an X11 app then fails, delete the file it names to undo that.
 
 
 **`sudo` says "Sorry, try again" with the right password.** After 3 failed attempts in a short time, the system locks your account for up to 10 minutes, and the lock rejects even the correct password. Abandoned password prompts count as failures. Wait it out, or check with `faillock --user $USER`. The update button tells you when this is the reason.
