@@ -179,7 +179,9 @@ Wi-Fi names, Bluetooth devices, the hostname and the laptop model are blanked ou
 | ![charms](screenshots/charms.png) **Charms** | ![walls](screenshots/walls.png) **Wallpapers** |
 | ![power](screenshots/power.png) **Power** | ![shot](screenshots/shot.png) **Shot** (from the original) |
 | ![clip](screenshots/clip.png) **Clip** (from the original) | ![greeter](screenshots/greeter.png) **Lock greeter** (preview, username blanked) |
-| ![dial](screenshots/login.png) **Dial greeter and SDDM dial theme** (they share this look, screenshot from the original) | ![installer](screenshots/installer.png) **Installer** |
+| ![dial greeter](screenshots/dial-greeter.png) **Dial greeter** (username and hostname blanked) | ![installer](screenshots/installer.png) **Installer** |
+| ![lock](screenshots/lock.png) **Lock screen** | ![welcome](screenshots/welcome.png) **Welcome card** |
+| ![sddm](screenshots/login.png) **SDDM dial theme** (from the original) | |
 
 <div align="center"><img src="assets/divider-matrix.svg" width="720" alt=""></div>
 
