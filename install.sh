@@ -64,8 +64,8 @@ LINKS=(
 
 # ---- output ----
 RED=$'\e[38;2;215;25;33m' DIM=$'\e[2m' BOLD=$'\e[1m' OFF=$'\e[0m'
-# set -E: a step that fails anywhere stops here with one plain sentence
-trap 'printf "\n%s●%s Stopped at the step above. Nothing after it ran. Fix what it says, then run this again: it is safe to repeat.\n" "$RED" "$OFF"' ERR
+# set -E: a step that fails anywhere stops here with one plain sentence. Not inside $(...), where it would end up in the captured value
+trap '[ "$BASH_SUBSHELL" != 0 ] || printf "\n%s●%s Stopped at the step above. Nothing after it ran. Fix what it says, then run this again: it is safe to repeat.\n" "$RED" "$OFF" >&2' ERR
 say() { printf '%s●%s %s\n' "$RED" "$OFF" "$*"; }
 note() { printf '  %s%s%s\n' "$DIM" "$*" "$OFF"; }
 head1() { printf '\n%s%s%s\n\n' "$BOLD" "$*" "$OFF"; }
@@ -547,6 +547,7 @@ fix_plasma() { # things that worked under Plasma because Plasma's own helpers we
         # a menu row is "id|label|what|on": the network in use is ticked already
         items+=("$u|$name|${why:-only connects after login}|$(case "$active" in *"$u"*) echo on ;; *) echo off ;; esac)")
     done < <(nmcli -g UUID,TYPE connection show 2>/dev/null)
+    say "Wi-Fi: ${#items[@]} saved network(s) won't connect by themselves."
     if [ ${#items[@]} -eq 0 ]; then
         say "Wi-Fi: every saved network has its password and can connect at boot, so KDE Wallet isn't the cause."
     else
@@ -572,15 +573,21 @@ fix_plasma() { # things that worked under Plasma because Plasma's own helpers we
         done
     fi
     # ---- autostart: Plasma's helpers that make no sense here. Plasma keeps them, this only applies under Hyprland ----
-    local f d
-    for f in $(grep -lsE 'xwaylandvideobridge' /etc/xdg/autostart/*.desktop); do
+    local f d found=""
+    # an earlier version of this command could leave a junk file here
+    find "$HOME/.config/autostart" -maxdepth 1 -type f -name '*●*' -delete 2>/dev/null || true
+    # his own entry wins over the system's, so both places count
+    for f in $(grep -ls 'xwaylandvideobridge' /etc/xdg/autostart/*.desktop "$HOME"/.config/autostart/*.desktop || true); do
         d=$HOME/.config/autostart/${f##*/}
-        if grep -qs 'NotShowIn=.*Hyprland' "$d"; then continue; fi
+        found=1
+        if grep -qs 'NotShowIn=.*Hyprland' "$d"; then note "xwaylandvideobridge is already stopped under Hyprland."; continue; fi
         if [ "$DRY" = 1 ]; then note "would stop ${f##*/} under Hyprland"; continue; fi
         mkdir -p "$HOME/.config/autostart"
-        { grep -v '^NotShowIn=' "$f"; echo 'NotShowIn=Hyprland;'; } >"$d"
+        local body; body=$(grep -v '^NotShowIn=' "$f")
+        printf '%s\nNotShowIn=Hyprland;\n' "$body" >"$d"
         say "Stopped xwaylandvideobridge under Hyprland. To undo: delete $d"
     done
+    if [ -z "$found" ]; then note "xwaylandvideobridge has no autostart entry here, so something else starts it."; fi
     say "Done. Reboot to check."
 }
 
