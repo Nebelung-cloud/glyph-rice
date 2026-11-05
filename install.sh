@@ -530,22 +530,44 @@ needs_psk() { # a password network with no password stored
     [ -z "$(nmcli -s -g 802-11-wireless-security.psk connection show "$1" 2>/dev/null)" ]
 }
 
+# ---- KDE Wallet: Plasma keeps each password in the folder "Network Management" under "{uuid};802-11-wireless-security", as JSON ----
+WALLET_KEYS=""
+wallet_open() { # one call, so a locked wallet asks once. Empty if there's no wallet, or it stays locked
+    command -v kwallet-query >/dev/null || return 0
+    say "Opening KDE Wallet to read the saved passwords. It may ask for the wallet's password once."
+    WALLET_KEYS=$(timeout 120 kwallet-query -l -f "Network Management" kdewallet 2>/dev/null | grep -F ';802-11-wireless-security' || true)
+}
+wallet_has() { case "$WALLET_KEYS" in *"{$1};"*) return 0 ;; *) return 1 ;; esac; }
+wallet_psk() { # prints the password; nothing if it can't be read
+    wallet_has "$1" || return 0
+    timeout 30 kwallet-query -r "{$1};802-11-wireless-security" -f "Network Management" kdewallet 2>/dev/null | jq -r '.psk // empty' 2>/dev/null || true
+}
+
 fix_plasma() { # things that worked under Plasma because Plasma's own helpers were running
     head1 "Fixing what Plasma left behind"
     # ---- Wi-Fi: a password kept in KDE Wallet (flag 1) or asked for every time (flag 2) isn't there at boot, and a private profile waits for a login ----
     local u name flags perm why items=() active
     active=$(nmcli -g UUID,ACTIVE connection show 2>/dev/null | awk -F: '$2 == "yes" {print $1}')
+    local any_wallet="" tick
+    while IFS=: read -r u t; do
+        if [ "$t" = 802-11-wireless ] && [ "$(nmcli -g 802-11-wireless-security.psk-flags connection show "$u" 2>/dev/null)" = 1 ]; then any_wallet=1; fi
+    done < <(nmcli -g UUID,TYPE connection show 2>/dev/null)
+    if [ -n "$any_wallet" ]; then wallet_open; fi
     while IFS=: read -r u t; do
         [ "$t" = 802-11-wireless ] || continue
         flags=$(nmcli -g 802-11-wireless-security.psk-flags connection show "$u" 2>/dev/null)
         perm=$(nmcli -g connection.permissions connection show "$u" 2>/dev/null)
-        case "$flags" in 1) why="password in KDE Wallet" ;; 2) why="asks every time" ;; *) why="" ;; esac
+        case "$flags" in 1) why="password in KDE Wallet, type it" ;; 2) why="asks every time" ;; *) why="" ;; esac
+        tick=off
+        case "$active" in *"$u"*) tick=on ;; esac
+        # the wallet has it: nothing to type, so it's ticked and Enter does them all
+        if wallet_has "$u"; then why="found in KDE Wallet"; tick=on; fi
         # flag 0 only says where a password would be kept: check that one is there. Enterprise and open networks don't have this kind
         if [ -z "$why" ] && needs_psk "$u"; then why="no password saved"; fi
         if [ -z "$why" ] && [ -z "$perm" ]; then continue; fi
         name=$(nmcli -g connection.id connection show "$u" 2>/dev/null | tr -d '|' | cut -c1-22)
-        # a menu row is "id|label|what|on": the network in use is ticked already
-        items+=("$u|$name|${why:-only connects after login}|$(case "$active" in *"$u"*) echo on ;; *) echo off ;; esac)")
+        # a menu row is "id|label|what|on"
+        items+=("$u|$name|${why:-only connects after login}|$tick")
     done < <(nmcli -g UUID,TYPE connection show 2>/dev/null)
     say "Wi-Fi: ${#items[@]} saved network(s) won't connect by themselves."
     if [ ${#items[@]} -eq 0 ]; then
@@ -556,11 +578,16 @@ fix_plasma() { # things that worked under Plasma because Plasma's own helpers we
             name=$(nmcli -g connection.id connection show "$u")
             flags=$(nmcli -g 802-11-wireless-security.psk-flags connection show "$u")
             if [ "$flags" = 1 ] || [ "$flags" = 2 ] || needs_psk "$u"; then
-                local p=""
-                while :; do
+                local p
+                p=$(wallet_psk "$u")
+                # shorter than any Wi-Fi password: not something usable from the wallet
+                if [ ${#p} -lt 8 ]; then p=""; else note "$name: password from KDE Wallet."; fi
+                while [ -z "$p" ]; do
                     read -rsp "Password for $name (nothing shows as you type, Enter alone skips it): " p </dev/tty; echo
-                    [ -z "$p" ] || [ ${#p} -ge 8 ] && break
+                    if [ -z "$p" ]; then break; fi
+                    if [ ${#p} -ge 8 ]; then break; fi
                     say "Wi-Fi passwords have at least 8 characters."
+                    p=""
                 done
                 if [ -z "$p" ]; then note "Skipped $name."; continue; fi
                 if [ "$DRY" = 1 ]; then note "would save the password for $name"; continue; fi
