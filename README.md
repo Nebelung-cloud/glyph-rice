@@ -374,11 +374,11 @@ Fonts: Doto, Space Grotesk, Space Mono, JetBrains Mono Nerd Font.
 | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) | The GIF tile, hiding parts of home, automatic game mode and its options, the output list on the volume slider, bar auto-hide, the wallpaper beat, tmux and Firefox theming, and the live level meter idea |
 | [@SenulMapa](https://github.com/SenulMapa/glyph-rice) | Hiding the password's length, the plain cover on other screens, and the fix for rotated screens |
 | [@Dimashyt](https://github.com/Dimashyt/glyph-rice) | GPU load on Intel integrated graphics |
-| [@GloomyGuava](https://github.com/GloomyGuava/glyph-rice) | An early corner radius dial for the bar |
 
 **Ideas and bug reports that led to changes here**
 
 - [@Shykid002](https://github.com/Shykid002): asked for [bar position](https://github.com/Nebelung-cloud/glyph-rice/issues/1) and [corner rounding](https://github.com/Nebelung-cloud/glyph-rice/issues/4) options.
+- [@GloomyGuava](https://github.com/GloomyGuava/glyph-rice): built a corner radius dial for the bar in their fork. The dial here is Nebelung's, so their code isn't used, but they had the idea early.
 - [@SelimCifci](https://github.com/SelimCifci): reported the [white kitty windows](https://github.com/Nebelung-cloud/glyph-rice/issues/12) behind the plain kitty fix.
 - [@Tocakov](https://github.com/Tocakov): reported the [missing icons](https://github.com/Nebelung-cloud/glyph-rice/issues/11) behind the launcher icon fix.
 
