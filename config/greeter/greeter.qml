@@ -6,7 +6,7 @@ import qs
 import "lock"
 import "greeter"
 
-// glyph login for greetd: the lock screen's own view (lock/LockView, built by install.sh from LockSurface),
+// the Lock greeter, for greetd: the lock screen's own view (lock/LockView, built by install.sh from LockSurface),
 // with session, user and power on the left. greetd checks the password; outside greetd it only shows the look
 ShellRoot {
     id: shell

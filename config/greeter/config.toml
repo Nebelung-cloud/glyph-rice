@@ -1,4 +1,4 @@
-# glyph login: cage runs quickshell full screen. Installed by config/greeter/install.sh
+# Lock greeter: cage runs quickshell full screen. Installed by config/greeter/install.sh
 # cage offers no server-side decorations, so Qt would draw its own title bar without the env var
 [terminal]
 vt = 1

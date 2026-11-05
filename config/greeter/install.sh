@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs the glyph login screen for greetd. The main install.sh calls this; by hand: sudo config/greeter/install.sh
+# Installs the Lock greeter (the lock screen's look) for greetd. The main install.sh calls this; by hand: sudo config/greeter/install.sh
 # Rerun after a glyph update, a new wallpaper or a theme change: the greeter sees copies, not your home.
 # It does not switch display managers; it prints the command for that.
 set -eu

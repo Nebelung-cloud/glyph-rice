@@ -4,6 +4,12 @@ The newest changes come first. To get them, press **update the rice** in System 
 
 ## November 2026
 
+### Login screens
+
+- New: the **Dial greeter**. Nebelung's camera dial and tachometer, ported from the SDDM theme to greetd, so that look no longer needs SDDM.
+- The existing greeter is now called the **Lock greeter**, after the lock screen look it shares.
+- Switch at any time with `install.sh --lock-greeter` or `install.sh --dial-greeter`.
+
 ### Coming from KDE Plasma
 
 - New: `install.sh --fix-plasma`. Plasma keeps Wi-Fi passwords in KDE Wallet, out of reach under Hyprland, which caused a password prompt at every boot and no internet until reconnecting. It copies the passwords into their network profiles and makes those networks connect before login. Networks found in the wallet are ticked already, so one Enter does them all, and it only asks for a password the wallet can't give.

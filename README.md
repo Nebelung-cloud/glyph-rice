@@ -30,7 +30,7 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | **Lite mode** | Fewer effects for slower machines. Turns on by itself under about 7.5 GB of RAM. |
 | **More color** | A saturation control, Extra Dark, and colors that fade instead of jumping. |
 | **More looks** | Ribbed glass and color dots on the wallpaper, a hazy lock screen, a bar on the right, volume and brightness in the island. |
-| **Glyph greeter** | A greetd login screen with the lock screen's look. The SDDM theme stays available as an option. |
+| **Two greetd login screens** | The **Lock greeter** has the lock screen's look. The **Dial greeter** brings Nebelung's camera dial and tachometer to greetd, so that look no longer needs SDDM. The original SDDM theme stays available too. |
 | **Guided installer** | Menus with tick boxes, a summary before anything changes, `--dry-run` and `--uninstall`. Safe to run again, and it stops with a plain message if a step fails. |
 | **Updates** | System → About counts system updates and new versions of the rice, and updates either from one terminal. `install.sh --update` does the rice too. |
 | **Moving from KDE Plasma** | `install.sh --fix-plasma` copies Wi-Fi passwords out of KDE Wallet so they connect at boot. |
@@ -80,7 +80,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 
 **Not tested yet, so tell me if something breaks:**
 
-- A real install with the Glyph greeter, and booting into it from this repository's script.
+- Booting into the Lock greeter or the Dial greeter from this repository's scripts. The Dial greeter was tested as a window with real key presses against a fake greetd: a wrong password refused, the right one starting the chosen session.
 - `--update` and its button on a real update.
 - A real `yay` update through the update button.
 - Whether `--fix-plasma` read the passwords from a real KDE Wallet, or they were typed. The format comes from KDE's source code.
@@ -116,7 +116,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 | **Buds** | Nothing / CMF earbuds: battery, ANC | |
 | **Power** | power menu | `Super` `Esc` |
 | **Lock** | lock screen | `Super` `L` |
-| **Login** | Glyph greeter, or the original SDDM theme with its camera dial and tachometer | |
+| **Login** | Lock greeter, Dial greeter, or the original SDDM dial theme | |
 | **Style** | where the color comes from: Nothing, the wallpaper through a Material You variant, or a palette (Catppuccin, Rosé Pine, Gruvbox, Nord, Dracula, Tokyo Night, Everforest, Kanagawa) | |
 | **Rice** | shell switcher, if Demon's Shot is installed too | `rice switch <name>` |
 
@@ -167,8 +167,8 @@ Wi-Fi names, Bluetooth devices, the hostname and the laptop model are blanked ou
 | ![deck](screenshots/deck.png) **Deck** | ![calendar](screenshots/cal.png) **Calendar and focus timer** |
 | ![charms](screenshots/charms.png) **Charms** | ![walls](screenshots/walls.png) **Wallpapers** |
 | ![power](screenshots/power.png) **Power** | ![shot](screenshots/shot.png) **Shot** (from the original) |
-| ![clip](screenshots/clip.png) **Clip** (from the original) | ![greeter](screenshots/greeter.png) **Glyph greeter** (preview, username blanked) |
-| ![sddm](screenshots/login.png) **SDDM theme, optional** (from the original) | ![installer](screenshots/installer.png) **Installer** |
+| ![clip](screenshots/clip.png) **Clip** (from the original) | ![greeter](screenshots/greeter.png) **Lock greeter** (preview, username blanked) |
+| ![dial](screenshots/login.png) **Dial greeter and SDDM dial theme** (they share this look, screenshot from the original) | ![installer](screenshots/installer.png) **Installer** |
 
 <div align="center"><img src="assets/divider-matrix.svg" width="720" alt=""></div>
 
@@ -181,7 +181,7 @@ git clone https://github.com/AMM021/rice_nothing ~/.local/share/glyph
 
 It checks your machine and your connection, explains what will happen, and asks which setup you want:
 
-- **Recommended**: the Glyph login screen, Thunar, Zen and the starter wallpapers.
+- **Recommended**: the Lock greeter, Thunar, Zen and the starter wallpapers.
 - **Custom**: choose the login screen, file manager, browser and extras. Move with the arrow keys, tick with space.
 - **Minimal**: only the desktop. Your login screen and browser stay.
 
@@ -196,6 +196,8 @@ All the questions come first. At the summary you can install, change your choice
 | `--report` | Prints what's useful for fixing a problem. No passwords or network names, safe to paste |
 | `--uninstall` | Removes the links, restores your old files and login screen. Packages stay. With `--yes` it doesn't ask first |
 | `--links` | Symlinks only, on any distro. The packages are then your own, see below |
+| `--lock-greeter` | Switches the login screen to the Lock greeter |
+| `--dial-greeter` | Switches the login screen to the Dial greeter |
 | `--sddm` | Only the SDDM theme; run again after editing it |
 
 If a new login screen ever fails: `Ctrl` `Alt` `F2`, log in, run `install.sh --uninstall`.
@@ -212,7 +214,8 @@ Gifs for the home cat tile come from `~/Pictures/Gifs`: pick one in prefs → ho
 | `kitty/` `qtengine/` | `~/.config/…` |
 | `fish/` | `~/.config/fish` |
 | `fonts/` | `~/.local/share/fonts/glyph` |
-| `greeter/` | copied to `/var/lib/greetd`, set in `/etc/greetd/config.toml` (the old one is kept as `config.toml.bak`) |
+| `greeter/` | the Lock greeter, copied to `/var/lib/greetd`, set in `/etc/greetd/config.toml` (the old one is kept as `config.toml.bak`) |
+| `greeter-dial/` | the Dial greeter, copied to `/var/lib/greetd/dial`, set in the same file |
 | `sddm/glyph/` | copied to `/usr/share/sddm/themes/glyph`, set in `/etc/sddm.conf.d/zz-glyph.conf`; to undo, delete both |
 
 Monitor, backlight, GPU and sensors are detected. Keyboard layouts are in `hypr/hyprland/input.lua`.
@@ -227,6 +230,17 @@ apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
 
 hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by default
 ```
+
+### Login screens
+
+| Choice | Runs on | Look |
+|---|---|---|
+| **Lock greeter** | greetd | The lock screen: big dot clock and password field, with session, user and power lists on the left |
+| **Dial greeter** | greetd | Nebelung's camera dial: ←→ turns the session wheel, ↑ reaches power, Tab changes user, and the tachometer revs as you type |
+| **SDDM dial theme** | SDDM | The original theme with the same look |
+| **Keep what I have** | | Changes nothing |
+
+Pick one during install, or switch later with `install.sh --lock-greeter` or `install.sh --dial-greeter`, then reboot. `--uninstall` brings back the login screen you had before.
 
 ### Coming from KDE Plasma
 
@@ -282,7 +296,7 @@ They are specific to that hardware, and `pcie_aspm=off` costs some battery life,
 | **Capture** | `grim` · `slurp` · `imagemagick` · `libvips` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |
-| **Login** | `greetd` and `cage` for the Glyph greeter, or `sddm` 0.21+ (Qt 6 greeter) for the theme |
+| **Login** | `greetd` and `cage` for the Lock and Dial greeters, or `sddm` 0.21+ (Qt 6 greeter) for the theme |
 | **Optional** | `thunar` or [Strata](https://github.com/lgse/strata) · `cava` · `ddcutil` · `ufw` · `tmux` · `python-pywalfox` · `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` · `libteam` for team connections |
 
 The VPN panel expects Clash Verge in English.

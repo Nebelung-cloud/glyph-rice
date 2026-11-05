@@ -8,6 +8,8 @@
 #   ./install.sh --fix-plasma  coming from KDE Plasma: saves Wi-Fi passwords that were in KDE Wallet, stops Plasma's leftovers starting here
 #   ./install.sh --report      prints what's useful for fixing a problem (no passwords or network names), changes nothing
 #   ./install.sh --links       symlinks only, on any distro (the packages are then your own, see the README)
+#   ./install.sh --lock-greeter  switch the login screen to the Lock greeter (greetd)
+#   ./install.sh --dial-greeter  switch the login screen to the Dial greeter (greetd, the SDDM theme's look without SDDM)
 #   ./install.sh --sddm        only the SDDM login theme; run again after edits in config/sddm
 set -Eeuo pipefail
 
@@ -223,7 +225,7 @@ EOF
 choose() {
     [ "$YES" = 1 ] && return 0
     pick "Which setup?" recommended \
-        "recommended|Recommended|The Glyph login screen, Thunar, Zen browser, starter wallpapers." \
+        "recommended|Recommended|The Lock greeter, Thunar, Zen browser, starter wallpapers." \
         "custom|Custom|Choose the login screen, apps and extras yourself." \
         "minimal|Minimal|Only the desktop. Keeps your login screen and browser, no extras."
     SETUP=$PICKED
@@ -240,8 +242,9 @@ tick_state() { # tick_state <id>: on if it's already chosen
 customize() {
     local dm; dm=$(current_dm)
     pick "Login screen?" "$LOGIN" \
-        "greeter|Glyph greeter|The lock screen's look before login, through greetd. Recommended." \
-        "sddm|SDDM theme|The original rice's disc and tachometer, by Nebelung. Installs SDDM." \
+        "greeter|Lock greeter|Looks like the lock screen: big dot clock, password field. Through greetd. Recommended." \
+        "dial|Dial greeter|A camera dial and tachometer that revs as you type, by Nebelung. Through greetd, no SDDM." \
+        "sddm|SDDM dial theme|The same dial as the original SDDM theme. Installs SDDM, which the Dial greeter avoids." \
         "keep|Keep what I have|${dm:-No display manager}: nothing changes."
     LOGIN=$PICKED
 
@@ -275,10 +278,10 @@ summary() {
     local label
     while :; do
         head1 "Summary"
-        case "$LOGIN" in greeter) label="Glyph greeter (greetd)" ;; sddm) label="SDDM with the Glyph theme" ;; *) label="keep what you have" ;; esac
+        case "$LOGIN" in greeter) label="Lock greeter (greetd)" ;; dial) label="Dial greeter (greetd)" ;; sddm) label="SDDM dial theme" ;; *) label="keep what you have" ;; esac
         printf '  %-16s %s\n' "login screen" "$label" "file manager" "$FILES" "browser" "$BROWSER" "extras" "${EXTRAS[*]:-none}" "old files go to" "$BACKUP"
         printf '\n'
-        if [ "$LOGIN" != keep ] && [ -n "$(current_dm)" ] && [ "$(current_dm)" != "$([ "$LOGIN" = greeter ] && echo greetd || echo sddm)" ]; then
+        if [ "$LOGIN" != keep ] && [ -n "$(current_dm)" ] && [ "$(current_dm)" != "$([ "$LOGIN" = sddm ] && echo sddm || echo greetd)" ]; then
             note "$(current_dm) gets disabled so the new login screen can take over; --uninstall brings it back."
         fi
         if pacman -Q pulseaudio &>/dev/null; then note "pulseaudio gets replaced by pipewire-pulse."; fi
@@ -316,7 +319,7 @@ packages() {
     [ "$FILES" = thunar ] && main+=(thunar)
     # thunar anyway if strata isn't there yet: Super+E needs something to open
     [ "$FILES" = strata ] && ! strata_present && main+=(thunar)
-    case "$LOGIN" in greeter) main+=(greetd cage) ;; sddm) main+=(sddm) ;; esac
+    case "$LOGIN" in greeter | dial) main+=(greetd cage) ;; sddm) main+=(sddm) ;; esac
     [ "$BROWSER" = keep ] || add $(browser_package "$BROWSER")
     for p in "${EXTRAS[@]}"; do add $(extras_packages "$p"); done
 
@@ -446,6 +449,9 @@ login_screen() {
         greeter)
             run sudo "$DOTS/config/greeter/install.sh"
             switch_dm greetd ;;
+        dial)
+            run sudo "$DOTS/config/greeter-dial/install.sh"
+            switch_dm greetd ;;
         sddm)
             sddm_theme
             switch_dm sddm ;;
@@ -479,7 +485,7 @@ finish() {
   To undo all of it:  $0 --uninstall
 EOF
     if [ -d "$BACKUP" ]; then printf '  Your old files:     %s\n' "$BACKUP"; fi
-    if [ "$LOGIN" = greeter ]; then
+    if [ "$LOGIN" = greeter ] || [ "$LOGIN" = dial ]; then
         cat <<EOF
 
   If the new login screen ever fails: Ctrl+Alt+F2, log in, run  $0 --uninstall
@@ -512,15 +518,16 @@ update_rest() { # step 2: whatever the new version needs. Asks for a password on
     missing=$(pacman -T "${PACMAN[@]}" || true)
     aur_missing=$(pacman -T "${AUR[@]}" || true)
     # the greeter runs from a copy, which only changes when its own files or the lock screen do
-    local greeter_changed=""
-    if [ "$(current_dm)" = greetd ] && git -C "$DOTS" diff --name-only "$old" HEAD | grep -qE '^config/greeter/|glyph/lock/|glyph/Theme.qml|glyph/components/'; then greeter_changed=1; fi
+    local greeter_changed="" greeter_script=greeter watch='^config/greeter/|glyph/lock/|glyph/Theme.qml|glyph/components/'
+    if grep -qs '/dial/' /etc/greetd/config.toml; then greeter_script=greeter-dial watch='^config/greeter-dial/'; fi
+    if [ "$(current_dm)" = greetd ] && git -C "$DOTS" diff --name-only "$old" HEAD | grep -qE "$watch"; then greeter_changed=1; fi
     if [ -n "$missing$aur_missing$greeter_changed" ]; then sudo_once; fi
     # shellcheck disable=SC2086 # one package per word
     if [ -n "$missing" ]; then run sudo pacman -S --needed --noconfirm $missing; fi
     # shellcheck disable=SC2086
     if [ -n "$aur_missing" ]; then run yay -S --needed --noconfirm $aur_missing || say "AUR: not everything installed, see above"; fi
     links
-    if [ -n "$greeter_changed" ]; then run sudo "$DOTS/config/greeter/install.sh"; fi
+    if [ -n "$greeter_changed" ]; then run sudo "$DOTS/config/$greeter_script/install.sh"; fi
     if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then run "$DOTS/config/quickshell/rice/rice" restart; fi
     say "Updated. Your choices and settings are as they were."
 }
@@ -624,7 +631,7 @@ report() { # safe to paste: nothing here names a network, a device or a password
     printf 'version: %s\n' "$(git -C "$DOTS" rev-parse --short HEAD 2>/dev/null)"
     printf 'hyprland: %s\n' "$(hyprctl version -j 2>/dev/null | jq -r .tag 2>/dev/null)"
     lspci 2>/dev/null | grep -E 'VGA|3D' | sed -E 's/^[^:]*: *[^:]*: *//' | cut -c1-70
-    printf 'login: %s · screens: %s · input methods: %s\n' "$(current_dm)" "$(hyprctl monitors -j 2>/dev/null | jq length 2>/dev/null)" "${QT_IM_MODULE:-none}/${XMODIFIERS:-none}"
+    printf 'login: %s%s · screens: %s · input methods: %s\n' "$(current_dm)" "$(grep -qs '/dial/' /etc/greetd/config.toml && echo ' (dial)')" "$(hyprctl monitors -j 2>/dev/null | jq length 2>/dev/null)" "${QT_IM_MODULE:-none}/${XMODIFIERS:-none}"
     printf '\n== network services\n'
     for s in NetworkManager systemd-networkd dhcpcd iwd wpa_supplicant netctl connman systemd-resolved; do
         printf '%-20s %s %s\n' "$s" "$(systemctl is-enabled "$s" 2>/dev/null || true)" "$(systemctl is-active "$s" 2>/dev/null || true)"
@@ -690,17 +697,26 @@ for a in "$@"; do
         --update) MODE=update ;;
         --update-rest) MODE=update-rest ;;
         --report) MODE=report ;;
+        --lock-greeter) MODE=lock-greeter ;;
+        --dial-greeter) MODE=dial-greeter ;;
         --fix-plasma) MODE=fix-plasma ;;
         --links) MODE=links ;;
         --sddm) MODE=sddm ;;
         [0-9a-f]*) [ "$MODE" = update-rest ] && OLD=$a ;;
-        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--fix-plasma] [--report] [--uninstall] [--links] [--sddm]"; exit 1 ;;
+        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--fix-plasma] [--report] [--uninstall] [--links] [--lock-greeter] [--dial-greeter] [--sddm]"; exit 1 ;;
     esac
 done
 
 case "$MODE" in
     links) links ;;
     sddm) sddm_theme ;;
+    lock-greeter | dial-greeter)
+        sudo_once
+        LOGIN=greeter
+        [ "$MODE" = lock-greeter ] || LOGIN=dial
+        login_screen
+        say "Done. Reboot to see it. If it ever fails: Ctrl+Alt+F2, log in, run  $0 --uninstall"
+        ;;
     update) update ;;
     update-rest) update_rest "$OLD" ;;
     report) report ;;
