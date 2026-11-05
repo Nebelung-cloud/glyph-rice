@@ -525,6 +525,11 @@ update_rest() { # step 2: whatever the new version needs. Asks for a password on
     say "Updated. Your choices and settings are as they were."
 }
 
+needs_psk() { # a password network with no password stored
+    case "$(nmcli -g 802-11-wireless-security.key-mgmt connection show "$1" 2>/dev/null)" in wpa-psk | sae) ;; *) return 1 ;; esac
+    [ -z "$(nmcli -s -g 802-11-wireless-security.psk connection show "$1" 2>/dev/null)" ]
+}
+
 fix_plasma() { # things that worked under Plasma because Plasma's own helpers were running
     head1 "Fixing what Plasma left behind"
     # ---- Wi-Fi: a password kept in KDE Wallet (flag 1) or asked for every time (flag 2) isn't there at boot, and a private profile waits for a login ----
@@ -535,19 +540,21 @@ fix_plasma() { # things that worked under Plasma because Plasma's own helpers we
         flags=$(nmcli -g 802-11-wireless-security.psk-flags connection show "$u" 2>/dev/null)
         perm=$(nmcli -g connection.permissions connection show "$u" 2>/dev/null)
         case "$flags" in 1) why="password in KDE Wallet" ;; 2) why="asks every time" ;; *) why="" ;; esac
+        # flag 0 only says where a password would be kept: check that one is there. Enterprise and open networks don't have this kind
+        if [ -z "$why" ] && needs_psk "$u"; then why="no password saved"; fi
         if [ -z "$why" ] && [ -z "$perm" ]; then continue; fi
         name=$(nmcli -g connection.id connection show "$u" 2>/dev/null | tr -d '|' | cut -c1-22)
         # a menu row is "id|label|what|on": the network in use is ticked already
         items+=("$u|$name|${why:-only connects after login}|$(case "$active" in *"$u"*) echo on ;; *) echo off ;; esac)")
     done < <(nmcli -g UUID,TYPE connection show 2>/dev/null)
     if [ ${#items[@]} -eq 0 ]; then
-        say "Wi-Fi: every saved network is fine."
+        say "Wi-Fi: every saved network has its password and can connect at boot, so KDE Wallet isn't the cause."
     else
         ticks "Which networks should connect by themselves at boot?" "${items[@]}"
         for u in "${TICKED[@]}"; do
             name=$(nmcli -g connection.id connection show "$u")
             flags=$(nmcli -g 802-11-wireless-security.psk-flags connection show "$u")
-            if [ "$flags" = 1 ] || [ "$flags" = 2 ]; then
+            if [ "$flags" = 1 ] || [ "$flags" = 2 ] || needs_psk "$u"; then
                 local p=""
                 while :; do
                     read -rsp "Password for $name (nothing shows as you type, Enter alone skips it): " p </dev/tty; echo
