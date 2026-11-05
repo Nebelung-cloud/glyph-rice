@@ -76,6 +76,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - Every package name in the installer, against the Arch repositories and the AUR.
 - A real install from this repository on the second laptop, keeping its SDDM login screen.
 - A real `install.sh --update` on the second laptop.
+- A real USB drive mounting by itself when plugged in, on the development laptop.
 - The Dial greeter at a real boot on the development laptop: a wrong password refused, the right one logging in.
 - A real session lock with typing, on the development laptop.
 - System → Drives with stand-ins for the system tools: the right drives listed, mounting, safely removing, and showing an error.
@@ -92,7 +93,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - Whether `--fix-plasma` read the passwords from a real KDE Wallet, or they were typed. The format comes from KDE's source code.
 - Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
 - The lock screen's keyboard long term on the laptop where it failed. It worked again once that laptop was updated, but the problem couldn't be reproduced, so the safeguard isn't proven to be the reason.
-- Confirming a real USB drive mounts by itself through udiskie, a phone, and real mounting from System → Drives. A USB drive did appear in Dolphin on the development laptop after a restart.
+- A phone, and the mount and safely remove buttons in System → Drives on a real drive.
 - A real lockout on the lock screen or a greeter, and the wording PAM uses there.
 - Installing Dolphin from zero through the installer. It was run on the development laptop, where it was already installed, and its menu fix was checked in a sandbox.
 - The SDDM option on a real machine.
