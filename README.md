@@ -39,27 +39,30 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | **Welcome card** | The keys to know, on first login. |
 | **All English** | Code, comments and interface. |
 
-**From other forks, with thanks**
+**From the original and other forks, with thanks** (everyone is listed under [Credits](#credits))
 
 | Feature | Where | Author |
 |---|---|---|
-| Palettes, top bar, corners dial, GIF tile, RunCat, SDDM theme, lock before sleep | prefs → STYLE, BAR, WINDOWS | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) |
-| No auto-HDR, deck over fullscreen, VPN behind a captive portal, plain kitty, theme icons in the launcher, plain-text names for security, one step per wheel notch, wheel on the volume ring | automatic | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch |
-| Live level meter | System → Sound | [Nebelung](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch, [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
-| Scroll over the workspace dots, scroll over the sliders, first-drag fix | bar, quick settings | [rawnullbyte](https://github.com/rawnullbyte/glyph-rice) |
-| External monitor brightness (experimental) | quick settings | [rawnullbyte](https://github.com/rawnullbyte/glyph-rice), [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
-| Hide the clock, greeting or widgets | prefs → LOOK | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
-| Automatic game mode, and what stays on in it | prefs → WINDOWS | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
-| Right-click the volume slider for outputs | quick settings | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
-| Bar auto-hide per screen (experimental) | prefs → BAR | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
-| Wallpaper beat, off by default | wall picker | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
-| tmux and Firefox follow the palette | automatic if installed | [Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
-| Hide the password's length, plain cover on other screens | prefs → LOOK | [SenulMapa](https://github.com/SenulMapa/glyph-rice) |
-| A rotated first screen no longer shrinks the shell | automatic | [SenulMapa](https://github.com/SenulMapa/glyph-rice) |
-| GPU load on Intel integrated graphics | deck, home | [Dimashyt](https://github.com/Dimashyt/glyph-rice) |
-| The idea of a corners setting | prefs → WINDOWS | [Shykid002](https://github.com/Shykid002), [GloomyGuava](https://github.com/GloomyGuava/glyph-rice) |
+| Palettes, top bar, corners dial, RunCat, the dial design used by the SDDM theme and Dial greeter, lock before sleep | prefs → STYLE, BAR, WINDOWS | [@Nebelung-cloud](https://github.com/Nebelung-cloud/glyph-rice) |
+| No auto-HDR, deck over fullscreen, VPN behind a captive portal, plain kitty, theme icons in the launcher, plain-text names for security, one step per wheel notch, wheel on the volume ring | automatic | [@Nebelung-cloud](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch |
+| Live level meter | System → Sound | [@Nebelung-cloud](https://github.com/Nebelung-cloud/glyph-rice) `dev` branch, [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| GIF tile with a folder of your own gifs | prefs → HOME | [@Isaqdn03](https://github.com/Nebelung-cloud/glyph-rice/pull/3), [@Nebelung-cloud](https://github.com/Nebelung-cloud/glyph-rice) |
+| Deck cores grid fit, group lock on newer Hyprland | automatic | [@rawnullbyte](https://github.com/Nebelung-cloud/glyph-rice/pull/7) |
+| Scroll over the workspace dots, scroll over the sliders, first-drag fix | bar, quick settings | [@rawnullbyte](https://github.com/rawnullbyte/glyph-rice) |
+| External monitor brightness (experimental) | quick settings | [@rawnullbyte](https://github.com/rawnullbyte/glyph-rice), [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Hide the clock, greeting or widgets | prefs → LOOK | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Automatic game mode, and what stays on in it | prefs → WINDOWS | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Right-click the volume slider for outputs | quick settings | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Bar auto-hide per screen (experimental) | prefs → BAR | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Wallpaper beat, off by default | wall picker | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| tmux and Firefox follow the palette | automatic if installed | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Hide the password's length, plain cover on other screens | prefs → LOOK | [@SenulMapa](https://github.com/SenulMapa/glyph-rice) |
+| A rotated first screen no longer shrinks the shell | automatic | [@SenulMapa](https://github.com/SenulMapa/glyph-rice) |
+| GPU load on Intel integrated graphics | deck, home | [@Dimashyt](https://github.com/Dimashyt/glyph-rice) |
+| The idea of a bar position setting | prefs → BAR | [@Shykid002](https://github.com/Nebelung-cloud/glyph-rice/issues/1) |
+| The idea of a corners setting | prefs → WINDOWS | [@Shykid002](https://github.com/Nebelung-cloud/glyph-rice/issues/4), [@GloomyGuava](https://github.com/GloomyGuava/glyph-rice) |
 
-Commits picked directly keep their author. Features ported by hand name their source in the commit message and in a comment beside the code.
+Commits picked directly keep their author. Features ported by hand name their source in the commit message and in a comment beside the code, and those authors are co-authors of a commit in this repository's history.
 
 <div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
 
@@ -359,13 +362,38 @@ Fonts: Doto, Space Grotesk, Space Mono, JetBrains Mono Nerd Font.
 
 <div align="center"><img src="assets/divider-glyph.svg" width="720" alt=""></div>
 
-<h2 align="center">Inspiration</h2>
+<h2 align="center">Credits</h2>
+
+**The original:** [@Nebelung-cloud](https://github.com/Nebelung-cloud) made [Glyph](https://github.com/Nebelung-cloud/glyph-rice), the rice this fork is built on. Its design, its shell and most of what you see here are theirs.
+
+**Code used in this fork**
+
+| Person | What came from them |
+|---|---|
+| [@rawnullbyte](https://github.com/rawnullbyte/glyph-rice) | Scrolling over workspace dots and sliders, the first-drag fix, external monitor brightness, the deck cores grid fit, the group lock fix, and the wheel-notch work done with Nebelung |
+| [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) | The GIF tile, hiding parts of home, automatic game mode and its options, the output list on the volume slider, bar auto-hide, the wallpaper beat, tmux and Firefox theming, and the live level meter idea |
+| [@SenulMapa](https://github.com/SenulMapa/glyph-rice) | Hiding the password's length, the plain cover on other screens, and the fix for rotated screens |
+| [@Dimashyt](https://github.com/Dimashyt/glyph-rice) | GPU load on Intel integrated graphics |
+| [@GloomyGuava](https://github.com/GloomyGuava/glyph-rice) | An early corner radius dial for the bar |
+
+**Ideas and bug reports that led to changes here**
+
+- [@Shykid002](https://github.com/Shykid002): asked for [bar position](https://github.com/Nebelung-cloud/glyph-rice/issues/1) and [corner rounding](https://github.com/Nebelung-cloud/glyph-rice/issues/4) options.
+- [@SelimCifci](https://github.com/SelimCifci): reported the [white kitty windows](https://github.com/Nebelung-cloud/glyph-rice/issues/12) behind the plain kitty fix.
+- [@Tocakov](https://github.com/Tocakov): reported the [missing icons](https://github.com/Nebelung-cloud/glyph-rice/issues/11) behind the launcher icon fix.
+
+**Projects**
 
 - [**Nothing OS**](https://nothing.tech): the look and the Glyph lights.
-- [**Doto**](https://github.com/oliverlalan/Doto): the dot matrix font.
+- [**Doto**](https://github.com/oliverlalan/Doto), Space Grotesk and Space Mono: the fonts, under the [OFL](config/fonts/OFL.txt).
 - [**Gadgetbridge**](https://codeberg.org/Freeyourgadget/Gadgetbridge): the earbuds protocol in `glyph/ear`.
-- [**Caelestia**](https://github.com/caelestia-dots/shell): the original author's earlier shell; the deck and hardware detection follow it.
-- [**Glyph**](https://github.com/Nebelung-cloud/glyph-rice) by Nebelung: the rice this fork is built on. All of its design is theirs.
+- [**Caelestia**](https://github.com/caelestia-dots/shell): the original author's earlier shell; the deck, hardware detection and color scheme picker follow it.
+- [**kitty-themes**](https://github.com/kovidgoyal/kitty-themes): the terminal colors of the palettes, which are Catppuccin, Rosé Pine, Gruvbox, Nord, Dracula, Tokyo Night, Everforest and Kanagawa, each by their own authors.
+- [**Quickshell**](https://quickshell.org) and [**Hyprland**](https://hyprland.org): what all of this runs on.
+- [**udiskie**](https://github.com/coldfix/udiskie): mounting drives by themselves.
+- [**Pywalfox**](https://github.com/Frewacom/pywalfox): Firefox theming.
+
+Did your work end up here without a mention, or is something credited wrong? Please open an issue and it will be fixed.
 
 <div align="center"><img src="assets/divider-matrix.svg" width="720" alt=""></div>
 

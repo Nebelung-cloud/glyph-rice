@@ -51,7 +51,7 @@ PanelWindow {
         id: stage
         x: Theme.state.barAt === "top" ? -39 * Theme.s : 0 // the layout is for a bar on the left; a bar on top — half its width to the left, centered
 
-        // the clock and date, the greeting and its line can each be hidden (prefs → LOOK → on home); they fade
+        // the clock and date, the greeting and its line can each be hidden (prefs → LOOK → on home); they fade. From Isaqdn03/glyph-rice
         Item {
             opacity: Theme.state.homeClock ? 1 : 0
             visible: opacity > 0

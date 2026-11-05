@@ -34,7 +34,7 @@ WlSessionLockSurface {
         t = Qt.binding(() => root.auth.leaving ? 0 : root.ready ? 1 : 0);
         mainName = Hyprland.focusedMonitor?.name ?? "";
     }
-    // one screen (prefs → LOOK): the screen in focus at lock time gets the lock, the others a plain cover. Once, not a binding: moving the
+    // from SenulMapa/glyph-rice, like hide length below. One screen (prefs → LOOK): the screen in focus at lock time gets the lock, the others a plain cover. Once, not a binding: moving the
     // cursor mustn't swap them. Typing works from any screen, the buffer is shared through auth
     property string mainName: ""
     readonly property bool primary: !Theme.state.lockOneScreen || !mainName || screen?.name === mainName

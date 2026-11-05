@@ -23,7 +23,7 @@ PanelWindow {
     readonly property string res: {
         const s = Quickshell.screens[0];
         if (!s) return "2880x1800^";
-        const d = s.devicePixelRatio; // a landscape copy even when the first screen is rotated
+        const d = s.devicePixelRatio; // a landscape copy even when the first screen is rotated. From SenulMapa/glyph-rice
         return `${Math.round(Math.max(s.width, s.height) * d)}x${Math.round(Math.min(s.width, s.height) * d)}^`;
     }
 

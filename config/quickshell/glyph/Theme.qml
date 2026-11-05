@@ -60,7 +60,7 @@ Singleton {
     readonly property real s: {
         const sc = Quickshell.screens[0];
         if (!sc) return 1;
-        // orientation-agnostic: a rotated (portrait) first screen would give 0.56 and shrink everything
+        // from SenulMapa/glyph-rice. Orientation-agnostic: a rotated (portrait) first screen would give 0.56 and shrink everything
         return Math.min(Math.max(sc.width, sc.height) / 1920, Math.min(sc.width, sc.height) / 1080);
     }
 
