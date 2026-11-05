@@ -308,6 +308,7 @@ PanelWindow {
                         id: notes
                         width: parent.width
                         height: Math.min(contentHeight, stage.height - 28 - 44 - y)
+                        Behavior on height { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         clip: true
                         spacing: 10
                         model: Notes.list.slice().reverse()
