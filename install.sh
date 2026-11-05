@@ -36,6 +36,8 @@ PACMAN=(
     gpu-screen-recorder ydotool libnotify trash-cli gtk3 pciutils
     # terminal and console
     kitty fish starship fastfetch btop eza zoxide direnv
+    # drives: mounting (udisks2), the file manager's sidebar and phones (gvfs), mounting by itself (udiskie), common formats
+    udisks2 gvfs gvfs-mtp gvfs-gphoto2 udiskie ntfs-3g exfatprogs dosfstools
     # the sound settings bind
     pavucontrol
     # fonts (cjk — kaomoji in Charms), icons (Papirus-Dark — the base of the Rice folder theme), a dark base for gtk.css

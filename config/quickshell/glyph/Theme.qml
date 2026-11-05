@@ -191,6 +191,7 @@ Singleton {
             property var tones: []        // the wallpaper's tones, written by the quantizer; empty — a grey wallpaper or no image
             property string variant: "tonalspot" // how a wallpaper tone becomes a palette, an id from schemes.js (VARIANTS)
             property int paintSat: 100    // %, the amount of color taken from the wallpaper
+            property bool autoMount: true // new external drives mount by themselves (udiskie, shell.qml)
             property bool welcomed: false // the first-run card was dismissed
             property bool dnd: false  // new ones aren't shown, critical ones — always
             property int unread: 0    // for the lock

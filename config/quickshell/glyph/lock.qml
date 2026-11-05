@@ -18,9 +18,11 @@ ShellRoot {
         property string buffer: ""
         property bool fail: false
         property bool leaving: false // password accepted: the surface finishes its exit, then unlockT removes the lock
+        property string why: "" // what PAM said, like how long the account is locked for
         readonly property bool busy: pam.active
         function submit() {
             if (!buffer || pam.active || leaving) return;
+            why = "";
             pam.start();
         }
     }
@@ -30,6 +32,7 @@ ShellRoot {
         config: "lock"
         configDirectory: Quickshell.shellPath("pam")
         onResponseRequiredChanged: if (responseRequired) respond(gate.buffer)
+        onPamMessage: if (!responseRequired && message) gate.why = message.trim().replace(/\s*\n\s*/g, " · ")
         onCompleted: res => {
             gate.buffer = "";
             if (res === PamResult.Success) {

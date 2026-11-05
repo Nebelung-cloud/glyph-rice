@@ -363,7 +363,11 @@ Scope {
     property real now: Date.now()
     property var flash: null // { ok } — the end flash
     property int sweep: -4 // the head of the running light
+    // you're looking at that terminal: it shows its own progress, and the capsule would sit on the line you're typing on. It comes back when you
+    // look at another window, and the end still flashes
+    readonly property bool termFocused: /kitty|foot|alacritty|wezterm|ghostty|konsole|terminal|xterm/i.test(ToplevelManager.activeToplevel?.appId ?? "")
     readonly property var job: {
+        if (termFocused) return null;
         let best = null;
         for (const id in jobs) {
             const j = jobs[id];

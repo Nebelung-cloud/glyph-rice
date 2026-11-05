@@ -22,6 +22,7 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | | |
 |---|---|
 | **System app** (`Super` `I`) | Network, Bluetooth, Sound, Display, Workspaces, Power, Battery, Input, Idle, Firewall, Default apps, About. One place for what used to need a terminal. |
+| **Drives** | Plugged-in drives mount by themselves, with a page to open them and safely remove them. |
 | **Network editor** | Everything `nmtui` can do: Wi-Fi, Ethernet, DSL, InfiniBand, bond, bridge, team, VLAN, IP tunnel and WireGuard connections, with IP, DNS and security fields. |
 | **Password windows** | Bluetooth pairing codes, Wi-Fi passwords and admin prompts (polkit) appear as Glyph cards instead of hiding behind the settings. |
 | **Workspace overview** (`Super` `Tab`) | Live thumbnails, drag a window to another workspace, set the number of workspaces. A wrap-around limit that the binds respect. |
@@ -74,6 +75,8 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - Every package name in the installer, against the Arch repositories and the AUR.
 - A real install from this repository on the second laptop, keeping its SDDM login screen.
 - A real session lock with typing, on the development laptop.
+- System → Drives with stand-ins for the system tools: the right drives listed, mounting, safely removing, and showing an error.
+- The lockout message on a real session lock, using a stand-in PAM file so the real account was never at risk, and Caps Lock detection.
 - `--update` in a sandbox against a throwaway copy of the repository: no changes, a new change, a new package, a lock screen change and a local edit.
 - `--fix-plasma` on throwaway network profiles, with a stand-in for KDE's wallet tool.
 - `--fix-plasma` on the second laptop: its Wi-Fi now connects by itself after a reboot, with no password prompt.
@@ -86,6 +89,8 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - Whether `--fix-plasma` read the passwords from a real KDE Wallet, or they were typed. The format comes from KDE's source code.
 - Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
 - The lock screen's keyboard long term on the laptop where it failed. It worked again once that laptop was updated, but the problem couldn't be reproduced, so the safeguard isn't proven to be the reason.
+- A real USB drive or phone with mounting by itself, and real mounting from System → Drives. udiskie wasn't installed on the development laptop during testing, and it can't create test disks without admin rights.
+- A real lockout on the lock screen or a greeter, and the wording PAM uses there.
 - The SDDM option on a real machine.
 - A second monitor: display arrangement, per-screen bar auto-hide, the lock's "one screen" option.
 - External monitor brightness (DDC), the Intel GPU load reading, a rotated screen.
@@ -104,7 +109,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 | **Launcher** | apps, style, windows, calculator | `Super` |
 | **Quick** | quick settings, game mode, media, notifications; also opens from the screen edge | `Super` `A` |
 | **Deck** | dashboard from the bottom edge | `Super` `Space` |
-| **System** | network, bluetooth, sound, display, workspaces, power, battery, input, idle, firewall, default apps, about | `Super` `I` |
+| **System** | network, bluetooth, sound, display, drives, workspaces, power, battery, input, idle, firewall, default apps, about | `Super` `I` |
 | **Prefs** | the rice's look: home, deck, bar, look, style, windows | System → customize the rice; esc comes back |
 | **Overview** | workspaces as live tiles | `Super` `Tab` |
 | **Shot** | screenshots, editor, recording | `Print` |
@@ -278,6 +283,8 @@ An update keeps your settings, and it only asks for a password if a new package 
 
 ### Troubleshooting
 
+**A drive doesn't show up.** Update first: the mounting tools were missing from earlier installs. Then look in System → Drives. Phones need to be set to file transfer on the phone itself.
+
 **Wi-Fi asks for its password at every boot, or has no internet until you reconnect.** Common after KDE Plasma, which keeps passwords in KDE Wallet, out of reach here. Run `install.sh --fix-plasma` and pick the networks. If it still happens, run `install.sh --report` and send the result.
 
 **`xwaylandvideobridge` runs at every login.** It's a Plasma helper, and `install.sh --fix-plasma` stops it under Hyprland when it finds an autostart entry. If screen sharing from an X11 app then fails, delete the file it names to undo that.
@@ -312,7 +319,7 @@ They are specific to that hardware, and `pcie_aspm=off` costs some battery life,
 | | |
 |---|---|
 | **Shell** | `quickshell` (Qt 6.9+) · `hyprland` 0.56+ · `hypridle` · `hyprsunset` · `xdg-desktop-portal-hyprland` · `jq` · `curl` · `python3` · `libqalculate` |
-| **System** | `networkmanager` · `bluez` · `pipewire` · `pipewire-pulse` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `polkit-gnome` · `gnome-keyring` · `geoclue` · `brightnessctl` · `playerctl` · `libnotify` · `python-dbus` · `python-gobject` · `pacman-contrib` · `xdg-utils` · `gtk3` · `pciutils` |
+| **System** | `networkmanager` · `bluez` · `pipewire` · `pipewire-pulse` · `pipewire-alsa` · `wireplumber` · `upower` · `power-profiles-daemon` · `polkit-gnome` · `gnome-keyring` · `geoclue` · `brightnessctl` · `playerctl` · `libnotify` · `python-dbus` · `python-gobject` · `pacman-contrib` · `xdg-utils` · `gtk3` · `pciutils` · `udisks2` · `gvfs` · `gvfs-mtp` · `gvfs-gphoto2` · `udiskie` · `ntfs-3g` · `exfatprogs` · `dosfstools` |
 | **Capture** | `grim` · `slurp` · `imagemagick` · `libvips` · `gpu-screen-recorder` · `cliphist` · `wl-clipboard` |
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |

@@ -65,9 +65,11 @@ ShellRoot {
         property string buffer: ""
         property bool fail: false
         property bool leaving: false // accepted: the view plays its exit, then launchT starts the session
+        property string why: "" // what PAM said, like how long the account is locked for
         readonly property bool busy: Greetd.state === GreetdState.Authenticating
         function submit() {
             if (!buffer || busy || leaving || !shell.userName || !shell.sessions.length) return;
+            why = "";
             Greetd.createSession(shell.userName);
         }
     }
@@ -78,7 +80,10 @@ ShellRoot {
     }
     Connections {
         target: Greetd
-        function onAuthMessage(message, error, responseRequired, echoResponse) { if (responseRequired) Greetd.respond(gate.buffer); }
+        function onAuthMessage(message, error, responseRequired, echoResponse) {
+            if (responseRequired) Greetd.respond(gate.buffer);
+            else gate.why = message.trim().replace(/\s*\n\s*/g, " · ");
+        }
         function onAuthFailure(message) { shell.failed(); }
         function onError(error) { console.warn("greetd:", error); shell.failed(); }
         function onReadyToLaunch() {

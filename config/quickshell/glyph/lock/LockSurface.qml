@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -48,6 +49,15 @@ WlSessionLockSurface {
     // password check: a wave runs over the typed dots
     property real wave: 0
     NumberAnimation on wave { running: root.auth.busy; from: 0; to: 1; duration: 700; loops: Animation.Infinite }
+
+    // caps lock: a password typed with it on looks like a wrong one
+    property bool caps: false
+    Process {
+        id: capsCheck
+        command: ["sh", "-c", "cat /sys/class/leds/*capslock/brightness 2>/dev/null | sort -rn | head -1"]
+        stdout: StdioCollector { onStreamFinished: root.caps = +text.trim() > 0 }
+    }
+    Timer { running: true; repeat: true; interval: 700; onTriggered: capsCheck.running = true }
 
     // if the view ever loses the keys (a monitor waking, focus arriving late), take them back: there's nothing else to click on a lock
     Timer { running: !stage.activeFocus; interval: 300; repeat: true; onTriggered: stage.forceActiveFocus() } // lock-focus
@@ -229,11 +239,21 @@ WlSessionLockSurface {
                     function onFailChanged() { if (root.auth.fail) shake.restart(); }
                 }
             }
-            Lb {
+            // on its own background: over a wallpaper a thin line of red or grey can't be read, and this is the one line that has to be
+            Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
+                width: status.implicitWidth + 40
+                height: status.implicitHeight + 20
+                radius: Theme.corner(height / 2)
+                color: Theme.s1
                 opacity: root.ph(0.8, 1)
-                text: root.auth.busy ? "checking…" : root.auth.fail ? "wrong password · try again" : "enter password"
-                color: root.auth.fail ? Theme.red : Theme.grey
+                Lb {
+                    id: status
+                    anchors.centerIn: parent
+                        text: root.auth.busy ? "checking…" : root.auth.fail ? root.auth.why || (root.caps ? "wrong password · caps lock is on" : "wrong password · try again")
+                            : root.caps ? "caps lock is on" : "enter password"
+                        color: root.auth.fail ? Theme.red : root.caps ? Theme.fg : Theme.grey
+                }
             }
         }
     }

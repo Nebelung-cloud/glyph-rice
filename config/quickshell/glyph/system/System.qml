@@ -22,10 +22,10 @@ PanelWindow {
         root.hasUfw = code === 0;
         root.sel = Math.max(0, root.sections.indexOf(at));
     } }
-    readonly property var sections: ["NETWORK", "BLUETOOTH", "SOUND", "DISPLAY", "WORKSPACES", "POWER"]
+    readonly property var sections: ["NETWORK", "BLUETOOTH", "SOUND", "DISPLAY", "DRIVES", "WORKSPACES", "POWER"]
         .concat(UPower.displayDevice?.isLaptopBattery ? ["BATTERY"] : [], ["INPUT", "IDLE"], hasUfw ? ["FIREWALL"] : [], ["APPS", "ABOUT"])
     readonly property string cur: sections[sel] ?? ""
-    readonly property var pages: ({ NETWORK: net, BLUETOOTH: bt, SOUND: sound, DISPLAY: disp, WORKSPACES: wsp, POWER: power, BATTERY: battery, INPUT: input, IDLE: idle, FIREWALL: fw, APPS: apps, ABOUT: about })
+    readonly property var pages: ({ NETWORK: net, BLUETOOTH: bt, SOUND: sound, DISPLAY: disp, DRIVES: drv, WORKSPACES: wsp, POWER: power, BATTERY: battery, INPUT: input, IDLE: idle, FIREWALL: fw, APPS: apps, ABOUT: about })
 
     property bool shown: false
     // the window appears a moment before it moves: its first frame (creating the surface) is the slow one, so it lands
@@ -125,6 +125,7 @@ PanelWindow {
         BtPage { id: bt; on: root.cur === "BLUETOOTH"; live: root.shown && on }
         SoundPage { id: sound; on: root.cur === "SOUND"; live: root.shown && on }
         DisplayPage { id: disp; on: root.cur === "DISPLAY" }
+        DrivesPage { id: drv; on: root.cur === "DRIVES"; live: root.shown && on; onDone: root.close() }
         WorkspacesPage { id: wsp; on: root.cur === "WORKSPACES"; live: root.shown && on; onDone: root.close() }
         PowerPage { id: power; on: root.cur === "POWER" }
         BatteryPage { id: battery; on: root.cur === "BATTERY"; live: root.shown && on }

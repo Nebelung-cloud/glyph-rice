@@ -217,7 +217,7 @@ ShellRoot {
             function refuse(why) {
                 busy = false;
                 fail = true;
-                msg = why;
+                if (why) msg = why; // otherwise keep what greetd said, like how long the account is locked for
                 pwd.text = "";
                 denied.restart();
                 if (Greetd.available && Greetd.state !== GreetdState.Inactive) Greetd.cancelSession();
@@ -226,7 +226,7 @@ ShellRoot {
                 target: Greetd
                 function onAuthMessage(message, error, responseRequired, echoResponse) {
                     if (responseRequired) Greetd.respond(pwd.text);
-                    else root.msg = message;
+                    else root.msg = message.trim().replace(/\s*\n\s*/g, " · ");
                 }
                 function onAuthFailure(message) { root.refuse(""); }
                 function onError(error) { console.warn("greetd:", error); root.refuse("login service error · try again"); }

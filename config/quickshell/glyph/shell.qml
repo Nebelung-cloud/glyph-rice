@@ -3,6 +3,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import qs.services
 import "bar"
 import "buds"
@@ -42,6 +43,11 @@ ShellRoot {
     Shot { id: shot }
     Vpn { id: vpn }
     LazyLoader { active: !Theme.state.welcomed; Welcome {} }
+    // nothing else on Hyprland mounts a plugged-in drive. udiskie skips internal disks, and -n reports through the usual notifications
+    Process {
+        running: Theme.state.autoMount
+        command: ["sh", "-c", "command -v udiskie >/dev/null && exec udiskie -a -n -T"]
+    }
     Lazy { id: overview; component: Overview { onSettingsRequested: system.get().openAt("WORKSPACES") } } // Super+Tab: all workspaces and windows, drag a window onto a workspace
     Lazy { id: power; component: Power {} }
     Lazy { id: prefs; component: Prefs { onWallRequested: walls.get().open(); onBackRequested: system.get().open() } }

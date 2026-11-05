@@ -4,6 +4,18 @@ The newest changes come first. To get them, press **update the rice** in System 
 
 ## November 2026
 
+### Drives
+
+- Fixed: plugged-in drives did nothing. Hyprland has no automounter and the installer never added the tools, so `--update` adds them: `udisks2`, `gvfs`, `udiskie`, and support for NTFS, exFAT, FAT, phones and cameras.
+- New: external drives mount by themselves and show a notification. Internal disks are left alone. You can turn this off in System → Drives.
+- New: System → Drives lists plugged-in drives and spare disks, and can mount, open and safely remove them.
+
+### Clearer messages
+
+- The lock screen and both greeters now show the real reason when login is refused, such as a locked account and how long is left, instead of always saying the password is wrong.
+- The lock screen and Lock greeter say when Caps Lock is on.
+- Terminal progress no longer sits over a terminal you're typing in. It hides while that terminal is focused and comes back in other windows.
+
 ### Security, from the original repo
 
 - Names from other people, like a Wi-Fi network, a Bluetooth device or a notification title, now always show as plain text. Before, a name containing an image tag made the shell download that image, so a neighbor's network name could reach out to a server. This also covers this fork's own System pages.
