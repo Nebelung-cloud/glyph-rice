@@ -4,7 +4,6 @@ import Quickshell.Io
 import Quickshell.Services.Greetd
 import qs
 import "lock"
-import "greeter"
 
 // the Lock greeter, for greetd: the lock screen's own view (lock/LockView, built by install.sh from LockSurface),
 // with session, user and power on the left. greetd checks the password; outside greetd it only shows the look

@@ -4,6 +4,11 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 ## November 2026
 
+### Lock screen
+
+- New: sleep, reboot and power off on the lock screen, in the same list as the Lock greeter. Click them or press `F10` `F11` `F12`. Reboot and power off ask for a second press within 5 seconds, because the locked session can hold unsaved work.
+- The lock takes the keyboard back if it ever loses it. This was added after typing failed on one laptop.
+
 ### File managers
 
 - New: Dolphin is a choice alongside Thunar and Strata, in the installer's Custom setup, in System → Apps → files, and with `install.sh --file-manager`.
@@ -80,7 +85,3 @@ The newest changes come first. To get them, press **update everything** in Syste
 - The date and status lines on home are readable over a wallpaper.
 - The VPN panel says when Clash Verge isn't installed.
 - Super+W and Super+E show a notification if no default app is set.
-
-### Lock screen
-
-- The lock takes the keyboard back if it ever loses it. This was added after typing failed on one laptop.

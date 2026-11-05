@@ -59,6 +59,17 @@ WlSessionLockSurface {
     }
     Timer { running: true; repeat: true; interval: 700; onTriggered: capsCheck.running = true }
 
+    // sleep, reboot and power off, like the Lock greeter's list. Reboot and power off take a second press: a locked session can hold unsaved work
+    readonly property bool power: true // false in the Lock greeter, which has its own list
+    readonly property var powerActs: [["sleep", "suspend"], ["reboot", "reboot"], ["power off", "poweroff"]]
+    property int armed: -1
+    Timer { id: disarm; interval: 5000; onTriggered: root.armed = -1 }
+    function powerAct(i) {
+        if (i > 0 && armed !== i) { armed = i; disarm.restart(); return; }
+        armed = -1;
+        Quickshell.execDetached(["systemctl", powerActs[i][1]]);
+    }
+
     // if the view ever loses the keys (a monitor waking, focus arriving late), take them back: there's nothing else to click on a lock
     Timer { running: !stage.activeFocus; interval: 300; repeat: true; onTriggered: stage.forceActiveFocus() } // lock-focus
 
@@ -71,6 +82,7 @@ WlSessionLockSurface {
             if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) root.auth.submit();
             else if (e.key === Qt.Key_Escape) root.auth.buffer = "";
             else if (e.key === Qt.Key_Backspace) root.auth.buffer = root.auth.buffer.slice(0, -1);
+            else if (root.power && e.key >= Qt.Key_F10 && e.key <= Qt.Key_F12) { if (!e.isAutoRepeat) root.powerAct(e.key - Qt.Key_F10); }
             else if (e.text && e.text.charCodeAt(0) >= 32) { root.auth.buffer += e.text; root.auth.fail = false; }
             else return;
             e.accepted = true;
@@ -146,14 +158,28 @@ WlSessionLockSurface {
             }
             Lb { visible: root.bat.isLaptopBattery; anchors.verticalCenter: parent.verticalCenter; text: Math.round(root.bat.percentage * 100) }
         }
-        Row {
-            visible: Theme.state.unread > 0
-            opacity: root.ph(0.45, 0.85)
+        Column {
             x: 44
             anchors { bottom: parent.bottom; bottomMargin: 44 }
-            spacing: 16
-            Icon { anchors.verticalCenter: parent.verticalCenter; text: "\u{F009A}"; font.pixelSize: 17 }
-            Lb { anchors.verticalCenter: parent.verticalCenter; text: `${Theme.state.unread} notifications` }
+            spacing: 36
+            opacity: root.ph(0.45, 0.85)
+            transform: Translate { x: -24 * (1 - root.ph(0.45, 0.85)) }
+
+            Row {
+                visible: Theme.state.unread > 0
+                spacing: 16
+                Icon { anchors.verticalCenter: parent.verticalCenter; text: "\u{F009A}"; font.pixelSize: 17 }
+                Lb { anchors.verticalCenter: parent.verticalCenter; text: `${Theme.state.unread} notifications` }
+            }
+            Pick {
+                visible: root.power && root.primary
+                enabled: !root.auth.leaving
+                label: "power"
+                hint: "f10 f11 f12"
+                model: root.powerActs.map((p, i) => i === root.armed ? `press again to ${p[0]}` : p[0])
+                current: root.armed
+                onPicked: i => root.powerAct(i)
+            }
         }
 
         Column {

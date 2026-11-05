@@ -17,8 +17,6 @@ rm -rf "$dst/shell" "$dst/state"
 mkdir -p "$dst/state/rice" "$dst/home/.cache/glyph/walls"
 cp -r "$glyph" "$dst/shell"
 cp "$here/greeter.qml" "$dst/shell/"
-mkdir -p "$dst/shell/greeter"
-cp "$here/Pick.qml" "$dst/shell/greeter/"
 view="$dst/shell/lock/LockView.qml"
 sed -e 's/^WlSessionLockSurface {/Item {/' \
     -e 's/text: Quickshell.env("USER")/text: root.user/' \
@@ -28,8 +26,9 @@ sed -e 's/^WlSessionLockSurface {/Item {/' \
     -e '/\/\/ lock-focus$/d' \
     -e '/mainName = Hyprland.focusedMonitor/d' \
     -e 's/readonly property bool primary: .*/readonly property bool primary: true/' \
+    -e 's/readonly property bool power: true.*/readonly property bool power: false/' \
     "$glyph/lock/LockSurface.qml" > "$view"
-for want in '^Item {' 'text: root.user' 'url: root.face' 'property alias stage'; do
+for want in '^Item {' 'text: root.user' 'url: root.face' 'property alias stage' 'bool power: false'; do
     grep -q "$want" "$view" || { echo "glyph's LockSurface.qml changed, LockView not built (missing: $want)" >&2; exit 1; }
 done
 

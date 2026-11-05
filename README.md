@@ -33,6 +33,7 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | **More color** | A saturation control, Extra Dark, and colors that fade instead of jumping. |
 | **More looks** | Ribbed glass and color dots on the wallpaper, a hazy lock screen, a bar on the right, volume and brightness in the island. |
 | **Two greetd login screens** | The **Lock greeter** has the lock screen's look. The **Dial greeter** brings Nebelung's camera dial and tachometer to greetd, so that look no longer needs SDDM. The original SDDM theme stays available too. |
+| **Power on the lock screen** | Sleep, reboot and power off, by clicking or with `F10` `F11` `F12`. Reboot and power off ask for a second press, so unsaved work in the locked session isn't lost by accident. |
 | **Guided installer** | Menus with tick boxes, a summary before anything changes, `--dry-run` and `--uninstall`. Safe to run again, and it stops with a plain message if a step fails. |
 | **Updates** | System → About counts system updates and new versions of the rice, and updates either from one terminal. `install.sh --update` does the rice too. |
 | **Moving from KDE Plasma** | `install.sh --fix-plasma` copies Wi-Fi passwords out of KDE Wallet so they connect at boot. |
@@ -88,11 +89,14 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - `--fix-plasma` on throwaway network profiles, with a stand-in for KDE's wallet tool.
 - `--fix-plasma` on the second laptop: its Wi-Fi now connects by itself after a reboot, with no password prompt.
 
+- The lock screen's power list on a real session lock, with a stand-in for `systemctl`: keys, clicks, the second press, and holding a key not counting as one.
+
 **Not tested yet, so tell me if something breaks:**
 
 - A fresh install choosing the Lock greeter from this repository's script. The development laptop's Lock greeter was an earlier copy.
 - The **update everything** button on a real update, and the pacman notice during a real `pacman` run. The notice's script and the hook's text were tested, but not pacman running it.
 - A real `yay` update through the update button.
+- Really sleeping, rebooting or powering off from the lock screen.
 - Whether `--fix-plasma` read the passwords from a real KDE Wallet, or they were typed. The format comes from KDE's source code.
 - Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
 - The lock screen's keyboard long term on the laptop where it failed. It worked again once that laptop was updated, but the problem couldn't be reproduced, so the safeguard isn't proven to be the reason.
@@ -128,7 +132,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 | **Cal** | calendar, focus timer | click the clock |
 | **Buds** | Nothing / CMF earbuds: battery, ANC | |
 | **Power** | power menu | `Super` `Esc` |
-| **Lock** | lock screen | `Super` `L` |
+| **Lock** | lock screen, with sleep, reboot and power off | `Super` `L` |
 | **Login** | Lock greeter, Dial greeter, or the original SDDM dial theme | |
 | **Style** | where the color comes from: Nothing, the wallpaper through a Material You variant, or a palette (Catppuccin, Rosé Pine, Gruvbox, Nord, Dracula, Tokyo Night, Everforest, Kanagawa) | |
 | **Rice** | shell switcher, if Demon's Shot is installed too | `rice switch <name>` |

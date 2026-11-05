@@ -2,7 +2,7 @@ import QtQuick
 import qs
 import qs.components
 
-// a side list on the login screen: label, key hint, rows with a dot. The picked dot stretches into a pill
+// a side list on the lock and login screens: label, key hint, rows with a dot. The picked dot stretches into a pill
 Column {
     id: root
 
