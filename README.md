@@ -15,6 +15,8 @@ everything the original does, plus a full System settings app, the best ideas fr
 
 <h2 align="center">What's different in this fork</h2>
 
+Recent changes are in the [changelog](CHANGELOG.md).
+
 **New here**
 
 | | |
@@ -30,7 +32,8 @@ everything the original does, plus a full System settings app, the best ideas fr
 | **More looks** | Ribbed glass and color dots on the wallpaper, a hazy lock screen, a bar on the right, volume and brightness in the island. |
 | **Glyph greeter** | A greetd login screen with the lock screen's look. The SDDM theme stays available as an option. |
 | **Guided installer** | Menus with tick boxes, a summary before anything changes, `--dry-run` and `--uninstall`. Safe to run again, and it stops with a plain message if a step fails. |
-| **System updates** | System → About counts updates and opens one terminal for them, in front of everything. |
+| **Updates** | System → About counts system updates and new versions of the rice, and updates either from one terminal. `install.sh --update` does the rice too. |
+| **Moving from KDE Plasma** | `install.sh --fix-plasma` copies Wi-Fi passwords out of KDE Wallet so they connect at boot. |
 | **Welcome card** | The keys to know, on first login. |
 | **All English** | Code, comments and interface. |
 
@@ -60,7 +63,7 @@ Commits picked directly keep their author. Features ported by hand name their so
 
 <h2 align="center">Tested, and not tested</h2>
 
-Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprland 0.56.
+Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprland 0.56. Also installed on a second one: Intel and NVIDIA graphics, one screen, EndeavourOS moving from KDE Plasma, Hyprland 0.57.
 
 **Tested:**
 
@@ -69,17 +72,22 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - The installer in a throwaway home with fake system commands: a fresh run, a second run, Recommended, Minimal and Custom through a real terminal, saying no at the summary, a refused package install, a failed service, a too-old Hyprland, `--dry-run` and `--uninstall`.
 - The greeter's install script the same way, then its login screen as a preview window.
 - Every package name in the installer, against the Arch repositories and the AUR.
+- A real install from this repository on the second laptop, keeping its SDDM login screen.
+- A real session lock with typing, on the development laptop.
+- `--update` in a sandbox against a throwaway copy of the repository: no changes, a new change, a new package, a lock screen change and a local edit.
+- `--fix-plasma` on throwaway network profiles, with a stand-in for KDE's wallet tool.
 
 **Not tested yet, so tell me if something breaks:**
 
-- A real install on a clean system, and the login screen at an actual boot from this repository's script.
+- A real install with the Glyph greeter, and booting into it from this repository's script.
+- `--update` and its button on a real update.
 - A real `yay` update through the update button.
-- Reading passwords from a real KDE Wallet. The format comes from KDE's source code and was tested with a stand-in for its tool.
+- Reading passwords from a real KDE Wallet, and Wi-Fi connecting by itself after a reboot because of it. The format comes from KDE's source code.
 - Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
-- The lock screen's keyboard on a machine where it failed. It works on the development laptop, and a safeguard was added without a way to reproduce the problem.
+- The lock screen's keyboard long term on the laptop where it failed. It worked again once that laptop was updated, but the problem couldn't be reproduced, so the safeguard isn't proven to be the reason.
 - The SDDM option on a real machine.
 - A second monitor: display arrangement, per-screen bar auto-hide, the lock's "one screen" option.
-- External monitor brightness (DDC), Intel graphics, a rotated screen.
+- External monitor brightness (DDC), the Intel GPU load reading, a rotated screen.
 - Automatic game mode with a real game, and Firefox theming.
 - The wallpaper beat. It needs cava, and it stays off until you turn it on.
 
@@ -219,6 +227,16 @@ apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
 hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by default
 ```
 
+### Coming from KDE Plasma
+
+Plasma keeps Wi-Fi passwords in KDE Wallet, which Hyprland can't reach without Plasma's helper running. So after installing, run this once while connected:
+
+```sh
+~/.local/share/glyph/install.sh --fix-plasma
+```
+
+Networks found in the wallet are ticked already, so press Enter. The wallet may ask for its own password once. The passwords stay in the wallet and get copied into each network's profile, where anyone with admin access on that machine can read them, like any normally saved Wi-Fi password. Plasma stays installed and usable as a login session.
+
 ### Updating
 
 System → About shows when the rice has new changes, with a button that opens a terminal and updates it. Or run `install.sh --update`. It only asks for a password if a new package or the login screen needs it. Local edits to tracked files make it stop before changing anything, so keep yours in `hypr/user.lua`.
@@ -227,10 +245,13 @@ System → About shows when the rice has new changes, with a button that opens a
 
 **Wi-Fi asks for its password at every boot, or has no internet until you reconnect.** Common after KDE Plasma, which keeps passwords in KDE Wallet, out of reach here. Run `install.sh --fix-plasma` and pick the networks. If it still happens, run `install.sh --report` and send the result.
 
-**`xwaylandvideobridge` runs at every login.** It's a Plasma helper, and `install.sh --fix-plasma` stops it under Hyprland. If screen sharing from an X11 app then fails, delete the file it names to undo that.
-
+**`xwaylandvideobridge` runs at every login.** It's a Plasma helper, and `install.sh --fix-plasma` stops it under Hyprland when it finds an autostart entry. If screen sharing from an X11 app then fails, delete the file it names to undo that.
 
 **`sudo` says "Sorry, try again" with the right password.** After 3 failed attempts in a short time, the system locks your account for up to 10 minutes, and the lock rejects even the correct password. Abandoned password prompts count as failures. Wait it out, or check with `faillock --user $USER`. The update button tells you when this is the reason.
+
+**Can't type on the lock screen.** Update first, since a safeguard was added for this. If it still happens, send the output of `install.sh --report`, and say whether it was right after locking or after sleep.
+
+**Reporting a problem.** `install.sh --report` prints the useful details without passwords or network names. Run it while the problem is happening, before reconnecting or restarting anything.
 
 **The new login screen doesn't work.** `Ctrl` `Alt` `F2`, log in, run `install.sh --uninstall`. It brings back the login screen you had.
 
