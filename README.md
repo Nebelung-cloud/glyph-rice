@@ -76,13 +76,14 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - A real session lock with typing, on the development laptop.
 - `--update` in a sandbox against a throwaway copy of the repository: no changes, a new change, a new package, a lock screen change and a local edit.
 - `--fix-plasma` on throwaway network profiles, with a stand-in for KDE's wallet tool.
+- `--fix-plasma` on the second laptop: its Wi-Fi now connects by itself after a reboot, with no password prompt.
 
 **Not tested yet, so tell me if something breaks:**
 
 - A real install with the Glyph greeter, and booting into it from this repository's script.
 - `--update` and its button on a real update.
 - A real `yay` update through the update button.
-- Reading passwords from a real KDE Wallet, and Wi-Fi connecting by itself after a reboot because of it. The format comes from KDE's source code.
+- Whether `--fix-plasma` read the passwords from a real KDE Wallet, or they were typed. The format comes from KDE's source code.
 - Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
 - The lock screen's keyboard long term on the laptop where it failed. It worked again once that laptop was updated, but the problem couldn't be reproduced, so the safeguard isn't proven to be the reason.
 - The SDDM option on a real machine.
