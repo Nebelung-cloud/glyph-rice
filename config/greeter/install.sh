@@ -25,6 +25,7 @@ sed -e 's/^WlSessionLockSurface {/Item {/' \
     -e 's|url: `file://${Quickshell.env("HOME")}/.face`|url: root.face|' \
     -e 's/^    color: Theme.bg$/    property string user: Quickshell.env("USER")\n    property string face: ""\n    property alias stage: stage/' \
     -e '/^import Quickshell.Hyprland$/d' \
+    -e '/\/\/ lock-focus$/d' \
     -e '/mainName = Hyprland.focusedMonitor/d' \
     -e 's/readonly property bool primary: .*/readonly property bool primary: true/' \
     "$glyph/lock/LockSurface.qml" > "$view"

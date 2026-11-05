@@ -49,6 +49,9 @@ WlSessionLockSurface {
     property real wave: 0
     NumberAnimation on wave { running: root.auth.busy; from: 0; to: 1; duration: 700; loops: Animation.Infinite }
 
+    // if the view ever loses the keys (a monitor waking, focus arriving late), take them back: there's nothing else to click on a lock
+    Timer { running: !stage.activeFocus; interval: 300; repeat: true; onTriggered: stage.forceActiveFocus() } // lock-focus
+
     Stage {
         id: stage
         focus: true

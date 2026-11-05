@@ -74,6 +74,8 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 
 - A real install on a clean system, and the login screen at an actual boot from this repository's script.
 - A real `yay` update through the update button.
+- Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
+- The lock screen's keyboard on a machine where it failed. It works on the development laptop, and a safeguard was added without a way to reproduce the problem.
 - The SDDM option on a real machine.
 - A second monitor: display arrangement, per-screen bar auto-hide, the lock's "one screen" option.
 - External monitor brightness (DDC), Intel graphics, a rotated screen.
@@ -179,6 +181,8 @@ All the questions come first. At the summary you can install, change your choice
 |---|---|
 | `--dry-run` | The same questions, prints what it would do, changes nothing |
 | `--yes` | No questions, the Recommended setup |
+| `--update` | Gets the newest version, adds any new packages, keeps your choices and settings. Also in System → About |
+| `--report` | Prints what's useful for fixing a problem. No passwords or network names, safe to paste |
 | `--uninstall` | Removes the links, restores your old files and login screen. Packages stay. With `--yes` it doesn't ask first |
 | `--links` | Symlinks only, on any distro. The packages are then your own, see below |
 | `--sddm` | Only the SDDM theme; run again after editing it |
@@ -213,7 +217,14 @@ apps.music  = "spicetify watch -s"  -- Super M, spotify-launcher by default
 hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by default
 ```
 
+### Updating
+
+System → About shows when the rice has new changes, with a button that opens a terminal and updates it. Or run `install.sh --update`. It only asks for a password if a new package or the login screen needs it. Local edits to tracked files make it stop before changing anything, so keep yours in `hypr/user.lua`.
+
 ### Troubleshooting
+
+**Wi-Fi asks for its password at every boot.** Type it once more on this version: it now saves into the profile. If it still asks, run `install.sh --report` and send the result.
+
 
 **`sudo` says "Sorry, try again" with the right password.** After 3 failed attempts in a short time, the system locks your account for up to 10 minutes, and the lock rejects even the correct password. Abandoned password prompts count as failures. Wait it out, or check with `faillock --user $USER`. The update button tells you when this is the reason.
 

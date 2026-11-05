@@ -4,6 +4,8 @@
 #   ./install.sh --dry-run     the same questions, prints what it would do and changes nothing
 #   ./install.sh --yes         no questions, the Recommended setup
 #   ./install.sh --uninstall   takes the links away and puts your old files and login screen back
+#   ./install.sh --update      gets the newest version of the rice, adds any new packages, keeps your choices and settings
+#   ./install.sh --report      prints what's useful for fixing a problem (no passwords or network names), changes nothing
 #   ./install.sh --links       symlinks only, on any distro (the packages are then your own, see the README)
 #   ./install.sh --sddm        only the SDDM login theme; run again after edits in config/sddm
 set -Eeuo pipefail
@@ -491,6 +493,67 @@ EOF
     return 0
 }
 
+update() { # step 1: the new code. Bash reads a script as it runs, so step 2 starts fresh from the new file
+    local old; old=$(git -C "$DOTS" rev-parse HEAD)
+    say "Getting the newest version"
+    if ! git -C "$DOTS" pull --ff-only; then
+        say "Could not update: there are local changes or no connection, see above. Nothing changed."
+        exit 1
+    fi
+    exec "$DOTS/install.sh" --update-rest "$old"
+}
+
+update_rest() { # step 2: whatever the new version needs. Asks for a password only if something needs it
+    local old=$1 missing aur_missing
+    if [ "$old" = "$(git -C "$DOTS" rev-parse HEAD)" ]; then say "Already up to date."; return 0; fi
+    git -C "$DOTS" log --format='  · %s' "$old..HEAD" | cut -c1-100
+    # pacman -T lists what isn't installed, and needs no password
+    missing=$(pacman -T "${PACMAN[@]}" || true)
+    aur_missing=$(pacman -T "${AUR[@]}" || true)
+    # the greeter runs from a copy, which only changes when its own files or the lock screen do
+    local greeter_changed=""
+    if [ "$(current_dm)" = greetd ] && git -C "$DOTS" diff --name-only "$old" HEAD | grep -qE '^config/greeter/|glyph/lock/|glyph/Theme.qml|glyph/components/'; then greeter_changed=1; fi
+    if [ -n "$missing$aur_missing$greeter_changed" ]; then sudo_once; fi
+    # shellcheck disable=SC2086 # one package per word
+    if [ -n "$missing" ]; then run sudo pacman -S --needed --noconfirm $missing; fi
+    # shellcheck disable=SC2086
+    if [ -n "$aur_missing" ]; then run yay -S --needed --noconfirm $aur_missing || say "AUR: not everything installed, see above"; fi
+    links
+    if [ -n "$greeter_changed" ]; then run sudo "$DOTS/config/greeter/install.sh"; fi
+    if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then run "$DOTS/config/quickshell/rice/rice" restart; fi
+    say "Updated. Your choices and settings are as they were."
+}
+
+report() { # safe to paste: nothing here names a network, a device or a password
+    set +eE +o pipefail; trap - ERR # a report keeps going past anything it can't read
+    printf '== system\n%s · %s\n' "$(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-unknown}")" "$(uname -r)"
+    printf 'version: %s\n' "$(git -C "$DOTS" rev-parse --short HEAD 2>/dev/null)"
+    printf 'hyprland: %s\n' "$(hyprctl version -j 2>/dev/null | jq -r .tag 2>/dev/null)"
+    lspci 2>/dev/null | grep -E 'VGA|3D' | sed -E 's/^[^:]*: *[^:]*: *//' | cut -c1-70
+    printf 'login: %s · screens: %s · input methods: %s\n' "$(current_dm)" "$(hyprctl monitors -j 2>/dev/null | jq length 2>/dev/null)" "${QT_IM_MODULE:-none}/${XMODIFIERS:-none}"
+    printf '\n== network services\n'
+    for s in NetworkManager systemd-networkd dhcpcd iwd wpa_supplicant netctl connman systemd-resolved; do
+        printf '%-20s %s %s\n' "$s" "$(systemctl is-enabled "$s" 2>/dev/null || true)" "$(systemctl is-active "$s" 2>/dev/null || true)"
+    done
+    printf 'resolv.conf: %s · %s nameserver line(s)\n' "$(readlink /etc/resolv.conf || echo plain file)" "$(grep -c '^nameserver' /etc/resolv.conf 2>/dev/null || true)"
+    printf '\n== network state\n'
+    nmcli -t -f TYPE,STATE device 2>/dev/null
+    printf 'internet: %s\n' "$(nmcli networking connectivity check 2>/dev/null || true)"
+    printf '\n== saved profiles: type, autoconnect, private to a user?, wi-fi password flag (0 = saved)\n'
+    nmcli -g UUID,TYPE connection show 2>/dev/null | while IFS=: read -r u t; do
+        printf '%s auto=%s private=%s psk-flags=%s has-password=%s\n' "$t" \
+            "$(nmcli -g connection.autoconnect connection show "$u" 2>/dev/null)" \
+            "$( [ -n "$(nmcli -g connection.permissions connection show "$u" 2>/dev/null)" ] && echo yes || echo no)" \
+            "$(nmcli -g 802-11-wireless-security.psk-flags connection show "$u" 2>/dev/null)" \
+            "$( [ -n "$(nmcli -s -g 802-11-wireless-security.psk connection show "$u" 2>/dev/null)" ] && echo yes || echo no)"
+    done
+    printf '\n== network log, this boot (names removed)\n'
+    journalctl -b -u NetworkManager --no-pager -o cat 2>/dev/null | grep -E 'no secrets|no-secrets|failed|secrets|-> failed' | sed -E "s/(connection|point|profile) '[^']*'/\1 '…'/g; s/([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}/MAC/g" | tail -8 | cut -c1-110
+    printf '\n== lock\n'
+    printf 'lock running: %s\n' "$(pgrep -fc '^qs .*/lock[.]qml' || true)"
+    journalctl -b --no-pager -o cat -g 'WlSessionLock|session lock|sessionLock|lock.qml' 2>/dev/null | tail -5 | cut -c1-110
+}
+
 uninstall() {
     head1 "Uninstalling"
     [ "$YES" = 1 ] || ask_yes "Remove the links and restore your old files and login screen? Packages stay installed." n || exit 0
@@ -530,15 +593,22 @@ for a in "$@"; do
         --dry-run) DRY=1 ;;
         --yes | -y) YES=1 ;;
         --uninstall) MODE=uninstall ;;
+        --update) MODE=update ;;
+        --update-rest) MODE=update-rest ;;
+        --report) MODE=report ;;
         --links) MODE=links ;;
         --sddm) MODE=sddm ;;
-        *) echo "usage: $0 [--dry-run] [--yes] [--uninstall] [--links] [--sddm]"; exit 1 ;;
+        [0-9a-f]*) [ "$MODE" = update-rest ] && OLD=$a ;;
+        *) echo "usage: $0 [--dry-run] [--yes] [--update] [--report] [--uninstall] [--links] [--sddm]"; exit 1 ;;
     esac
 done
 
 case "$MODE" in
     links) links ;;
     sddm) sddm_theme ;;
+    update) update ;;
+    update-rest) update_rest "$OLD" ;;
+    report) report ;;
     uninstall) uninstall ;;
     install)
         check_machine

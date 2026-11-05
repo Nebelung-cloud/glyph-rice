@@ -166,6 +166,22 @@ def wanted(con, setting, hints):
     return []
 
 
+def save_secret(path, setting, vals):
+    """write what was typed into the profile itself, so the next boot connects without asking. NetworkManager only keeps
+    a password from an agent when it trusts that agent, and our SaveSecrets is empty, so otherwise it asks at every boot.
+    Not for a password set to «ask every time» (flag 2) or a vpn: its plugin owns those"""
+    con = dbus.Interface(bus.get_object("org.freedesktop.NetworkManager", path), "org.freedesktop.NetworkManager.Settings.Connection")
+    settings = con.GetSettings()
+    part = settings.setdefault(setting, dbus.Dictionary({}, signature="sv"))
+    for k, v in vals.items():
+        if not v or int(part.get(k + "-flags", 0)) & 2:
+            continue
+        part[k] = v
+        part[k + "-flags"] = dbus.UInt32(0)
+    con.Update2(settings, dbus.UInt32(1), dbus.Dictionary({}, signature="sv"),  # 1 — to disk
+                reply_handler=lambda *a: None, error_handler=lambda e: say({"kind": "log", "text": str(e)}))
+
+
 class NmAgent(dbus.service.Object):
     @dbus.service.method(NM, in_signature="a{sa{sv}}osasu", out_signature="a{sa{sv}}", async_callbacks=("ok", "err"))
     def GetSecrets(self, con, path, setting, hints, flags, ok, err):
@@ -179,6 +195,10 @@ class NmAgent(dbus.service.Object):
             if setting == "vpn":
                 return ok({"vpn": {"secrets": dbus.Dictionary(vals, signature="ss")}})
             ok({setting: dbus.Dictionary(vals, signature="sv")})
+            try:
+                save_secret(path, setting, vals)
+            except dbus.DBusException as e:  # no permission: it still connects, it just asks again next boot
+                say({"kind": "log", "text": str(e)})
 
         ask("secret", {"title": str(cn.get("id", "")), "type": str(cn.get("type", "")), "setting": str(setting),
                        "user": str(con.get("802-1x", {}).get("identity", "")), "retry": bool(flags & REQUEST_NEW),

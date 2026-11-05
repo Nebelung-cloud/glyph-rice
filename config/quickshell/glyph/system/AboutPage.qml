@@ -66,6 +66,7 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
     onLiveChanged: if (live) {
         if (!info.os) probe.running = true;
         if (!checked && !checking) check();
+        riceCheck.running = true;
     }
     Process {
         id: upd
@@ -77,6 +78,21 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
                 root.checking = false;
             }
         }
+    }
+    // ---- the rice's own updates: commits on GitHub this copy doesn't have. -1 — no answer: offline, or a copy that follows nothing ----
+    property int riceNew: -1
+    Process {
+        id: riceCheck
+        command: ["sh", "-c", 'r=$(git -C "$(readlink -f "$1")" rev-parse --show-toplevel) && git -C "$r" fetch -q && git -C "$r" rev-list --count "HEAD..@{u}"', "sh", Quickshell.shellPath("")]
+        stdout: StdioCollector { onStreamFinished: root.riceNew = text.trim() === "" ? -1 : +text.trim() }
+    }
+    function riceUpdate() {
+        const open = Hyprland.toplevels.values.find(t => t.title === "updates");
+        if (open) Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${open.address}" })`);
+        else Quickshell.execDetached(["kitty", "--title", "updates", "bash", "-c",
+            'r=$(git -C "$(readlink -f "$1")" rev-parse --show-toplevel) && "$r/install.sh" --update; printf "\\ndone · press enter "; read -r _', "bash", Quickshell.shellPath("")]);
+        riceNew = -1;
+        done();
     }
     // System covers the screen and holds the keyboard: it has to leave, or the terminal opens unseen behind it. Pressed again while that
     // terminal is open — go to it: a second one prompts for sudo as well, and abandoned prompts count as failures and lock the account
@@ -121,6 +137,16 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
         }
         Act { anchors.verticalCenter: parent.verticalCenter; icon: "\u{F0450}"; text: "check"; onHit: if (!root.checking) root.check() }
         Act { anchors.verticalCenter: parent.verticalCenter; visible: root.updates.length > 0; icon: "\u{F06B0}"; text: "update"; onHit: root.update() }
+    }
+    Row {
+        spacing: 20
+        Column {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 6
+            Lb { text: "the rice" }
+            Lb { color: Theme.fg; text: root.riceNew < 0 ? "couldn't check for updates" : root.riceNew === 0 ? "up to date" : `${root.riceNew} new ${root.riceNew === 1 ? "change" : "changes"}` }
+        }
+        Act { anchors.verticalCenter: parent.verticalCenter; visible: root.riceNew > 0; icon: "\u{F06B0}"; text: "update the rice"; onHit: root.riceUpdate() }
     }
     Act {
         icon: "\u{F030C}"
