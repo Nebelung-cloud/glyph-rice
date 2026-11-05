@@ -283,7 +283,7 @@ An update keeps your settings, and it only asks for a password if a new package 
 
 ### Troubleshooting
 
-**A drive doesn't show up.** Update first: the mounting tools were missing from earlier installs. Then look in System → Drives. Phones need to be set to file transfer on the phone itself.
+**A drive doesn't show up.** If the system updated its kernel since you last restarted, restart: until then the USB storage driver can't load, and System → Drives says so. Otherwise update first, since the mounting tools were missing from earlier installs, then look in System → Drives. Phones need to be set to file transfer on the phone itself.
 
 **Wi-Fi asks for its password at every boot, or has no internet until you reconnect.** Common after KDE Plasma, which keeps passwords in KDE Wallet, out of reach here. Run `install.sh --fix-plasma` and pick the networks. If it still happens, run `install.sh --report` and send the result.
 

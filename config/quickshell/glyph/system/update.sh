@@ -18,5 +18,8 @@ else
     helper=$(command -v yay || command -v paru)
     if [ -n "$helper" ]; then "$helper" -Syu; else sudo pacman -Syu; fi
 fi
+if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
+    printf '\nThe kernel was updated. Restart soon: until you do, newly plugged USB drives and some other devices will not work.\n'
+fi
 printf '\ndone · press enter '
 read -r _

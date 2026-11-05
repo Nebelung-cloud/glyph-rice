@@ -652,6 +652,7 @@ report() { # safe to paste: nothing here names a network, a device or a password
     printf 'hyprland: %s\n' "$(hyprctl version -j 2>/dev/null | jq -r .tag 2>/dev/null)"
     lspci 2>/dev/null | grep -E 'VGA|3D' | sed -E 's/^[^:]*: *[^:]*: *//' | cut -c1-70
     printf 'login: %s%s · screens: %s · input methods: %s\n' "$(current_dm)" "$(grep -qs '/dial/' /etc/greetd/config.toml && echo ' (dial)')" "$(hyprctl monitors -j 2>/dev/null | jq length 2>/dev/null)" "${QT_IM_MODULE:-none}/${XMODIFIERS:-none}"
+    printf 'kernel modules for the running kernel: %s\n' "$([ -d "/usr/lib/modules/$(uname -r)" ] && echo present || echo 'missing, restart needed')"
     printf '\n== network services\n'
     for s in NetworkManager systemd-networkd dhcpcd iwd wpa_supplicant netctl connman systemd-resolved; do
         printf '%-20s %s %s\n' "$s" "$(systemctl is-enabled "$s" 2>/dev/null || true)" "$(systemctl is-active "$s" 2>/dev/null || true)"

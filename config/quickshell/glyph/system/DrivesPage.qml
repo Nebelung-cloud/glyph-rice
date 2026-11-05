@@ -46,8 +46,19 @@ Page {
             }
         }
     }
-    onLiveChanged: if (live) scan.running = true
+    onLiveChanged: if (live) {
+        scan.running = true;
+        kernelCheck.running = true;
+    }
     Timer { running: root.live; interval: 3000; repeat: true; onTriggered: scan.running = true }
+
+    // a kernel update removes the running kernel's modules until you restart, so a USB drive shows up to nothing: no driver can load for it
+    property bool needsReboot: false
+    Process {
+        id: kernelCheck
+        command: ["sh", "-c", '[ -d "/usr/lib/modules/$(uname -r)" ]']
+        onExited: code => root.needsReboot = code !== 0
+    }
 
     Process {
         id: act
@@ -73,6 +84,15 @@ Page {
         Column {
             width: 520
             spacing: 4
+            Lb {
+                visible: root.needsReboot
+                x: 8
+                width: parent.width - 8
+                bottomPadding: 12
+                wrapMode: Text.Wrap
+                color: Theme.red
+                text: "restart needed · the kernel was updated, so newly plugged USB drives won't appear until you restart"
+            }
             Lb { x: 8; bottomPadding: 6; text: root.drives.length ? "plugged in and spare disks" : "nothing to show · plug in a drive" }
             Repeater {
                 model: root.drives

@@ -8,6 +8,7 @@ The newest changes come first. To get them, press **update the rice** in System 
 
 - Fixed: plugged-in drives did nothing. Hyprland has no automounter and the installer never added the tools, so `--update` adds them: `udisks2`, `gvfs`, `udiskie`, and support for NTFS, exFAT, FAT, phones and cameras.
 - New: external drives mount by themselves and show a notification. Internal disks are left alone. You can turn this off in System → Drives.
+- New: System → Drives and the update terminal say when a kernel update needs a restart. Until then, newly plugged USB drives don't appear at all.
 - New: System → Drives lists plugged-in drives and spare disks, and can mount, open and safely remove them.
 
 ### Clearer messages
