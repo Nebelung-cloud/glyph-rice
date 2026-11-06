@@ -104,10 +104,17 @@ Singleton {
         stdout: StdioCollector {
             onStreamFinished: {
                 const names = JSON.parse(text).map(m => {
-                    const modes = m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s)).filter(Boolean).map(r => [+r[1], +r[2], Math.round(+r[3])]);
+                    const modes = m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s)).filter(Boolean).map(r => [+r[1], +r[2], +r[3]]);
                     const [w, h] = modes.reduce((a, b) => b[0] * b[1] > a[0] * a[1] ? b : a, [m.width, m.height]);
-                    const rates = [...new Set(modes.filter(r => r[0] === w && r[1] === h).map(r => r[2]))].sort((a, b) => a - b);
-                    return { name: m.name, w, h, scale: m.scale, hz: Math.round(m.refreshRate), rates: rates.length ? rates : [Math.round(m.refreshRate)] };
+                    // родные герцы, как их зовут в EDID: 99.93 → 99, 74.97 → 74, 59.94…60.02 → 60 (одна семья).
+                    // 50 и прочие < 60 — видеочастоты (CEA), для рабочего стола не показываем.
+                    // hypr строку вида 1920x1080@99 ставит на ближайший родной режим — сам @100 годами ложился на 99.93
+                    const raw = modes.filter(r => r[0] === w && r[1] === h).map(r => r[2]);
+                    const rates = [...new Set(raw.map(p => Math.round(p)))]
+                        .map(hz => Math.floor(Math.max(...raw.filter(p => Math.round(p) === hz))))
+                        .filter(hz => hz >= 60)
+                        .sort((a, b) => a - b);
+                    return { name: m.name, w, h, scale: m.scale, hz: Math.round(m.refreshRate), rates: rates.length ? rates : [60] };
                 });
                 if (!names.length) return;
                 root.mons = names;
