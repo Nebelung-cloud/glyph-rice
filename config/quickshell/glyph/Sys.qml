@@ -114,6 +114,21 @@ Singleton {
         onExited: if (root.earNext) { command = root.earNext; root.earNext = null; running = true; }
     }
 
+    // ---- Bluetooth сам не переподключает устройства, когда адаптер включили обратно (пилюля, авиарежим, rfkill).
+    // BlueZ сначала рвёт соединения и только потом гасит адаптер (Connected:false за 40–90 мс до Powered:false), так что
+    // снимок в момент выключения пуст. Поэтому список подключённых пишем с задержкой: выключение её отменяет, и в
+    // btResume остаётся то, что было до. Отключил сам или наушники убрали в кейс — через полсекунды список это примет ----
+    readonly property var btOn: Bluetooth.devices.values.filter(d => d.connected).map(d => d.address)
+    property var btResume: []
+    onBtOnChanged: btKeep.restart()
+    Timer { id: btKeep; interval: 500; running: true; onTriggered: if (Bluetooth.defaultAdapter?.enabled && !btResumeT.running) root.btResume = root.btOn }
+    Connections {
+        target: Bluetooth.defaultAdapter
+        function onEnabledChanged() { if (Bluetooth.defaultAdapter.enabled) btResumeT.restart(); else btKeep.stop(); }
+    }
+    // адаптеру нужно время после включения
+    Timer { id: btResumeT; interval: 1500; onTriggered: { for (const d of Bluetooth.devices.values) if (root.btResume.includes(d.address) && !d.connected) d.connect(); } }
+
     // ---- кофеин: не спать. Ингибитору нужно живое окно — невидимое 0×0, как в demonshot ----
     property bool caffeine: false
     IdleInhibitor {
