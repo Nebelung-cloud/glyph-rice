@@ -2,6 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.UPower
 
@@ -43,8 +44,9 @@ Singleton {
         JsonAdapter {
             id: adapter
             // Display
-            property real monScale: 0      // 0 — auto, решает hypr
-            property int refresh: 120
+            property real monScale: 0   // 0 — auto, решает hypr ( demonshot: главный монитор; бывают дробные 1.25/1.5 )
+            property int refresh: 120   // demonshot: герцы главного монитора
+            property var monPrefs: ({}) // glyph: настройки каждого экрана по имени: { <name>: { scale, hz, bri } }
             property int brightness: 62
             property bool night: false
             property int warmth: 4300
@@ -90,40 +92,96 @@ Singleton {
 
     function hypr(lua) { Quickshell.execDetached(["hyprctl", "eval", lua]); }
 
-    // монитор не зашит, как в caelestia: из hyprctl monitors — встроенный (eDP), а нет его — первый; родной режим — самый
-    // большой из его режимов, частоты — те, что у родного. ponytail: настройки на один экран, остальные — по строке в hyprland.lua
-    property var mon: ({ name: "", w: 0, h: 0, scale: 1, rates: [] })
+    // ---- мониторы: не зашит ни один — из hyprctl monitors все, встроенный (eDP) — «главный» для старых настроек.
+    // У каждого свои масштаб и герцы (prefs.monScale/monHz), режим — самый большой из его, частоты — те, что у родного ----
+    property var mons: [] // { name, w, h, scale, hz, rates[] }
     property bool monWanted: false // monitor() позвали раньше, чем пришёл ответ hyprctl
+    readonly property var mon: mons.find(m => m.name.startsWith("eDP")) ?? mons[0] ?? { name: "", w: 0, h: 0, scale: 1, hz: 60, rates: [] }
     Process {
         id: monProc
         running: true
         command: ["hyprctl", "monitors", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const all = JSON.parse(text), m = all.find(x => x.name.startsWith("eDP")) ?? all[0];
-                if (!m) return;
-                const modes = m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s)).filter(Boolean).map(r => [+r[1], +r[2], Math.round(+r[3])]);
-                const [w, h] = modes.reduce((a, b) => b[0] * b[1] > a[0] * a[1] ? b : a, [m.width, m.height]);
-                const rates = [...new Set(modes.filter(r => r[0] === w && r[1] === h).map(r => r[2]))].sort((a, b) => a - b);
-                root.mon = { name: m.name, w, h, scale: m.scale, rates: rates.length ? rates : [Math.round(m.refreshRate)] };
+                const names = JSON.parse(text).map(m => {
+                    const modes = m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s)).filter(Boolean).map(r => [+r[1], +r[2], Math.round(+r[3])]);
+                    const [w, h] = modes.reduce((a, b) => b[0] * b[1] > a[0] * a[1] ? b : a, [m.width, m.height]);
+                    const rates = [...new Set(modes.filter(r => r[0] === w && r[1] === h).map(r => r[2]))].sort((a, b) => a - b);
+                    return { name: m.name, w, h, scale: m.scale, hz: Math.round(m.refreshRate), rates: rates.length ? rates : [Math.round(m.refreshRate)] };
+                });
+                if (!names.length) return;
+                root.mons = names;
                 if (root.monWanted) root.monitor();
             }
         }
     }
-    // auto — масштаб выбирает hypr; какой вышел, узнаём, перечитав мониторы
-    Timer { id: monReread; interval: 500; onTriggered: monProc.running = true }
-    function monitor() {
-        if (!mon.name) { monWanted = true; return; }
+    // auto — масштаб выбирает hypr; какой вышел, узнаём, перечитав мониторы. Меняли герцы/масштаб снаружи (reload,
+    // горячая клавиша) — сравниваем «до/после» и накатываем свои, иначе цикл применений не сойдётся
+    property var monStamp: []
+    property bool monCheck: false
+    Timer { id: monReread; interval: 500; onTriggered: {
+        monStamp = root.mons.map(m => `${m.name}:${m.scale}:${m.hz}`);
+        root.monCheck = true;
+        monProc.running = true;
+    } }
+    onMonsChanged: {
+        if (!monCheck) return; // перечитывали после своего применения — сравниваем, прочие смены (hotplug) не трогаем
+        monCheck = false;
+        const now = root.mons.map(m => `${m.name}:${m.scale}:${m.hz}`);
+        const same = monStamp.length === now.length && monStamp.every((s, i) => s === now[i]);
+        monStamp = now;
+        if (!same) root.monitor();
+    }
+    // настройки экрана того монитора, где открыты настройки (Rules.prefsMon): масштаб, герцы и их яркость.
+    // Яркость — своя у каждого: встроенный — подсветка, внешний — DDC. Нет записи — умолчания
+    function monP(name) {
+        const m = mons.find(m => m.name === name) ?? mon;
+        return {
+            mon: m,
+            scale: store.monPrefs[name]?.scale ?? 0,
+            scaleIdx: store.monPrefs[name]?.scale ? scales.indexOf(String(store.monPrefs[name].scale)) : 0,
+            hz: store.monPrefs[name]?.hz || m.hz,
+            bri: (store.monPrefs[name]?.bri ?? -1) >= 0 ? store.monPrefs[name].bri : store.brightness,
+            rates: m.rates.length ? m.rates : [60]
+        };
+    }
+    // ближайшая родная частота к выбранной, а поставили снаружи — та, что вышла
+    function nearHz(name) {
+        const p = monP(name);
+        return p.rates.reduce((a, b) => Math.abs(b - p.hz) < Math.abs(a - p.hz) ? b : a);
+    }
+    // применить один монитор; без имени — все
+    function monitor(which) {
+        const list = which ? mons.filter(m => m.name === which) : mons;
+        if (!list.length) { monWanted = true; return; }
         monWanted = false;
-        hypr(`hl.monitor({ output = "${mon.name}", mode = "${mon.w}x${mon.h}@${hz}", position = "auto", scale = ${store.monScale || '"auto"'} })`);
+        for (const m of list) {
+            const rate = store.ultra ? m.rates[0] : nearHz(m.name); // ultra роняет герцы на всех экранах
+            hypr(`hl.monitor({ output = "${m.name}", mode = "${m.w}x${m.h}@${rate}", position = "auto", scale = ${store.monPrefs[m.name]?.scale || '"auto"'} })`);
+        }
         monReread.restart();
     }
-    readonly property var rates: mon.rates.length ? mon.rates : [60, 120]
-    readonly property int refreshHz: rates.reduce((a, b) => Math.abs(b - store.refresh) < Math.abs(a - store.refresh) ? b : a)
-    readonly property real scale: store.monScale || mon.scale || 1 // что стоит на деле, и при auto
+    function setScale(i, which) {
+        const m = which ? mons.find(m => m.name === which) : mon;
+        if (!m) return;
+        monPref(m.name, { scale: i ? +scales[i] : 0 });
+        monitor(m.name);
+    }
+    function setHz(name, rate) { monPref(name, { hz: rate }); monitor(name); }
+    // яркость экрана — просто помним; применяет Prefs через Backlight.setPanel (ему виден services, Rules — нет: цикл импорта)
+    function setBri(name, v) { monPref(name, { bri: Math.round(v) }); }
+    // дописать настройки монитора: переприсваивание целиком — иначе JsonAdapter не увидит и не запишет файл
+    function monPref(name, patch) {
+        store.monPrefs = Object.assign({}, store.monPrefs, { [name]: Object.assign({ scale: 0, hz: 0, bri: -1 }, store.monPrefs[name], patch) });
+    }
     readonly property var scales: ["auto", "1", "1.25", "1.5", "2"]
-    readonly property int scaleIdx: store.monScale ? scales.indexOf(String(store.monScale)) : 0
-    function setScale(i) { store.monScale = i ? +scales[i] : 0; monitor(); }
+    // монитор, «на» котором открыты настройки: Super+I бьёт по фокусу Hyprland (как панель Quick — da56f71).
+    // Пусто — главный; DISPLAY правит и показывает именно этот экран
+    property string prefsMon: ""
+    // главный монитор — как раньше (demonshot, бар, режимы питания): встроенный, а нет его — первый
+    readonly property var rates: mon.rates.length ? mon.rates : [60]
+    readonly property int refreshHz: nearHz(mon.name)
+    readonly property real scale: store.monScale || mon.scale || 1 // что стоит на деле, и при auto
     function windows() {
         const s = store;
         hypr(`hl.config({ general = { gaps_in = ${s.gapsIn}, gaps_out = ${s.gapsOut}, border_size = ${s.border} }, `

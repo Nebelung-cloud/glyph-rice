@@ -46,6 +46,7 @@ Singleton {
     readonly property bool panelBriExternal: panelMon !== "" && !panelMon.startsWith("eDP")
     readonly property real panelBri: panelBriExternal ? Backlight.ddc : Backlight.value
     function setPanelBri(v) { panelBriExternal ? Backlight.setDdc(v) : Backlight.set(v); }
+    readonly property bool ddcOk: Backlight.ddcOk // есть ли внешний с DDC (панель прячет слайдер, пока он не ответит)
     Binding { target: Backlight; property: "steps"; value: Theme.state.briSteps }
 
     // ---- раскладка: старт — main-клавиатура из hyprctl, дальше событие activelayout ----

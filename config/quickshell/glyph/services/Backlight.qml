@@ -108,6 +108,13 @@ Singleton {
         ddcSetAt = Date.now();
         ddcPump();
     }
+    // яркость конкретного экрана (настройки DISPLAY живут по монитору): встроенный — подсветка, внешний — DDC
+    function setPanel(name, v) {
+        if (name && !name.startsWith("eDP"))
+            setDdc(v);
+        else
+            set(v);
+    }
     function ddcPump() {
         if (ddcWant < 0 || ddcSet.running)
             return;

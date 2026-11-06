@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -41,6 +42,8 @@ PanelWindow {
     property real t: shown ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
     function open() {
+        Rules.prefsMon = Hyprland.focusedMonitor?.name ?? ""; // экран, на который попал Super+I: DISPLAY — его (как панель Quick)
+        disp.bri0 = Rules.monP(Rules.prefsMon).bri; // с последнего раза этого экрана (DDC сам по себе не читается)
         shown = true;
         stage.forceActiveFocus();
     }
@@ -925,17 +928,25 @@ PanelWindow {
             }
         }
 
-        // ---- DISPLAY: яркость большим кольцом (живая, из sysfs), экран точками — с масштабом точки крупнее и реже ----
+        // ---- DISPLAY: тот экран, где открыли настройки (Rules.prefsMon, ловим в open()). Масштаб, герцы и яркость — свои у
+        // каждого (rules.json → monPrefs): встроенный — подсветка, внешний — DDC. Экран точками — с его масштабом ----
         Page {
+            id: disp
             k: 6
-            caption: `display · ${Rules.mon.name.toLowerCase()} · ${Rules.hz} hz`
+            readonly property string which: Rules.prefsMon || Rules.mon.name
+            readonly property var near: Rules.monP(which)
+            readonly property bool internal: which.startsWith("eDP") // встроенный — подсветка, внешний — DDC
+            readonly property real scale: near.scale || near.mon.scale || 1
+            property real bri0: 0 // свои последнии проценты внешнего: DDC читается лениво, крутим — живём на них (сбрасывает open)
+            readonly property real briLive: internal ? Math.round(Sys.bri * 100) : bri0
+            caption: `display · ${which.toLowerCase()} · ${Rules.nearHz(which)} hz`
 
             Row {
                 spacing: 60
                 Column {
-                    visible: Sys.hasBri
+                    visible: disp.internal ? Sys.hasBri : Sys.ddcOk
                     spacing: 22
-                    Dial { anchors.horizontalCenter: parent.horizontalCenter; size: 340; n: 60; live: true; label: "brightness"; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
+                    Dial { anchors.horizontalCenter: parent.horizontalCenter; size: 340; n: 60; live: true; label: "brightness"; value: disp.briLive; onMoved: v => { disp.bri0 = v; Rules.setBri(disp.which, v); Backlight.setPanel(disp.which, v / 100); } }
                     // шаг клавиш яркости: делений на шкалу (Backlight.steps)
                     Pick { anchors.horizontalCenter: parent.horizontalCenter; label: "step"; opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
                 }
@@ -949,7 +960,7 @@ PanelWindow {
                         color: Theme.bg
                         border { width: 1; color: Theme.s3 }
                         Image {
-                            readonly property real p: 5 * Rules.scale
+                            readonly property real p: 5 * disp.scale
                             anchors { fill: parent; margins: 14 }
                             fillMode: Image.Tile
                             source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${p}" height="${p}"><circle cx="${p / 2}" cy="${p / 2}" r="${p * 0.2}" fill="#${Theme.hex(Theme.mute)}"/></svg>`)
@@ -957,17 +968,17 @@ PanelWindow {
                     }
                     Row {
                         spacing: 14
-                        Num { id: resW; text: Math.round(Rules.mon.w / Rules.scale); font.pixelSize: 72 }
+                        Num { id: resW; text: Math.round(disp.near.mon.w / disp.scale); font.pixelSize: 72 }
                         Num { anchors.baseline: resW.baseline; text: "×"; font.pixelSize: 40; color: Theme.mute }
-                        Num { anchors.baseline: resW.baseline; text: Math.round(Rules.mon.h / Rules.scale); font.pixelSize: 72 }
+                        Num { anchors.baseline: resW.baseline; text: Math.round(disp.near.mon.h / disp.scale); font.pixelSize: 72 }
                     }
                     Lb { text: "logical pixels" }
                 }
             }
             Row {
                 spacing: 24
-                Pick { label: "scale"; opts: Rules.scales; cur: Rules.scaleIdx; onPicked: i => Rules.setScale(i) }
-                Pick { label: "hz"; opts: Rules.rates.map(String); cur: Rules.rates.indexOf(Rules.refreshHz); onPicked: i => { root.r.refresh = Rules.rates[i]; Rules.monitor(); } }
+                Pick { label: "scale"; opts: Rules.scales; cur: disp.near.scaleIdx; onPicked: i => Rules.setScale(i, disp.which) }
+                Pick { label: "hz"; opts: disp.near.rates.map(String); cur: disp.near.rates.indexOf(Rules.nearHz(disp.which)); onPicked: i => Rules.setHz(disp.which, disp.near.rates[i]) }
             }
             Row {
                 spacing: 40

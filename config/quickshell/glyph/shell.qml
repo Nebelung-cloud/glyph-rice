@@ -68,7 +68,7 @@ ShellRoot {
     // ветки), hyprctl reload — и возвращает умолчания variables.lua: рамки demonshot, монитор, ввод, анимации. Накладываем
     // своё заново. hyprctl eval configreloaded не шлёт — петли нет. Ночник и hypridle — свои процессы, reload их не трогает
     function hypr() {
-        Rules.monitor();
+        Rules.monitor(); // без имени — все экраны: reload возвращал умолчания, накатываем свои на каждый
         Rules.input();
         Rules.motion();
         Theme.apply();
