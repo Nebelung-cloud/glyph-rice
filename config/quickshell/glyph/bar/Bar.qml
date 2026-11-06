@@ -46,17 +46,25 @@ PanelWindow {
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
 
-    readonly property int active: Hyprland.focusedWorkspace?.id ?? 0
-    // dots — as many as workspaces (System → workspaces): all, or six and more if a far one is occupied or open; never past the limit
+    // this bar's monitor's workspace, not the global focus: a second monitor shows its own
+    readonly property var mon: Hyprland.monitorFor(screen) ?? Hyprland.monitors.values.find(m => m.name === screen?.name) ?? null
+    readonly property int active: mon?.activeWorkspace?.id ?? Hyprland.focusedWorkspace?.id ?? 0
+    // the group of ten the active one is in (1–10, 11–20…), like the Super+N bind
+    readonly property int base: Math.floor((Math.max(active, 1) - 1) / 10) * 10
+    // dots — as many as workspaces (System → workspaces): all, or six and more if a far one in the group is occupied or open; never past the limit
     readonly property int lim: Theme.state.wsCount
     readonly property int count: Theme.state.wsBar === 1 ? lim
-        : Math.min(lim, Math.max(Math.min(6, lim), active, ...Hyprland.workspaces.values.filter(w => w.toplevels.values.length).map(w => w.id)))
+        : Math.min(lim, Math.max(Math.min(6, lim), active - base, ...Hyprland.workspaces.values.filter(w => w.toplevels.values.length && w.id > base && w.id <= base + 10).map(w => w.id - base)))
     readonly property var top: ToplevelManager.activeToplevel
     readonly property var bat: UPower.displayDevice
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
 
     // hyprland 0.56 with lua: dispatch takes a lua expression
-    function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
+    // this bar's monitor first: otherwise the workspace opens on whichever monitor has focus
+    function go(ws) {
+        if (screen?.name) Hyprland.dispatch(`hl.dsp.focus({ monitor = "${screen.name}" })`);
+        Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`);
+    }
 
     // workspace scroll: hover the dots and turn the wheel to move through them. One wheel notch = one workspace;
     // the delta accumulates and resets after 300 ms without events, so touchpads and hi-res wheels (many small
@@ -70,11 +78,11 @@ PanelWindow {
         wheelAcc += d;
         wheelIdle.restart();
         if (Math.abs(wheelAcc) >= 120) {
-            const d = wheelAcc > 0 ? -1 : 1, slot = active + d; // within the workspace limit, wrapping like the Super+wheel bind
+            const d = wheelAcc > 0 ? -1 : 1, slot = active - base + d; // within the group's limit, wrapping like the Super+wheel bind
             wheelAcc = 0;
             wheelIdle.stop();
-            if (slot >= 1 && slot <= lim) root.go(slot);
-            else if (Theme.state.wsWrap) root.go(d > 0 ? 1 : lim);
+            if (slot >= 1 && slot <= lim) root.go(base + slot);
+            else if (Theme.state.wsWrap) root.go(base + (d > 0 ? 1 : lim));
         }
     }
 
@@ -129,7 +137,7 @@ PanelWindow {
 
                     Rectangle {
                         required property int index
-                        readonly property int n: index + 1
+                        readonly property int n: root.base + index + 1
                         readonly property bool occ: (Hyprland.workspaces.values.find(w => w.id === n)?.toplevels.values.length ?? 0) > 0
                         readonly property bool on: root.active === n
                         property real len: on ? 28 : 8

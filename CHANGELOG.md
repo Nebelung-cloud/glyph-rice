@@ -4,6 +4,10 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 ## November 2026
 
+### Bar
+
+- Fixed: with more than one monitor, each bar's workspace dots now show that monitor's own workspace instead of the focused one, and clicking a dot switches workspaces on that monitor. On workspaces 11 and up, the dots and the wheel follow that group of ten. From #21 by malievo.
+
 ### Keyboard
 
 - New: switching the keyboard layout shows it for a moment in the island at the top: the layout's name and its short code, such as RUSSIAN · RU or ARABIC · AR. It shows there even when volume uses the screen edge, and it turns off with the Glyph lights. Requested in #27.
