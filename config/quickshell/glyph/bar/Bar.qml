@@ -37,8 +37,7 @@ PanelWindow {
     readonly property var bat: UPower.displayDevice
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
 
-    // hyprland 0.56 с lua: dispatch принимает lua-выражение
-    function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
+    function go(ws) { Hyprland.dispatch(`workspace ${ws}`); }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
 

@@ -62,7 +62,7 @@ PanelWindow {
         id: focusT
         property string addr
         interval: 100
-        onTriggered: Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${addr}" })`) // Quickshell даёт адрес без 0x
+        onTriggered: Hyprland.dispatch(`focuswindow address:0x${addr}`) // Quickshell даёт адрес без 0x
     }
 
     // подпоследовательность: начало слова и подряд — выше. hl — индексы совпавших букв
