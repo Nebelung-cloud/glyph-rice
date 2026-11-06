@@ -49,6 +49,7 @@ Scope {
         freeze.exec(["sh", "-c", 'rm -f "$3"/glyph-frozen-*; grim -t ppm -o "$1" "$2" && echo ok', "sh", scr.name, freeze.next, run]);
     }
     function close() { aim.shown = false; }
+    function toggle() { aim.shown ? close() : open(); }
 
     function fire() {
         const r = sel.width > 2 && sel.height > 2 ? sel : Qt.rect(0, 0, stage.width, stage.height);

@@ -55,29 +55,11 @@ PanelWindow {
 
             WheelHandler { onWheel: e => root.go(e.angleDelta.y > 0 ? "-1" : "+1") }
 
-            // знак: кольцо из точек, центр — красный, пока что-то пишет
-            Item {
-                id: mark
-                x: root.vert ? (parent.width - width) / 2 : 18
-                y: root.vert ? 18 : (parent.height - height) / 2
-                width: 34
-                height: 34
-                Ring { anchors.fill: parent; n: 16; dot: 3 }
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 9
-                    height: 9
-                    radius: 4.5
-                    color: !Sys.live ? Theme.fg : Qt.colorEqual(Theme.accent, Theme.fg) ? Theme.red : Theme.accent // monochrome: акцент = fg
-                }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.markClicked() }
-            }
-
             // воркспейсы: текущий вытягивается в белую пилюлю, занятые серые, пустые — линия
             Pile {
                 id: ws
-                x: root.vert ? (parent.width - width) / 2 : mark.x + mark.width + 24
-                y: root.vert ? mark.y + mark.height + 24 : (parent.height - height) / 2
+                x: root.vert ? (parent.width - width) / 2 : 24
+                y: root.vert ? 24 : (parent.height - height) / 2
                 spacing: 8
 
                 Repeater {
@@ -100,15 +82,15 @@ PanelWindow {
                 }
             }
 
-            // заголовок окна: от воркспейсов до часов, сбоку — повёрнутый
+            // заголовок окна: от воркспейсов с отступом до часов
             Item {
                 id: title
-                x: root.vert ? (parent.width - width) / 2 : ws.x + ws.width + 24
-                y: root.vert ? ws.y + ws.height + 24 : (parent.height - height) / 2
-                width: root.vert ? 20 : Math.max(0, clk.x - 24 - x)
-                height: root.vert ? Math.max(0, clk.y - 24 - y) : 20
+                x: root.vert ? (parent.width - width) / 2 : ws.x + ws.width + 16
+                y: root.vert ? ws.y + ws.height + 20 : (parent.height - height) / 2
+                width: root.vert ? 20 : Math.max(0, clk.x - 32 - x)
+                height: root.vert ? Math.min(220, Math.max(0, clk.y - 48 - y)) : 20
                 clip: true
-                visible: Theme.state.barTitle
+                visible: Theme.state.barTitle && (root.vert ? height > 40 : width > 40)
                 Lb {
                     x: (parent.width - width) / 2
                     y: (parent.height - height) / 2
@@ -121,7 +103,8 @@ PanelWindow {
                 }
             }
 
-            // часы: сбоку столбиком 14 над 32 и день, сверху строкой. Клик — календарь и фокус-таймер (cal/Cal)
+            // часы: точно по центру левого бара
+            // Клик — календарь и фокус-таймер (cal/Cal)
             Pile {
                 id: clk
                 anchors.centerIn: parent
@@ -141,6 +124,7 @@ PanelWindow {
             // трей — Theme.state.bar по порядку (настройки, раздел BAR). Раскладка, сеть, bluetooth, звук (колесо — громкость),
             // уведомления, батарея, бегущий кот: клик открывает быстрые настройки. Режим питания и питание — свои клики
             Pile {
+                id: tray
                 x: root.vert ? (parent.width - width) / 2 : parent.width - width - 22
                 y: root.vert ? parent.height - height - 22 : (parent.height - height) / 2
                 spacing: 20

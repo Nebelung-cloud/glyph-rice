@@ -7,6 +7,7 @@ import "cal"
 import "charms"
 import "clip"
 import "deck"
+import "dock"
 import "glyph"
 import "home"
 import "launcher"
@@ -52,6 +53,11 @@ ShellRoot {
                 onTrayClicked: quick.toggle()
                 onPowerClicked: power.visible ? power.close() : power.open()
                 onClockClicked: cal.toggle()
+            }
+            Dock {
+                screen: s.modelData
+                onMarkClicked: launcher.toggle()
+                onDeckClicked: deck.toggle()
             }
         }
     }
@@ -114,11 +120,8 @@ ShellRoot {
     property bool interrupted: false
     Shortcut {
         name: "launcher"
-        description: "лаунчер (тап Super)"
-        onReleased: {
-            if (!shell.interrupted) launcher.toggle();
-            shell.interrupted = false;
-        }
+        description: "лаунчер"
+        onPressed: launcher.toggle()
     }
     Shortcut { name: "launcherArm"; description: "нажатие Super — сброс interrupt"; onPressed: shell.interrupted = false }
     Shortcut { name: "launcherInterrupt"; description: "Super+<key> — не открывать лаунчер"; onPressed: shell.interrupted = true }
@@ -128,7 +131,7 @@ ShellRoot {
     Shortcut { name: "ward"; description: "быстрые настройки"; onPressed: quick.toggle() } // Super+N у demonshot — те же тумблеры
     Shortcut { name: "settings"; description: "настройки"; onPressed: prefs.toggle() }
     Shortcut { name: "power"; description: "меню питания"; onPressed: power.visible ? power.close() : power.open() }
-    Shortcut { name: "shot"; description: "скриншот"; onPressed: shot.open() }
+    Shortcut { name: "shot"; description: "скриншот"; onPressed: shot.toggle() }
     Shortcut { name: "pact"; description: "vpn: clash verge"; onPressed: vpn.toggle() }
     Shortcut { name: "clip"; description: "буфер обмена"; onPressed: clip.toggle() }
     Shortcut { name: "charms"; description: "эмодзи, каомодзи, символы"; onPressed: charms.toggle() }
