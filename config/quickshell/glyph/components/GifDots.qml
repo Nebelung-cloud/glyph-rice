@@ -2,7 +2,8 @@ import QtQuick
 import qs
 import qs.services
 
-// гифка серой матрицей точек через шейдер обоев — плитка-кот дома без волны (миниатюры в настройках)
+// гифка серой матрицей точек через шейдер обоев — плитка-кот дома без волны (миниатюры в настройках).
+// vivid 0: серая, как задумано, и при look 3 (цветные точки)
 Item {
     id: root
 
@@ -26,6 +27,7 @@ Item {
         readonly property real pitch: root.pitch
         readonly property real dots: 1
         readonly property real mono: 1
+        readonly property real vivid: 0
         readonly property real bright: 1
         readonly property real wave: 0
         readonly property real hasA: img.status === Image.Ready ? 1 : 0
