@@ -139,6 +139,22 @@ Singleton {
         onExited: if (root.earNext) { command = root.earNext; root.earNext = null; running = true; }
     }
 
+    // ---- Bluetooth doesn't reconnect devices by itself when the adapter comes back on (pill, airplane mode, rfkill).
+    // BlueZ drops the connections first and only then powers the adapter off (Connected:false 40–90 ms before Powered:false), so
+    // a snapshot taken at switch-off is empty. So the connected list is written with a delay: switching off cancels it, and
+    // btResume keeps what was there before. Disconnected by hand or buds put in the case: the list takes that half a second later.
+    // From Nebelung-cloud/glyph-rice ----
+    readonly property var btOn: Bluetooth.devices.values.filter(d => d.connected).map(d => d.address)
+    property var btResume: []
+    onBtOnChanged: btKeep.restart()
+    Timer { id: btKeep; interval: 500; running: true; onTriggered: if (Bluetooth.defaultAdapter?.enabled && !btResumeT.running) root.btResume = root.btOn }
+    Connections {
+        target: Bluetooth.defaultAdapter
+        function onEnabledChanged() { if (Bluetooth.defaultAdapter.enabled) btResumeT.restart(); else btKeep.stop(); }
+    }
+    // the adapter needs a moment after switching on
+    Timer { id: btResumeT; interval: 1500; onTriggered: { for (const d of Bluetooth.devices.values) if (root.btResume.includes(d.address) && !d.connected) d.connect(); } }
+
     // ---- caffeine: don't sleep. The inhibitor needs a live window — an invisible 0×0, like in demonshot ----
     property bool caffeine: false
     IdleInhibitor {
