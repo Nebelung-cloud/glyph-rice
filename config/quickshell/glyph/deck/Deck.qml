@@ -48,7 +48,7 @@ Scope {
 
             screen: modelData
             visible: Theme.state.deckHover && root.ids.length > 0 || t > 0
-            anchors.bottom: true
+            anchors.top: true
             implicitWidth: Math.ceil(panel.width * Theme.s)
             implicitHeight: Math.ceil((panel.height + 14) * Theme.s)
             exclusionMode: ExclusionMode.Ignore
@@ -56,8 +56,8 @@ Scope {
             // ponytail: Top, не Overlay — под полноэкранным окном край не ловит; Glyph-полоса прогресса рисуется поверх
             WlrLayershell.layer: WlrLayer.Top
             WlrLayershell.namespace: "glyph-deck"
-            // закрыта — мышь ловит только полоса у края (углы экрана свободны), открыта — всё окно вместе со щелью под панелью
-            mask: Region { y: win.open ? 0 : win.height - 2; width: win.width; height: win.open ? win.height : 2 }
+            // закрыта — мышь ловит полоса у верхнего края, открыта — всё окно
+            mask: Region { y: 0; width: win.width; height: win.open ? win.height : 2 }
 
             Timer { id: dwell; interval: 150; onTriggered: root.on = win.modelData }
             Timer { id: leave; interval: 300; onTriggered: if (win.open) root.on = null }
@@ -79,7 +79,7 @@ Scope {
                 Rectangle {
                     id: panel
                     anchors.horizontalCenter: parent.horizontalCenter
-                    y: (1 - win.t) * (height + 14) // выезжает из-под края
+                    y: 14 - (1 - win.t) * (height + 20) // выезжает из-под верхнего края экрана
                     width: row.width + 52
                     height: root.h + 52
                     opacity: win.t // не visible: у скрытого Row ширина 0, а по ней меряется окно

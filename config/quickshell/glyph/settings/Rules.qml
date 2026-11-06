@@ -155,7 +155,7 @@ Singleton {
     // в первые ~0.5 с жизни лока, роняет qs (#5)
     function idle() {
         idleDone = true;
-        const s = store, dpms = a => `hyprctl dispatch 'hl.dsp.dpms({action = "${a}"})'`;
+        const s = store, dpms = a => `hyprctl dispatch dpms ${a}`;
         const at = (min, on, back) => min ? `\nlistener {\n    timeout = ${min * 60}\n    on-timeout = ${on}${back ? `\n    on-resume = ${back}` : ""}\n}\n` : "";
         const conf = "# demonshot: пишет Rules.idle() из rules.json, руками не править\n"
             + "general {\n    lock_cmd = ~/.config/quickshell/rice/rice lock\n    inhibit_sleep = 3\n"
@@ -165,9 +165,9 @@ Singleton {
         Quickshell.execDetached(["sh", "-c", 'f="$1/hypridle.conf"; printf %s "$2" | cmp -s - "$f" && pgrep -x hypridle >/dev/null && exit; '
                                        + 'printf %s "$2" > "$f"; pkill -x hypridle; exec hypridle -c "$f"', "sh", dir, conf]);
     }
-    function brightness() { Quickshell.execDetached(["brightnessctl", "-q", "set", store.brightness + "%"]); }
+    function brightness() { Backlight.set(store.brightness / 100); }
     function night() {
-        Quickshell.execDetached(["sh", "-c", store.night ? `pkill -x hyprsunset; exec hyprsunset -t ${store.warmth}` : "pkill -x hyprsunset"]);
+        Quickshell.execDetached(["sh", "-c", store.night ? `pkill -x 'hyprsunset|wlsunset|gammastep' || true; which hyprsunset >/dev/null && exec hyprsunset -t ${store.warmth} || exec wlsunset -t ${store.warmth}` : "pkill -x 'hyprsunset|wlsunset|gammastep' || true"]);
     }
 
     // палитра: Theme перекрашивается сам (биндинги на pal), здесь — то, что живёт вне шелла

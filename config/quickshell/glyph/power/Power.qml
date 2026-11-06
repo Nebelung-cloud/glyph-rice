@@ -17,7 +17,7 @@ PanelWindow {
         ["SLEEP", () => Quickshell.execDetached(["systemctl", "suspend"])],
         ["SHUT DOWN", () => Quickshell.execDetached(["systemctl", "poweroff"])],
         ["REBOOT", () => Quickshell.execDetached(["systemctl", "reboot"])],
-        ["LOG OUT", () => Hyprland.dispatch("hl.dsp.exit()")]
+        ["LOG OUT", () => Hyprland.dispatch("exit")]
     ]
 
     function open() {

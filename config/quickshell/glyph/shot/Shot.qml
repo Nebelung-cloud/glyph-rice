@@ -49,6 +49,7 @@ Scope {
         freeze.exec(["sh", "-c", 'rm -f "$3"/glyph-frozen-*; grim -t ppm -o "$1" "$2" && echo ok', "sh", scr.name, freeze.next, run]);
     }
     function close() { aim.shown = false; }
+    function toggle() { aim.shown ? close() : open(); }
 
     function fire() {
         const r = sel.width > 2 && sel.height > 2 ? sel : Qt.rect(0, 0, stage.width, stage.height);
@@ -69,12 +70,29 @@ Scope {
             return fx.restart();
         }
         // без таймера режем замёрзший кадр — что видел, то и снял; с таймером снимаем живой экран
-        // vips, в отличие от magick, падает на рамке за краем кадра на пиксель — дробный масштаб, поэтому зажимаем
         const cx = Math.round(r.x * k), cy = Math.round(r.y * k);
         const crop = `${cx} ${cy} ${Math.min(Math.round(r.width * k), frozenImg.sourceSize.width - cx)} ${Math.min(Math.round(r.height * k), frozenImg.sourceSize.height - cy)}`;
-        take.exec(["sh", "-c", `d="$(xdg-user-dir PICTURES)/shots"; mkdir -p "$d"; f="$d/shot-$(date +%F_%H-%M-%S).png"
-            if [ "$1" = 0 ]; then vips crop "$4" "$f[compression=1]" $2 2>/dev/null; else sleep "$1"; grim -g "$3" "$f"; fi \
-                && wl-copy -t image/png < "$f" && printf '%s' "$f"`,
+        take.exec(["sh", "-c", 'd="$(xdg-user-dir PICTURES)/shots"; mkdir -p "$d"; f="$d/shot-$(date +%F_%H-%M-%S).png"
+            if [ "$1" = "0" ]; then
+                if command -v vips >/dev/null 2>&1; then
+                    vips crop "$4" "$f[compression=1]" $2 2>/dev/null
+                elif python3 -c "import PIL" >/dev/null 2>&1; then
+                    python3 -c "from PIL import Image; im=Image.open(\"$4\"); x,y,w,h=map(int, \"$2\".split()); im.crop((x,y,x+w,y+h)).save(\"$f\", compress_level=1)" 2>/dev/null
+                else
+                    grim -g "$3" "$f" 2>/dev/null
+                fi
+            else
+                sleep "$1"
+                grim -g "$3" "$f" 2>/dev/null
+            fi
+            if [ ! -f "$f" ]; then
+                grim -g "$3" "$f" 2>/dev/null || grim "$f" 2>/dev/null
+            fi
+            if [ -f "$f" ]; then
+                wl-copy -t image/png < "$f"
+                notify-send -a "glyph-shot" -i "$f" "Screenshot taken" "Saved to shots/ and copied to clipboard" 2>/dev/null || true
+                printf "%s" "$f"
+            fi',
             "sh", String(delay), crop, `${x},${y} ${w}x${h}`, frozen]);
     }
 
@@ -137,7 +155,7 @@ Scope {
             focus: true
             Keys.onPressed: e => {
                 if (e.key === Qt.Key_Escape) root.close();
-                else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) root.fire();
+                else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Print) root.fire();
                 else if (e.key === Qt.Key_Space) root.mode = 1;
                 else if (e.key === Qt.Key_Tab) root.mode = (root.mode + 1) % 4;
                 else if (e.key === Qt.Key_Backtab) root.mode = (root.mode + 3) % 4;
@@ -302,6 +320,11 @@ Scope {
                     if (root.mode === 1 || root.mode === 2) return root.fire(); // окно или экран — снимаем по клику
                     from = Qt.point(e.x, e.y);
                     root.drag = Qt.rect(e.x, e.y, 0, 0);
+                }
+                onReleased: e => {
+                    if ((root.mode === 0 || root.mode === 3) && root.drag.width > 8 && root.drag.height > 8) {
+                        root.fire();
+                    }
                 }
             }
 

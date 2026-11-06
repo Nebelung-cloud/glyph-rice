@@ -29,7 +29,9 @@ Singleton {
         const raw = Math.round(Math.max(0.01, Math.min(1, v)) * m);
         value = raw / m;
         sync.restart();
-        Quickshell.execDetached(["brightnessctl", "-q", "-d", dev.slice(dev.lastIndexOf("/") + 1), "set", String(raw)]);
+        const devName = dev.slice(dev.lastIndexOf("/") + 1);
+        Quickshell.execDetached(["busctl", "call", "org.freedesktop.login1", "/org/freedesktop/login1/session/auto", "org.freedesktop.login1.Session", "SetBrightness", "ssu", "backlight", devName, String(raw)]);
+        Quickshell.execDetached(["brightnessctl", "-q", "-d", devName, "set", String(raw)]);
     }
     // клавиши: steps делений по корню 4-й степени (20 — как у brightnessctl -e4 5%), внизу шкалы мельче. Шаг от ближайшего
     // деления, а не от value: иначе дробная ошибка копится (вверх до 399998 вместо 400000)
