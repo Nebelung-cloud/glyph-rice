@@ -118,7 +118,7 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 | **Bar** | launcher, workspaces, clock, tray; left, right or top | |
 | **Home** | clock, greeting, widgets, dot grid; each can be hidden | |
 | **Glyph** | screen edges as OSD: volume, brightness, notifications, progress | |
-| **Launcher** | apps, style, windows, calculator | `Super` |
+| **Launcher** | apps, style, tray, calculator | `Super` |
 | **Quick** | quick settings, game mode, media, notifications; also opens from the screen edge | `Super` `A` |
 | **Deck** | dashboard from the bottom edge | `Super` `Space` |
 | **System** | network, bluetooth, sound, display, drives, workspaces, power, battery, input, idle, firewall, default apps, about | `Super` `I` |
