@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
@@ -397,6 +398,7 @@ PanelWindow {
                 color: cell.on ? Theme.ink : Theme.fg
             }
             Image {
+                id: cellImg
                 anchors.centerIn: parent
                 visible: !cell.modelData.glyph && status === Image.Ready
                 width: 44
@@ -404,9 +406,15 @@ PanelWindow {
                 source: cell.near ? cell.modelData.src ?? "" : ""
                 sourceSize: Qt.size(44, 44)
                 asynchronous: true
+                smooth: true
+                mipmap: true
                 retainWhileLoading: true // ячейке сменили приложение — старая иконка, пока грузится новая
-                layer.enabled: cell.near // слой рисует свой Image и скрытым
-                layer.effect: Dm { step: 2.5 }
+                layer.enabled: cell.near // чистое монохромное (чёрно-белое) изображение Nothing OS
+                layer.effect: MultiEffect {
+                    saturation: -1.0
+                    contrast: 0.35
+                    brightness: cell.on ? -0.7 : 0.2
+                }
             }
             TapHandler { onTapped: { root.sel = cell.modelData.k; root.launch(); } }
             HoverHandler { cursorShape: Qt.PointingHandCursor }

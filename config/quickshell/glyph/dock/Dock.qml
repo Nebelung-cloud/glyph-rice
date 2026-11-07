@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
@@ -414,7 +415,7 @@ PanelWindow {
                                 Behavior on color { ColorAnimation { duration: Theme.t } }
                             }
 
-                            // 2. Иконка приложения (чистая иконка из системы)
+                            // 2. Иконка приложения (монохромная чёрно-белая Nothing OS)
                             Image {
                                 id: img
                                 anchors.centerIn: parent
@@ -427,6 +428,12 @@ PanelWindow {
                                 smooth: true
                                 mipmap: true
                                 retainWhileLoading: true
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    saturation: -1.0
+                                    contrast: 0.35
+                                    brightness: 0.2
+                                }
                             }
 
                             // 3. Фоллбэк, если иконка не загрузилась
