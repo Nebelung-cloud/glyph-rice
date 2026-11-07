@@ -99,11 +99,12 @@ Row {
             }
         }
 
-        // devices: a vertical Pick — the white pill slides to the default
+        // devices: a vertical Pick — the white pill slides to the default. Eight rows fit; more (virtual sinks, OBS,
+        // loopbacks) scroll, or the list runs over the hints and off the canvas
         Rectangle {
             id: box
             width: side.width
-            height: Math.max(1, side.list.length) * 56 + 12
+            height: Math.min(8, Math.max(1, side.list.length)) * 56 + 12
             radius: Theme.corner(34)
             color: Theme.s1
             border { width: 1; color: box.activeFocus ? Theme.fg : Theme.s2 }
@@ -116,59 +117,69 @@ Row {
             }
 
             Lb { visible: !side.list.length; anchors.centerIn: parent; text: "no devices"; px: 10 }
-            Rectangle {
-                visible: side.cur >= 0
-                x: 6
-                y: 6 + Math.max(side.cur, 0) * 56 // from -1 it shows up in place, not flying in from above
-                width: box.width - 12
-                height: 56
-                radius: Theme.corner(28)
-                color: Theme.fg
-                Behavior on y { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-            }
-            Repeater {
-                model: side.list
-                Item {
-                    id: dv
-                    required property var modelData
-                    required property int index
-                    readonly property bool on: index === side.cur
+            Flickable {
+                id: rows
+                anchors { fill: parent; topMargin: 6; bottomMargin: 6 }
+                clip: true
+                contentHeight: side.list.length * 56
+                boundsBehavior: Flickable.StopAtBounds
+                // ←→ or a new default off screen — scroll just enough to show it
+                readonly property int cur: side.cur
+                onCurChanged: if (cur >= 0) contentY = Math.max(Math.min(contentY, cur * 56), (cur + 1) * 56 - height)
+                Rectangle {
+                    visible: side.cur >= 0
                     x: 6
-                    y: 6 + index * 56
+                    y: Math.max(side.cur, 0) * 56 // from -1 it shows up in place, not flying in from above
                     width: box.width - 12
                     height: 56
+                    radius: Theme.corner(28)
+                    color: Theme.fg
+                    Behavior on y { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                }
+                Repeater {
+                    model: side.list
+                    Item {
+                        id: dv
+                        required property var modelData
+                        required property int index
+                        readonly property bool on: index === side.cur
+                        x: 6
+                        y: index * 56
+                        width: box.width - 12
+                        height: 56
 
-                    Rectangle {
-                        x: 24
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 8
-                        height: 8
-                        radius: 4
-                        color: dv.on ? Theme.ink : Theme.s3
-                    }
-                    Text {
-                        anchors { left: parent.left; leftMargin: 50; right: card.left; rightMargin: 16; verticalCenter: parent.verticalCenter }
-                        elide: Text.ElideMiddle // long ALSA names differ at the end: "… (HDMI 2)"
-                        text: dv.modelData.port
-                        textFormat: Text.PlainText
-                        font { family: Theme.ui; pixelSize: 19 }
-                        color: dv.on ? Theme.ink : Theme.grey
-                        Behavior on color { ColorAnimation { duration: Theme.t } }
-                    }
-                    Lb {
-                        id: card
-                        anchors { right: parent.right; rightMargin: 24; verticalCenter: parent.verticalCenter }
-                        text: dv.modelData.card
-                        px: 10
-                        color: dv.on ? Theme.ink : Theme.mute
-                    }
-                    TapHandler {
-                        onTapped: {
-                            box.forceActiveFocus();
-                            side.pick(dv.index);
+                        Rectangle {
+                            x: 24
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 8
+                            height: 8
+                            radius: 4
+                            color: dv.on ? Theme.ink : Theme.s3
                         }
+                        Text {
+                            anchors { left: parent.left; leftMargin: 50; right: card.left; rightMargin: 16; verticalCenter: parent.verticalCenter }
+                            elide: Text.ElideMiddle // long ALSA names differ at the end: "… (HDMI 2)"
+                            text: dv.modelData.port
+                            textFormat: Text.PlainText
+                            font { family: Theme.ui; pixelSize: 19 }
+                            color: dv.on ? Theme.ink : Theme.grey
+                            Behavior on color { ColorAnimation { duration: Theme.t } }
+                        }
+                        Lb {
+                            id: card
+                            anchors { right: parent.right; rightMargin: 24; verticalCenter: parent.verticalCenter }
+                            text: dv.modelData.card
+                            px: 10
+                            color: dv.on ? Theme.ink : Theme.mute
+                        }
+                        TapHandler {
+                            onTapped: {
+                                box.forceActiveFocus();
+                                side.pick(dv.index);
+                            }
+                        }
+                        HoverHandler { cursorShape: Qt.PointingHandCursor }
                     }
-                    HoverHandler { cursorShape: Qt.PointingHandCursor }
                 }
             }
         }
