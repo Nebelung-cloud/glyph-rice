@@ -24,7 +24,8 @@ Rectangle {
 
     property var ask: null // сеть, которой нужен пароль
     property string err
-    onKindChanged: { if (open) shown = kind; ask = null; err = ""; }
+    // kind, не open: привязка open к этому сигналу может быть ещё не пересчитана, и первое открытие показывало bluetooth
+    onKindChanged: { if (kind === "wifi" || kind === "bt") shown = kind; ask = null; err = ""; }
     // пароль ушёл — фокус обратно на панель, чтобы Esc закрывал её
     onAskChanged: if (!ask && pw.activeFocus) root.forceActiveFocus()
 
