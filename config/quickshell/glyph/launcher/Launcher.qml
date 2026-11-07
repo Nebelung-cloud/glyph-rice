@@ -124,7 +124,7 @@ PanelWindow {
     function launch() {
         if (!shown) return; // fading takes Theme.t and still catches clicks: the second click of a double — a second window
         if (mode === 3) {
-            if (calcOut) Quickshell.execDetached(["wl-copy", calcOut]);
+            if (calcOut) Quickshell.execDetached(["wl-copy", "--", calcOut]);
             return close();
         }
         const it = cur;
