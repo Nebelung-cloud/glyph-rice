@@ -106,7 +106,11 @@ services() {
     sudo systemctl enable NetworkManager bluetooth power-profiles-daemon
     systemctl is-enabled -q display-manager.service 2>/dev/null || sudo systemctl enable sddm
     systemctl --user enable pipewire-pulse.socket wireplumber ydotool
-    sudo usermod -aG input,video "$USER" # ydotool (uinput), brightnessctl
+    sudo usermod -aG video "$USER" # brightnessctl
+    # ydotool пишет в /dev/uinput: доступ — тому, кто сидит за машиной (uaccess, как steam-devices). Не группа input: та
+    # читает /dev/input/event* — любой процесс пользователя видел бы все нажатия, пароли тоже. Применится после перезагрузки
+    echo 'KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"' \
+        | sudo tee /etc/udev/rules.d/70-glyph-uinput.rules >/dev/null
     xdg-user-dirs-update
 }
 
@@ -136,12 +140,16 @@ links() {
     gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
 }
 
-greeter() { # тема входа. Копия, а не ссылка: пользователь sddm не прочтёт закрытый $HOME. fonts в теме — ссылка на config/fonts, -L копирует сами файлы
+greeter() { # тема входа. Копия, а не ссылка: пользователь sddm не прочтёт закрытый $HOME
     say "sddm: glyph theme"
     [ -d /usr/share/sddm/themes ] || { say "sddm isn't installed, skipping the theme"; return 0; }
     # rm: файлы, удалённые из репо, не остаются висеть в теме; chmod: при umask 077 копия вышла бы 600 и sddm её не прочтёт
     sudo rm -rf /usr/share/sddm/themes/glyph
-    sudo cp -rLT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
+    # без -L: root не идёт по ссылкам из темы — ссылка на /etc/shadow стала бы копией, читаемой всем после chmod.
+    # Единственная своя ссылка, fonts → config/fonts, заменяется самими шрифтами
+    sudo cp -rT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
+    sudo rm /usr/share/sddm/themes/glyph/fonts
+    sudo cp -rT "$DOTS/config/fonts" /usr/share/sddm/themes/glyph/fonts
     sudo chmod -R a+rX /usr/share/sddm/themes/glyph
     # InputMethod пустой: умолчание sddm — qtvirtualkeyboard, и с этой темой вылезает экранная клавиатура на весь экран
     sudo mkdir -p /etc/sddm.conf.d
