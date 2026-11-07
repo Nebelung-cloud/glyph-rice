@@ -23,6 +23,13 @@ Rectangle {
     readonly property bool portal: Networking.connectivity === NetworkConnectivity.Portal
 
     property var ask: null // сеть, которой нужен пароль
+    // доверие — когда знакомство состоялось, не до: доверенному BlueZ пускает входящие подключения без спроса, и отменённое
+    // знакомство с чужим «наушником» оставляло бы его доверенным. Доверенный сам переподключается (наушники из кейса)
+    property var pend: null
+    Connections {
+        target: root.pend
+        function onPairedChanged() { if (root.pend.paired) { root.pend.trusted = true; root.pend = null; } }
+    }
     property string err
     // kind, не open: привязка open к этому сигналу может быть ещё не пересчитана, и первое открытие показывало bluetooth
     onKindChanged: { if (kind === "wifi" || kind === "bt") shown = kind; ask = null; err = ""; }
@@ -54,7 +61,7 @@ Rectangle {
         err = "";
         if (!isWifi) {
             if (o.pairing) return o.cancelPair();
-            if (!o.paired) { o.trusted = true; return o.pair(); }
+            if (!o.paired) { pend = o; return o.pair(); }
             return o.connected ? o.disconnect() : o.connect();
         }
         if (o.connected) return portal ? Qt.openUrlExternally("http://neverssl.com") : o.disconnect();
