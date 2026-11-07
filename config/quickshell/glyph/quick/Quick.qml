@@ -329,8 +329,10 @@ PanelWindow {
                     ListView {
                         id: notes
                         width: parent.width
-                        height: Math.min(contentHeight, stage.height - 28 - 44 - y)
-                        Behavior on height { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                        height: Math.min(shown, stage.height - 28 - 44 - y)
+                        // the content height animates (clear all, dismiss); the ceiling moves at once, so the picker or player above don't push the header off screen
+                        property real shown: contentHeight
+                        Behavior on shown { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         clip: true
                         spacing: 10
                         model: Notes.list.slice().reverse()
@@ -553,10 +555,11 @@ PanelWindow {
             onPositionChanged: e => set(e.x)
             onReleased: root.pin()
             onWheel: e => {
-                // the wheel holds no implicit grab — pin is safe here
+                // the wheel holds no implicit grab — pin is safe here. Direction follows the fingers, as Qt's Slider does: natural
+                // scroll (inverted) is undone, right and away mean more (from Nebelung-cloud/glyph-rice)
                 root.pin();
-                const a = e.angleDelta.y || e.angleDelta.x;
-                wacc += a ? a / 120 * 0.05 : (e.pixelDelta.y || e.pixelDelta.x) * 0.001;
+                const dir = e.inverted ? -1 : 1, a = dir * (e.angleDelta.y || -e.angleDelta.x);
+                wacc += a ? a / 120 * 0.05 : dir * (e.pixelDelta.y || -e.pixelDelta.x) * 0.001;
                 widle.restart();
                 if (Math.abs(wacc) >= 0.02) {
                     sl.moved(Math.max(0, Math.min(1, (area.pressed ? area.v : sl.value) + wacc)));

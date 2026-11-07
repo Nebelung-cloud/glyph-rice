@@ -10,7 +10,9 @@ MouseArea {
     acceptedButtons: Qt.NoButton
     scrollGestureEnabled: false
     onWheel: e => {
-        acc += e.angleDelta.y || e.angleDelta.x;
+        const dy = (e.inverted ? -1 : 1) * (e.angleDelta.y || e.angleDelta.x); // natural scroll — колесо от себя всё равно +1
+        if (acc * dy < 0) acc = 0; // развернули на полпути засечки — остаток не в счёт
+        acc += dy;
         while (Math.abs(acc) >= 120) {
             notch(Math.sign(acc));
             acc -= Math.sign(acc) * 120;
