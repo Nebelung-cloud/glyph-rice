@@ -26,6 +26,7 @@ Item {
         readonly property real pitch: root.pitch
         readonly property real dots: 1
         readonly property real mono: 1
+        readonly property real overlay: 0 // базовый проход, не слой-волна (см. Wall)
         readonly property real bright: 1
         readonly property real wave: 0
         readonly property real hasA: img.status === Image.Ready ? 1 : 0
