@@ -14,18 +14,24 @@ PanelWindow {
 
     required property var screen
 
-    anchors { top: true; right: true }
-    margins { top: 14; right: 14 }
-    implicitWidth: pill.width
-    implicitHeight: pill.height + 36
+    anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "glyph-winctl"
     WlrLayershell.layer: WlrLayer.Top
     exclusionMode: ExclusionMode.Ignore
 
-    // Активно, только когда на текущем рабочем столе есть окна
-    readonly property bool hasWins: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
+    // Активное окно на текущем рабочем столе
+    readonly property var activeWin: Hyprland.toplevels.values.find(t => t.lastIpcObject?.focusHistoryID === 0)
+    readonly property bool hasWins: !!activeWin && (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
     visible: hasWins
+
+    readonly property real winX: activeWin?.lastIpcObject?.at?.[0] ?? (root.width - pill.width - 14)
+    readonly property real winY: activeWin?.lastIpcObject?.at?.[1] ?? 14
+    readonly property real winW: activeWin?.lastIpcObject?.size?.[0] ?? pill.width
+    readonly property real winH: activeWin?.lastIpcObject?.size?.[1] ?? 0
+
+    // Пропускаем клики мимо капсулы насквозь в окна
+    mask: Region { item: pill }
 
     property string hoverTip: ""
 
@@ -54,11 +60,28 @@ PanelWindow {
 
     Rectangle {
         id: pill
+        x: Math.max(14, Math.min(root.width - width - 14, winX + winW - width - 12))
+        y: Math.max(14, winY + 10)
         width: row.width + 16
         height: 38
         radius: Theme.corner(19)
         color: Theme.s1
         border { width: 1.5; color: Theme.s2 }
+
+        Behavior on x {
+            NumberAnimation {
+                duration: Theme.t
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.glide
+            }
+        }
+        Behavior on y {
+            NumberAnimation {
+                duration: Theme.t
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Theme.glide
+            }
+        }
 
         Row {
             id: row
