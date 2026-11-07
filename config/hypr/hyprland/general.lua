@@ -11,6 +11,10 @@ hl.config({
         gaps_out        = vars.windowGapsOut,
         border_size     = vars.windowBorderSize,
 
+        resize_on_border        = true,
+        extend_border_grab_area = 15,
+        hover_icon_on_border    = true,
+
         col             = {
             active_border   = vars.activeWindowBorderColour,
             inactive_border = vars.inactiveWindowBorderColour,
