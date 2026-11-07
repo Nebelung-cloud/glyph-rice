@@ -149,13 +149,18 @@ PanelWindow {
             const existing = res.find(r => r.id === clsLower || (initCls && r.id === initCls));
             const isThisActive = (t.lastIpcObject?.focusHistoryID === 0) || (activeApp && (clsLower.includes(activeApp) || activeApp.includes(clsLower)));
 
+            // Проверяем, минимизировано ли окно (в special:minimized)
+            const wsName = t.workspace?.name || t.lastIpcObject?.workspace?.name || "";
+            const isWinMin = wsName.startsWith("special:minimized") || (t.workspace?.id < 0) || (t.lastIpcObject?.workspace?.id < 0);
+
             if (existing) {
                 existing.count++;
                 existing.windows.push(t);
-                if (isThisActive) {
+                if (isThisActive && !isWinMin) {
                     existing.active = true;
                     existing.title = t.title || existing.name;
                 }
+                if (!isWinMin) existing.minimized = false;
             } else {
                 let friendlyName = "";
                 const entry = DesktopEntries.heuristicLookup(cls) || (initCls ? DesktopEntries.heuristicLookup(initCls) : null);
@@ -179,7 +184,8 @@ PanelWindow {
                     glyph: g,
                     pinned: false,
                     running: true,
-                    active: isThisActive,
+                    active: isThisActive && !isWinMin,
+                    minimized: isWinMin,
                     count: 1,
                     title: t.title || friendlyName,
                     windows: [t]
@@ -190,15 +196,34 @@ PanelWindow {
         return res;
     }
 
-    // Активация окна или запуск
+    // Активация окна, сворачивание или запуск
     function activateItem(it) {
         if (it.running && it.windows.length > 0) {
-            if (it.active && it.windows.length > 1) {
-                const curIdx = it.windows.findIndex(w => w.lastIpcObject?.focusHistoryID === 0);
-                const nextIdx = (curIdx + 1) % it.windows.length;
-                Hyprland.dispatch(`focuswindow address:0x${it.windows[nextIdx].address}`);
+            const curWs = Hyprland.focusedWorkspace?.id ?? 1;
+            const primaryWin = it.windows[0];
+
+            if (it.active) {
+                // Если активно — сворачиваем (минимизируем)!
+                if (it.windows.length > 1) {
+                    const curIdx = it.windows.findIndex(w => w.lastIpcObject?.focusHistoryID === 0);
+                    if (curIdx === it.windows.length - 1 || curIdx < 0) {
+                        Hyprland.dispatch(`movetoworkspacesilent special:minimized,address:0x${primaryWin.address}`);
+                    } else {
+                        const nextIdx = (curIdx + 1) % it.windows.length;
+                        Hyprland.dispatch(`focuswindow address:0x${it.windows[nextIdx].address}`);
+                    }
+                } else {
+                    Hyprland.dispatch(`movetoworkspacesilent special:minimized,address:0x${primaryWin.address}`);
+                }
             } else {
-                Hyprland.dispatch(`focuswindow address:0x${it.windows[0].address}`);
+                // Не активно или свёрнуто: восстанавливаем на текущий рабочий стол и фокусируем
+                for (const w of it.windows) {
+                    const wsName = w.workspace?.name || w.lastIpcObject?.workspace?.name || "";
+                    if (wsName.startsWith("special:minimized") || (w.workspace?.id < 0) || (w.lastIpcObject?.workspace?.id < 0)) {
+                        Hyprland.dispatch(`movetoworkspacesilent ${curWs},address:0x${w.address}`);
+                    }
+                }
+                Hyprland.dispatch(`focuswindow address:0x${primaryWin.address}`);
             }
         } else if (it.exec) {
             Quickshell.execDetached(["sh", "-c", it.exec]);
@@ -263,16 +288,16 @@ PanelWindow {
                     anchors.horizontalCenter: parent.horizontalCenter
                     font { family: Theme.dot; pixelSize: 15 }
                     color: Theme.fg
-                    text: root.hoverItem ? root.hoverItem.name : ""
+                    text: root.hoverItem ? (root.hoverItem.name + (root.hoverItem.minimized ? " (Minimized)" : "")) : ""
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible: !!root.hoverItem && root.hoverItem.running && !!root.hoverItem.title && root.hoverItem.title !== root.hoverItem.name
-                    width: Math.min(360, implicitWidth)
+                    visible: !!root.hoverItem && root.hoverItem.running
+                    width: Math.min(380, implicitWidth)
                     elide: Text.ElideRight
                     font { family: Theme.mono; pixelSize: 11 }
                     color: Theme.grey
-                    text: root.hoverItem ? root.hoverItem.title : ""
+                    text: root.hoverItem ? (root.hoverItem.minimized ? "Click to restore · Right-click to float" : (root.hoverItem.title ? (root.hoverItem.title + " · Click to minimize") : "Click to minimize · Right-click to float")) : ""
                 }
             }
         }
@@ -365,8 +390,10 @@ PanelWindow {
                             width: 48
                             height: 48
                             radius: 24
-                            scale: cellArea.containsMouse ? 1.08 : 1.0
+                            scale: cellArea.containsMouse ? 1.08 : (cell.modelData.minimized ? 0.95 : 1.0)
                             Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                            opacity: cell.modelData.minimized ? 0.55 : 1.0
+                            Behavior on opacity { NumberAnimation { duration: 160 } }
                             color: cell.modelData.active && !!cell.modelData.glyph
                                 ? Theme.fg
                                 : (cellArea.containsMouse ? Theme.s3 : Theme.s2)
@@ -412,20 +439,20 @@ PanelWindow {
                             }
                         }
 
-                        // Индикатор работы (Красная пилюля Nothing Red для активного окна, белая точка для открытого)
+                        // Индикатор работы (Красная пилюля Nothing Red для активного окна, белая точка для открытого, приглушённая для свёрнутого)
                         Item {
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: 1
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: cell.modelData.active ? 16 : 5
+                            width: cell.modelData.active ? 16 : (cell.modelData.minimized ? 4 : 5)
                             height: 4
                             visible: cell.modelData.running
 
                             Rectangle {
                                 anchors.fill: parent
                                 radius: 2
-                                color: cell.modelData.active ? Theme.red : Theme.fg
-                                opacity: cell.modelData.active ? 1.0 : 0.75
+                                color: cell.modelData.active ? Theme.red : (cell.modelData.minimized ? Theme.grey : Theme.fg)
+                                opacity: cell.modelData.active ? 1.0 : (cell.modelData.minimized ? 0.45 : 0.8)
                                 Behavior on width {
                                     NumberAnimation {
                                         duration: Theme.t
@@ -441,10 +468,27 @@ PanelWindow {
                             id: cellArea
                             anchors.fill: parent
                             hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                             cursorShape: Qt.PointingHandCursor
                             onEntered: root.hoverItem = cell.modelData
                             onExited: if (root.hoverItem?.id === cell.modelData.id) root.hoverItem = null
-                            onClicked: root.activateItem(cell.modelData)
+                            onClicked: (mouse) => {
+                                if (mouse.button === Qt.RightButton) {
+                                    // Правый клик: переключить свободное / тайловое окно (Floating / Tiling)
+                                    if (cell.modelData.windows.length > 0) {
+                                        Hyprland.dispatch(`focuswindow address:0x${cell.modelData.windows[0].address}`);
+                                        Hyprland.dispatch("togglefloating");
+                                    }
+                                } else if (mouse.button === Qt.MiddleButton) {
+                                    // Средний клик: закрыть окно приложения
+                                    if (cell.modelData.windows.length > 0) {
+                                        Hyprland.dispatch(`closewindow address:0x${cell.modelData.windows[0].address}`);
+                                    }
+                                } else {
+                                    // Левый клик: свернуть активное или восстановить свёрнутое
+                                    root.activateItem(cell.modelData);
+                                }
+                            }
                         }
                     }
                 }

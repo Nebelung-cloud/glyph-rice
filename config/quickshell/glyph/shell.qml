@@ -59,6 +59,7 @@ ShellRoot {
                 onMarkClicked: launcher.toggle()
                 onDeckClicked: deck.toggle()
             }
+            WinCtl { screen: s.modelData }
         }
     }
 

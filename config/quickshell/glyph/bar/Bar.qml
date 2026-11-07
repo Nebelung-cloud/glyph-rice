@@ -81,13 +81,13 @@ PanelWindow {
                 }
             }
 
-            // заголовок окна: от воркспейсов с отступом до часов
+            // заголовок окна: от воркспейсов с отступом до кнопок управления окном
             Item {
                 id: title
                 x: root.vert ? (parent.width - width) / 2 : ws.x + ws.width + 16
                 y: root.vert ? ws.y + ws.height + 20 : (parent.height - height) / 2
-                width: root.vert ? 20 : Math.max(0, clk.x - 32 - x)
-                height: root.vert ? Math.min(220, Math.max(0, clk.y - 48 - y)) : 20
+                width: root.vert ? 20 : Math.max(0, (winControls.visible ? winControls.x : clk.x) - 16 - x)
+                height: root.vert ? Math.min(180, Math.max(0, (winControls.visible ? winControls.y : clk.y) - 16 - y)) : 20
                 clip: true
                 visible: Theme.state.barTitle && (root.vert ? height > 40 : width > 40)
                 Lb {
@@ -99,6 +99,97 @@ PanelWindow {
                     visible: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
                     text: root.top ? `${root.top.appId.split(".").pop()} · ${root.top.title}` : ""
                     px: 11
+                }
+            }
+
+            // Кнопки управления активным окном (Закрыть, Свободное / тайловое окно, Свернуть)
+            Rectangle {
+                id: winControls
+                x: root.vert ? (parent.width - width) / 2 : (clk.x - width - 18)
+                y: root.vert ? (clk.y - height - 18) : (parent.height - height) / 2
+                visible: (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
+                width: root.vert ? 36 : 98
+                height: root.vert ? 98 : 36
+                radius: Theme.corner(18)
+                color: Theme.s2
+                border { width: 1; color: Theme.s3 }
+
+                Pile {
+                    anchors.centerIn: parent
+                    spacing: 3
+
+                    // 1. Закрыть (Close: killactive)
+                    Rectangle {
+                        width: 26
+                        height: 26
+                        radius: 13
+                        color: barCloseArea.containsMouse ? Theme.red : "transparent"
+                        scale: barCloseArea.containsMouse ? 1.08 : 1.0
+                        Behavior on color { ColorAnimation { duration: Theme.t } }
+                        Behavior on scale { NumberAnimation { duration: 140 } }
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            font { family: Theme.mono; pixelSize: 11; bold: true }
+                            color: barCloseArea.containsMouse ? "#ffffff" : Theme.fg
+                        }
+                        MouseArea {
+                            id: barCloseArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Hyprland.dispatch("killactive")
+                        }
+                    }
+
+                    // 2. Свободное / тайловое окно (Float / Tile toggle)
+                    Rectangle {
+                        width: 26
+                        height: 26
+                        radius: 13
+                        color: barFloatArea.containsMouse ? Theme.s3 : "transparent"
+                        scale: barFloatArea.containsMouse ? 1.08 : 1.0
+                        Behavior on color { ColorAnimation { duration: Theme.t } }
+                        Behavior on scale { NumberAnimation { duration: 140 } }
+                        Text {
+                            anchors.centerIn: parent
+                            text: "⧉"
+                            font { family: Theme.mono; pixelSize: 12 }
+                            color: barFloatArea.containsMouse ? Theme.fg : Theme.grey
+                        }
+                        MouseArea {
+                            id: barFloatArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Hyprland.dispatch("togglefloating")
+                        }
+                    }
+
+                    // 3. Свернуть (Minimize: movetoworkspacesilent special:minimized)
+                    Rectangle {
+                        width: 26
+                        height: 26
+                        radius: 13
+                        color: barMinArea.containsMouse ? Theme.s3 : "transparent"
+                        scale: barMinArea.containsMouse ? 1.08 : 1.0
+                        Behavior on color { ColorAnimation { duration: Theme.t } }
+                        Behavior on scale { NumberAnimation { duration: 140 } }
+                        Text {
+                            anchors.centerIn: parent
+                            anchors.verticalCenterOffset: -1
+                            text: "−"
+                            font { family: Theme.mono; pixelSize: 14; bold: true }
+                            color: barMinArea.containsMouse ? Theme.fg : Theme.grey
+                        }
+                        MouseArea {
+                            id: barMinArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Hyprland.dispatch("movetoworkspacesilent special:minimized")
+                        }
+                    }
                 }
             }
 
