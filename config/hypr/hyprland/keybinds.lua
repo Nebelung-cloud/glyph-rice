@@ -191,7 +191,9 @@ hl.bind("SUPER + V", hl.dsp.global("shell:clip"))
 hl.bind("SUPER + Period", hl.dsp.global("shell:charms"))
 hl.bind(
     "CTRL + SHIFT + ALT + V",
-    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"')
+    -- текст через stdin, не аргументом: из аргумента «--file=~/.ssh/…» ydotool взял бы опцией и набрал бы файл, а \n — Enter.
+    -- printf — встроенная, текст не попадает в argv; $() срезает хвостовой перевод строки, как раньше
+    hl.dsp.exec_cmd('sleep 0.5s && printf %s "$(cliphist list | head -1 | cliphist decode)" | ydotool type -d 1 -f -')
     -- без locked: на блокировке он набрал бы последнее скопированное в поле пароля любому, кто сел за ноутбук
 )
 
