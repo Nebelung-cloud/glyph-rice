@@ -307,8 +307,10 @@ PanelWindow {
                     ListView {
                         id: notes
                         width: parent.width
-                        height: Math.min(contentHeight, stage.height - 28 - 44 - y)
-                        Behavior on height { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                        height: Math.min(shown, stage.height - 28 - 44 - y)
+                        // плавно — по контенту (clear all, dismiss); потолок сразу: Picker или плеер выше не выталкивают шапку за экран
+                        property real shown: contentHeight
+                        Behavior on shown { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         clip: true
                         spacing: 10
                         model: Notes.list.slice().reverse()
@@ -523,9 +525,10 @@ PanelWindow {
             onReleased: root.pin()
             // колесо: засечка — 5 %, тачпад (у него фаза жеста, у колеса нет) вчетверо медленнее, иначе свайп — полшкалы.
             // Копим до 2 %: мелкие шаги тачпада съедает округление подсветки, и каждый пускал бы brightnessctl.
-            // Без pin: прокрутка — не клик, панель с края закрывается сама и клавиатуру не берёт
+            // Без pin: прокрутка — не клик, панель с края закрывается сама и клавиатуру не берёт. Направление — пальцев,
+            // как у Slider в Qt: natural scroll (inverted) не разворачивает, вправо и от себя — больше
             onWheel: e => {
-                wacc += (e.angleDelta.y || e.angleDelta.x) / 120 * 0.05 * (e.phase === Qt.NoScrollPhase ? 1 : 0.25);
+                wacc += (e.inverted ? -1 : 1) * (e.angleDelta.y || -e.angleDelta.x) / 120 * 0.05 * (e.phase === Qt.NoScrollPhase ? 1 : 0.25);
                 if (Math.abs(wacc) < 0.02)
                     return;
                 sl.moved(Math.max(0, Math.min(1, sl.shown + wacc)));
