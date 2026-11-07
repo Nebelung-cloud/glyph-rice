@@ -24,7 +24,8 @@ Rectangle {
 
     property var ask: null // the network that needs a password
     property string err
-    onKindChanged: { if (open) shown = kind; ask = null; err = ""; }
+    // kind, not open: the open binding may not be recomputed yet at this signal, and the first open showed bluetooth
+    onKindChanged: { if (kind === "wifi" || kind === "bt") shown = kind; ask = null; err = ""; }
     // the password is gone — focus back to the panel, so Esc closes it
     onAskChanged: if (!ask && pw.activeFocus) root.forceActiveFocus()
 
