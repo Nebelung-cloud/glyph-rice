@@ -101,7 +101,8 @@ PanelWindow {
 
     // копии под экран. Свежие проверяет один bash без единого процесса на файл; нет или старше оригинала — magick, по три
     // сразу (png 8k съедает сотни МБ). Готовая — строкой в stdout. Пишем во временный и переносим: оборванный magick
-    // не оставит битую копию новее оригинала
+    // не оставит битую копию новее оригинала. Формат — по расширению: «png», внутри которого PostScript или svg, не уйдёт в
+    // ghostscript, а упадёт
     Process {
         id: scan
         command: ["bash", "-c", `shopt -s nullglob nocaseglob; mkdir -p "$2"; todo=()
@@ -109,7 +110,7 @@ for f in "$1"/*.{jpg,jpeg,png,webp}; do
     if [ "$2/\${f##*/}.jpg" -nt "$f" ]; then printf '%s\\n' "$f"; else todo+=("$f"); fi
 done
 [ \${#todo[@]} -eq 0 ] || printf '%s\\0' "\${todo[@]}" | xargs -0 -P 3 -I{} sh -c 'b=$(basename "$1")
-magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.jpg" "$2/$b.jpg" && printf "%s\\n" "$1"' _ {} "$2" "$3"`,
+magick "\${1##*.}:$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.jpg" "$2/$b.jpg" && printf "%s\\n" "$1"' _ {} "$2" "$3"`,
             "bash", root.dir, Theme.wallCache, root.res]
         stdout: SplitParser {
             onRead: f => {
