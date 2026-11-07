@@ -113,7 +113,8 @@ PanelWindow {
 
     // screen-sized copies. One bash checks the fresh ones without a single process per file; missing or older than the original — magick, three
     // at a time (an 8k png eats hundreds of MB). A finished one — as a line on stdout. We write to a temp file and move it: an interrupted magick
-    // won't leave a broken copy newer than the original
+    // won't leave a broken copy newer than the original. The format goes by the extension: a «png» with PostScript or svg inside won't reach
+    // ghostscript, it fails instead (from Nebelung-cloud/glyph-rice)
     Process {
         id: scan
         command: ["bash", "-c", `shopt -s nullglob nocaseglob; mkdir -p "$2"; todo=()
@@ -121,7 +122,7 @@ for f in "$1"/*.{jpg,jpeg,png,webp}; do
     if [ "$2/\${f##*/}.jpg" -nt "$f" ]; then printf '%s\\n' "$f"; else todo+=("$f"); fi
 done
 [ \${#todo[@]} -eq 0 ] || printf '%s\\0' "\${todo[@]}" | xargs -0 -P 3 -I{} sh -c 'b=$(basename "$1")
-magick "$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.jpg" "$2/$b.jpg" && printf "%s\\n" "$1"' _ {} "$2" "$3"`,
+magick "\${1##*.}:$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv "$2/.$b.jpg" "$2/$b.jpg" && printf "%s\\n" "$1"' _ {} "$2" "$3"`,
             "bash", root.dir, Theme.wallCache, root.res]
         stdout: SplitParser {
             onRead: f => {
