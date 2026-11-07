@@ -99,20 +99,25 @@ PanelWindow {
     property date since: new Date()
     onConnectedChanged: if (connected) since = new Date()
 
-    // a public network with a sign-in page: the tunnel won't let it through (dns-hijack, MATCH,PROXY) — turn it off and open the portal;
-    // the network let us in (Full) — turn it back on. NM checks connectivity past the tunnel (bound to wlan0), so it sees the Portal honestly.
-    // A tunnel that came up already behind a portal (verge starts after the shell) is taken down the same way; one turned on by hand after that is left alone.
+    // a public network with a sign-in page: the tunnel won't let it through (dns-hijack, MATCH,PROXY). NM sees the Portal past the tunnel
+    // (bound to wlan0), but its check is plain http, and a fake access point can claim «portal» whenever it likes. So the tunnel (and the kill
+    // switch) is never dropped by itself: a notification asks, a click turns it off and opens the portal; the network let us in (Full) — back on.
+    // A tunnel that came up already behind a portal (verge starts after the shell) is asked about the same way; one turned on by hand after that is left alone.
+    // No tunnel, nothing to protect: the sign-in page opens at once. All of this once per network: None and Full reset seen.
     // The tunnel was dropped for a portal: bring it back when the network lets us through. The flag lives in glyph.json: verge remembers being turned off,
-    // so after a reboot in the middle of a portal the tunnel would stay off for good. Bring it back once verge's menu is up (live and flip() are real)
+    // so after a reboot in the middle of a portal the tunnel would stay off for good. Bring it back once verge's menu is up (live and flip() are real).
+    // From Nebelung-cloud/glyph-rice
     readonly property bool portal: Theme.state.vpnPortal
     readonly property bool ready: child(tray, "System Proxy") !== null
     onReadyChanged: wall()
+    property bool seen: false
     function wall() {
-        if (Networking.connectivity === NetworkConnectivity.Portal && live && connected && !portal) {
-            Theme.state.vpnPortal = true;
-            flip();
-            Quickshell.execDetached(["notify-send", "-a", "vpn", "Portal", "tunnel off until you sign in"]);
-        } else if (Networking.connectivity === NetworkConnectivity.Full && portal) {
+        const c = Networking.connectivity;
+        if (c === NetworkConnectivity.None || c === NetworkConnectivity.Full) seen = false;
+        if (c === NetworkConnectivity.Portal && live && connected && !portal && !seen) {
+            seen = true;
+            ask.running = true;
+        } else if (c === NetworkConnectivity.Full && portal) {
             if (!ready) return verge || Quickshell.execDetached(["clash-verge"]); // asleep: wake it, it comes back on ready
             Theme.state.vpnPortal = false;
             if (!connected) flip();
@@ -121,10 +126,26 @@ PanelWindow {
     Connections {
         target: Networking
         function onConnectivityChanged() {
-            const fresh = !root.portal; // the browser opens once per portal, not on every Portal↔Limited hop
             root.wall();
-            if (Networking.connectivity === NetworkConnectivity.Portal && fresh) gate.restart(); // once verge has already dropped the system proxy
+            if (Networking.connectivity === NetworkConnectivity.Portal && !root.seen && !root.connected) {
+                root.seen = true;
+                gate.restart();
+            }
         }
+    }
+    // notify-send waits for a click and prints the action's name; dismissed or expired prints nothing, and the tunnel stays
+    Process {
+        id: ask
+        command: ["notify-send", "-a", "vpn", "-A", "default=sign in", "Portal", "this network wants a sign-in page · click to turn the tunnel off and open it"]
+        stdout: StdioCollector { onStreamFinished: if (text.trim() === "default") root.signIn() }
+    }
+    function signIn() {
+        if (Networking.connectivity !== NetworkConnectivity.Portal) return;
+        if (live && connected && !portal) {
+            Theme.state.vpnPortal = true;
+            flip();
+        }
+        gate.restart(); // once verge has already dropped the system proxy
     }
     Timer { id: gate; interval: 1500; onTriggered: Qt.openUrlExternally("http://neverssl.com") }
     // after signing in NM rechecks connectivity with a growing interval of up to 5 minutes, so we hurry it; turned on by hand, there's nothing to wait for
@@ -153,9 +174,11 @@ PanelWindow {
         return `${n.toFixed(i > 2 ? 2 : 0)} ${u[i]}`;
     }
 
-    // ---- verge: the core. The verge service socket or its own, the secret — from the verge config; $0 — the API path ----
+    // ---- verge: the core. The verge service socket or its own, the secret from the verge config; $0 is the API path.
+    // The secret goes as a header from stdin (-K -), not in argv, where ps shows it to everyone on the machine and /traffic runs all the time. A heredoc, not
+    // a pipe: exec stays last, curl is the process itself, and stopping the Process ends it instead of leaving an orphan ----
     readonly property string core: `d='${home}'; s=/run/clash-verge-service/users/$(id -u)/verge-mihomo.sock; [ -S "$s" ] || s="$d/verge-mihomo.sock"; `
-        + `exec curl -sfN --unix-socket "$s" -H "Authorization: Bearer $(sed -n 's/^secret: *//p' "$d/config.yaml")" "http://core$0"`
+        + `exec curl -sfN -K - --unix-socket "$s" "http://core$0" <<EOF\nheader = "Authorization: Bearer $(sed -n 's/^secret: *//p' "$d/config.yaml")"\nEOF\n`
 
     // speed once a second, the last 10 minutes — always accumulated, so the graph doesn't start from zero
     property var toll: []
