@@ -139,6 +139,7 @@ ShellRoot {
     Shortcut { name: "charms"; description: "эмодзи, каомодзи, символы"; onPressed: charms.toggle() }
     Shortcut { name: "wall"; description: "обои"; onPressed: walls.toggle() }
     Shortcut { name: "game"; description: "игровой режим"; onPressed: Rules.store.game = !Rules.store.game }
+    Shortcut { name: "winctl"; description: "показать/скрыть кнопки окна"; onPressed: Theme.state.winCtl = !Theme.state.winCtl }
 
     component Shortcut: GlobalShortcut { appid: "shell" }
 }
