@@ -212,6 +212,7 @@ Singleton {
             property int recFps: 60
             property int recQuality: 2     // medium, high, very_high, ultra
             property bool recCursor: true
+            property bool vpnPortal: false // туннель снят из-за портала, вернуть в открытой сети (vpn/Vpn)
         }
     }
 

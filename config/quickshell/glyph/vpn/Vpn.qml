@@ -98,27 +98,33 @@ PanelWindow {
     // публичная сеть со страницей входа: туннель её не пропустит (dns-hijack, MATCH,PROXY) — выключаем и открываем портал;
     // сеть пустила (Full) — включаем обратно. NM проверяет связь мимо туннеля (привязан к wlan0), так что Portal он видит честно.
     // Туннель, поднятый уже за порталом (verge стартует позже шелла), снимаем так же; включённый руками после этого — не трогаем
-    property bool portal: false // туннель снят из-за портала — вернуть, когда сеть пустит
+    // Туннель снят из-за портала — вернуть, когда сеть пустит. Флаг в glyph.json: verge помнит, что его выключили, и после
+    // перезагрузки посреди портала туннель так и остался бы выключенным. Вернуть — когда меню verge пришло (live и flip() настоящие)
+    readonly property bool portal: Theme.state.vpnPortal
+    readonly property bool ready: child(tray, "System Proxy") !== null
+    onReadyChanged: wall()
     function wall() {
-        if (Networking.connectivity === NetworkConnectivity.Portal && live && !portal) {
-            portal = true;
+        if (Networking.connectivity === NetworkConnectivity.Portal && live && connected && !portal) {
+            Theme.state.vpnPortal = true;
             flip();
-            Quickshell.execDetached(["notify-send", "-a", "vpn", "Portal", "туннель снят до входа в сеть"]);
+            Quickshell.execDetached(["notify-send", "-a", "vpn", "Portal", "tunnel off until you sign in"]);
         } else if (Networking.connectivity === NetworkConnectivity.Full && portal) {
-            portal = false;
+            if (!ready) return verge || Quickshell.execDetached(["clash-verge"]); // спит — разбудить, вернём по ready
+            Theme.state.vpnPortal = false;
             if (!connected) flip();
         }
     }
     Connections {
         target: Networking
         function onConnectivityChanged() {
+            const fresh = !root.portal; // браузер — раз на портал, а не на каждый скачок Portal↔Limited
             root.wall();
-            if (Networking.connectivity === NetworkConnectivity.Portal) gate.restart(); // браузер — когда verge уже снял system proxy
+            if (Networking.connectivity === NetworkConnectivity.Portal && fresh) gate.restart(); // когда verge уже снял system proxy
         }
     }
     Timer { id: gate; interval: 1500; onTriggered: Qt.openUrlExternally("http://neverssl.com") }
-    // после входа NM перепроверяет связь с растущим шагом до 5 минут — торопим сами
-    Timer { running: root.portal; interval: 5000; repeat: true; onTriggered: Networking.checkConnectivity() }
+    // после входа NM перепроверяет связь с растущим шагом до 5 минут — торопим сами; включили руками — ждать нечего
+    Timer { running: root.portal && !root.connected; interval: 5000; repeat: true; onTriggered: Networking.checkConnectivity() }
 
     // ---- verge: профиль (имя, откуда, когда обновлён, сколько потрачено) ----
     readonly property string home: (Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/io.github.clash-verge-rev.clash-verge-rev"
@@ -165,9 +171,10 @@ PanelWindow {
                 } catch (e) {}
             }
         }
-        onExited: retry.start() // verge спит — постучимся позже
+        onExited: if (root.verge) retry.start() // ядро ещё не встало — постучимся позже; verge нет — ждём его в трее
     }
     Timer { id: retry; interval: 5000; onTriggered: traffic.running = true }
+    onVergeChanged: if (verge && !traffic.running) retry.restart()
 
     property int links: 0
     Process {
