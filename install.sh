@@ -386,7 +386,8 @@ services() {
     for s in pipewire-pulse.socket wireplumber ydotool; do
         run systemctl --user enable "$s" || say "Could not enable $s for your user, see above. The rest continues."
     done
-    run sudo usermod -aG input,video "$USER" # ydotool (uinput), brightnessctl
+    run sudo usermod -aG video "$USER" # brightnessctl
+    uinput_rule
     run xdg-user-dirs-update || true
     pacman_hook
     case " ${EXTRAS[*]:-} " in *" firewall "*)
@@ -476,7 +477,11 @@ sddm_theme() { # login theme. A copy, not a link: the sddm user can't read a pri
     [ -d /usr/share/sddm/themes ] || [ "$DRY" = 1 ] || { say "SDDM isn't installed: nowhere to put the theme"; return 0; }
     # rm: files removed from the repo don't linger in the theme; chmod: under umask 077 the copy would come out 600 and sddm couldn't read it
     run sudo rm -rf /usr/share/sddm/themes/glyph
-    run sudo cp -rLT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
+    # not -L: root doesn't follow links in the theme, where one to /etc/shadow would become a copy anyone can read after chmod.
+    # The theme's one link of its own, fonts → config/fonts, is replaced by the fonts themselves. From Nebelung-cloud/glyph-rice
+    run sudo cp -rT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
+    run sudo rm /usr/share/sddm/themes/glyph/fonts
+    run sudo cp -rT "$DOTS/config/fonts" /usr/share/sddm/themes/glyph/fonts
     run sudo chmod -R a+rX /usr/share/sddm/themes/glyph
     # InputMethod empty: sddm's default is qtvirtualkeyboard, and with this theme a full-screen on-screen keyboard pops up
     run sudo mkdir -p /etc/sddm.conf.d
@@ -554,6 +559,15 @@ EOF
     return 0
 }
 
+uinput_rule() { # ydotool writes to /dev/uinput. Access goes to whoever sits at the machine (uaccess, like steam-devices), not the input
+    # group: that one reads /dev/input/event*, so any of your programs could see every key pressed, passwords too. From Nebelung-cloud/glyph-rice
+    echo 'KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"' | run sudo tee /etc/udev/rules.d/70-glyph-uinput.rules >/dev/null
+    if id -nG "$USER" | grep -qw input; then
+        say "Your account is in the input group, which lets any program read every key you press. Glyph no longer needs it."
+        say "If nothing else of yours does, leave it with:  sudo gpasswd -d $USER input   (applies after a restart)"
+    fi
+}
+
 update() { # step 1: the new code. Bash reads a script as it runs, so step 2 starts fresh from the new file
     local old; old=$(git -C "$DOTS" rev-parse HEAD)
     say "Getting the newest version"
@@ -577,8 +591,11 @@ update_rest() { # step 2: whatever the new version needs. Asks for a password on
     if [ "$(current_dm)" = greetd ] && git -C "$DOTS" diff --name-only "$old" HEAD | grep -qE "$watch"; then greeter_changed=1; fi
     local hook_missing=""
     if [ ! -e /etc/pacman.d/hooks/glyph-rice.hook ]; then hook_missing=1; fi
-    if [ -n "$missing$aur_missing$greeter_changed$hook_missing" ]; then sudo_once; fi
+    local uinput_missing=""
+    if [ ! -e /etc/udev/rules.d/70-glyph-uinput.rules ]; then uinput_missing=1; fi
+    if [ -n "$missing$aur_missing$greeter_changed$hook_missing$uinput_missing" ]; then sudo_once; fi
     if [ -n "$hook_missing" ]; then pacman_hook; fi
+    if [ -n "$uinput_missing" ]; then uinput_rule; say "Typing tools (ydotool) need a restart to get their new access."; fi
     # shellcheck disable=SC2086 # one package per word
     if [ -n "$missing" ]; then run sudo pacman -S --needed --noconfirm $missing; fi
     # shellcheck disable=SC2086

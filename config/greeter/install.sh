@@ -10,6 +10,10 @@ here=$(dirname "$(readlink -f "$0")")
 glyph=$(readlink -f "$home/.config/quickshell/glyph")
 dst=/var/lib/greetd # root-owned: shell copy and state. home/ is the greeter user's own (cache, last pick)
 
+# root copies files you own: a link planted among them (to /etc/shadow, say) would become a copy anyone can read
+nolink() { for f; do [ ! -L "$f" ] || { echo "refusing to copy a link as root: $f" >&2; exit 1; }; done; }
+nolink "$here/greeter.qml" "$here/config.toml" "$here/../fonts/"*.[ot]tf
+
 pacman -S --needed --noconfirm greetd cage
 
 # shell: a copy of glyph plus the greeter. LockView is LockSurface without WlSessionLock, user and avatar passed in
@@ -38,12 +42,13 @@ state="$home/.local/state/rice/glyph.json"
 [ -r "$state" ] || state=/dev/null
 jq -n --slurpfile s "$state" '($s[0] // {}) + { unread: 0 }' > "$dst/state/rice/glyph.json"
 wall=$(jq -r '.wall // ""' "$dst/state/rice/glyph.json")
-[ -n "$wall" ] && cp "$home/.cache/glyph/walls/${wall##*/}.jpg" "$dst/home/.cache/glyph/walls/" 2>/dev/null || true
+w="$home/.cache/glyph/walls/${wall##*/}.jpg"
+[ -n "$wall" ] && [ ! -L "$w" ] && cp "$w" "$dst/home/.cache/glyph/walls/" 2>/dev/null || true
 
 # fonts the greeter user can't read from your home
 install -Dm644 -t /usr/share/fonts/glyph "$here/../fonts/"*.[ot]tf
 fc-cache -f /usr/share/fonts/glyph
-[ -f "$home/.face" ] && install -Dm644 "$home/.face" "/var/lib/AccountsService/icons/$me" || true
+[ -f "$home/.face" ] && [ ! -L "$home/.face" ] && install -Dm644 "$home/.face" "/var/lib/AccountsService/icons/$me" || true
 
 chown -R root:root "$dst"
 chmod -R a+rX "$dst"

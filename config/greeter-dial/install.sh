@@ -13,8 +13,11 @@ pacman -S --needed --noconfirm greetd cage quickshell
 
 rm -rf "$dst/dial"
 mkdir -p "$dst/dial" "$dst/state/rice" "$dst/home"
-cp -L "$here/greeter.qml" "$dst/dial/"
-cp -rL "$here/fonts" "$dst/dial/fonts"
+# root copies files you own: a link planted among them (to /etc/shadow, say) would become a copy anyone can read
+nolink() { for f; do [ ! -L "$f" ] || { echo "refusing to copy a link as root: $f" >&2; exit 1; }; done; }
+nolink "$here/greeter.qml" "$here/config.toml"
+cp "$here/greeter.qml" "$dst/dial/"
+cp -rT "$here/../fonts" "$dst/dial/fonts" # not -L: links inside stay links, root never reads through them
 
 # only the two settings it reads, no notification counts or paths from your home
 state="$home/.local/state/rice/glyph.json"
