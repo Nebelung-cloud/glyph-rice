@@ -1,23 +1,24 @@
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.SystemTray
 import Quickshell.Wayland
 import qs
 import qs.components
 
 // лаунчер: тап Super или Super+Space. Панель 860 по центру, экран гаснет до 74%. Поиск-пилюля с красной кареткой,
-// режимы чипами (Tab): apps / style / windows / calc. Без запроса — «recent» и все приложения сеткой по 6, справа алфавит.
+// режимы чипами (Tab): apps / style / tray / calc. Без запроса — «recent» и все приложения сеткой по 6, справа алфавит.
 // style — цвет, как scheme в caelestia: откуда (nothing, обои, палитра), под ним — тона обоев и варианты (tonal spot…) или палитры
 // (catppuccin, rosé pine…), тема (Theme.styles, те же, что STYLE в настройках). Кружки — образцы, точка — что стоит,
 // ↵ ставит и лаунчер не закрывает. При палитрах поиск — и по группе: «catppuccin».
+// tray — фоновые приложения из трея (discord, telegram…): клик — их окно, наведение — их меню карточкой под кругом.
 // Появляется как Charms и Clip: подъём на 24 и fade. Иконки — иконки темы точками в кругах; выбранная — белый круг
 PanelWindow {
     id: root
 
     property int mode: 0
     property int sel: 0
-    readonly property var modes: ["apps", "style", "windows", "calc"]
+    readonly property var modes: ["apps", "style", "tray", "calc"]
     readonly property string query: input.text
     property var uses: ({}) // id приложения → сколько раз открыли
 
@@ -40,21 +41,12 @@ PanelWindow {
         target: DesktopEntries.applications
         function onValuesChanged() { appsT.restart(); }
     }
-    // окна — только пока открыт режим windows: иначе любая смена заголовка пересобирала бы список
-    readonly property var wins: !visible || mode !== 2 ? [] : Hyprland.toplevels.values.map(t => {
-        const cls = t.lastIpcObject?.class ?? "";
-        return { name: t.title, src: icon(DesktopEntries.heuristicLookup(cls)?.icon), extra: cls.toLowerCase(),
-                 run: () => { focusT.addr = t.address; focusT.restart(); } };
-    })
-    // пока лаунчер держит клавиатуру (Exclusive), Hyprland переключит воркспейс, но фокус окну не даст — а отпустив
-    // клавиатуру, вернёт прежнее окно с его воркспейсом. Поэтому фокус — когда отпустили (уходит со следующим кадром).
-    // ponytail: 100 мс — запас на кадр; не хватит — фокусировать по onVisibleChanged, после fade
-    Timer {
-        id: focusT
-        property string addr
-        interval: 100
-        onTriggered: Hyprland.dispatch(`hl.dsp.focus({ window = "address:0x${addr}" })`) // Quickshell даёт адрес без 0x
-    }
+    // трей — только пока открыт режим tray: иначе каждое новое сообщение (счётчик в подсказке telegram) пересобирало бы
+    // список. Имя — подсказка, у discord пустой title. Только меню (onlyMenu) — клик лаунчер не закрывает, меню и так под ним
+    readonly property var tray: !visible || mode !== 2 ? [] : SystemTray.items.values.map(i => ({
+        name: i.tooltipTitle || i.title || i.id, src: i.icon, extra: i.id.toLowerCase(), tray: i,
+        keep: i.onlyMenu, run: () => i.onlyMenu || i.activate()
+    }))
 
     // подпоследовательность: начало слова и подряд — выше. hl — индексы совпавших букв
     function match(s, q) {
@@ -85,7 +77,7 @@ PanelWindow {
         let b;
         if (mode === 1) b = Theme.styles.map(x => ({ head: x.head, items: filter(x.items.map(it => Object.assign({ extra: "", keep: true }, it)), q) })).filter(x => x.items.length);
         else if (mode === 3) b = [];
-        else if (mode === 2) b = [{ head: "windows", sub: String(wins.length), items: filter(wins, q) }];
+        else if (mode === 2) b = [{ head: "tray", sub: String(tray.length), items: filter(tray, q) }];
         else if (q) {
             const r = filter(apps, q);
             b = [{ head: "results", sub: String(r.length), items: r }];
@@ -108,8 +100,8 @@ PanelWindow {
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
     function open() {
-        focusT.stop(); // окно из прошлого открытия не перехватит фокус у лаунчера
         input.text = "";
+        menuOpen = false;
         mode = 0;
         sel = 0;
         flick.contentY = 0;
@@ -155,8 +147,8 @@ PanelWindow {
         if (mode === 3 && query.trim()) calc.exec(["qalc", "-t", query]); // exec гасит прошлый расчёт
         else calcOut = "";
     }
-    onModeChanged: { sel = 0; flick.contentY = 0; if (mode === 3) queryChanged(); }
-    // список сжался без нового запроса (закрылось окно в windows) — курсор за концом, cur пустой
+    onModeChanged: { sel = 0; flick.contentY = 0; menuOpen = false; if (mode === 3) queryChanged(); }
+    // список сжался без нового запроса (приложение ушло из трея) — курсор за концом, cur пустой
     onFlatChanged: sel = Math.max(0, Math.min(sel, flat.length - 1))
 
     onVisibleChanged: if (visible) input.forceActiveFocus()
@@ -217,7 +209,7 @@ PanelWindow {
                     Text {
                         visible: !input.text
                         x: 6
-                        text: ["Search apps", "Color from nothing, the wallpaper or a palette", "Find a window", "2 + 2, 20 usd to eur…"][root.mode]
+                        text: ["Search apps", "Color from nothing, the wallpaper or a palette", "Apps running in the background", "2 + 2, 20 usd to eur…"][root.mode]
                         font: input.font
                         color: Theme.mute
                     }
@@ -332,6 +324,94 @@ PanelWindow {
                 }
             }
         }
+
+        // меню приложения из трея: под его кругом, по ширине — в пределах панели; вниз вылезает за панель, как поповер
+        Rectangle {
+            id: menu
+            property real mt: root.menuOpen && root.mode === 2 ? 1 : 0
+            Behavior on mt { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+            visible: mt > 0 && rows.count > 0
+            x: Math.max(panel.x + 20, Math.min(panel.x + panel.width - width - 20, (root.peek?.x ?? 0) - width / 2))
+            y: (root.peek?.y ?? 0) + 14 + 12 * (1 - mt)
+            width: 320
+            height: list.height + 20
+            Behavior on x { enabled: menu.visible; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+            Behavior on height { enabled: menu.visible; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+            opacity: root.t * mt
+            radius: Theme.corner(28)
+            color: Theme.s2
+            border { width: 1; color: Theme.s3 }
+            clip: true
+            MouseArea { anchors.fill: parent } // мимо пунктов — не в затемнение, оно закрыло бы лаунчер
+            HoverHandler { id: menuHov }
+            QsMenuOpener { id: opener; menu: root.sub.length ? root.sub[root.sub.length - 1] : root.peek?.tray?.menu ?? null }
+
+            Column {
+                id: list
+                x: 10
+                y: 10
+                width: parent.width - 20
+
+                Item {
+                    visible: root.sub.length > 0
+                    width: list.width
+                    height: 40
+                    Rectangle { anchors.fill: parent; radius: Theme.corner(20); color: backHov.hovered ? Theme.s3 : "transparent" }
+                    Icon { x: 12; anchors.verticalCenter: parent.verticalCenter; text: "\u{F0141}"; color: Theme.grey }
+                    Lb { x: 38; anchors.verticalCenter: parent.verticalCenter; text: "back"; px: 11 }
+                    HoverHandler { id: backHov; cursorShape: Qt.PointingHandCursor }
+                    TapHandler { onTapped: root.sub = root.sub.slice(0, -1) }
+                }
+                Repeater {
+                    id: rows
+                    model: opener.children
+                    Item {
+                        id: row
+                        required property QsMenuEntry modelData
+                        readonly property bool sep: modelData.isSeparator
+                        readonly property bool on: modelData.checkState === Qt.Checked
+                        width: list.width
+                        height: sep ? 13 : 40
+                        Rectangle { visible: row.sep; anchors.centerIn: parent; width: parent.width - 28; height: 1; color: Theme.s3 }
+                        Rectangle { visible: !row.sep; anchors.fill: parent; radius: Theme.corner(20); color: rowHov.hovered && row.modelData.enabled ? Theme.s3 : "transparent" }
+                        Text {
+                            visible: !row.sep
+                            anchors { left: parent.left; leftMargin: 16; right: parent.right; rightMargin: 40; verticalCenter: parent.verticalCenter }
+                            textFormat: Text.PlainText
+                            elide: Text.ElideRight
+                            text: row.modelData.text
+                            font { family: Theme.ui; pixelSize: 15 }
+                            color: row.modelData.enabled ? Theme.fg : Theme.mute
+                        }
+                        // справа: подменю — шеврон; галочка или радио — точка, отмечен — белая, нет — кольцо
+                        Icon {
+                            visible: row.modelData.hasChildren
+                            anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                            text: "\u{F0142}"
+                            color: Theme.grey
+                        }
+                        Rectangle {
+                            visible: row.modelData.buttonType !== QsMenuButtonType.None && !row.modelData.hasChildren
+                            anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
+                            width: 12
+                            height: 12
+                            radius: 6
+                            color: row.on ? Theme.fg : "transparent"
+                            border { width: 1.5; color: row.on ? Theme.fg : Theme.mute }
+                        }
+                        HoverHandler { id: rowHov; enabled: !row.sep; cursorShape: row.modelData.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                        TapHandler {
+                            enabled: !row.sep && row.modelData.enabled
+                            onTapped: {
+                                if (row.modelData.hasChildren) return root.sub = root.sub.concat([row.modelData]);
+                                row.modelData.triggered();
+                                root.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // буквы всех приложений, чьи ряды сейчас видны: «A–F»
@@ -351,6 +431,25 @@ PanelWindow {
         flick.contentY = Math.min(Math.max(0, flick.contentHeight - flick.height), allGrid.mapToItem(body, 0, 0).y + Math.floor(i / 6) * (88 + 10 + 20 + 22));
     }
 
+    // ---- меню приложения из трея: навёл на круг — карточка под ним с пунктами его меню, как трей в баре caelestia.
+    // Подменю — на месте списка, сверху «back»; пункт — сделать и закрыть лаунчер. Ушёл и с круга, и с карточки — гаснет.
+    // ponytail: меню только мышью; стрелками в него — если попросят ----
+    property Item hotCell: null // круг под курсором
+    property var peek: null // { tray, x, y }: чьё меню и где низ его ячейки; держится, пока карточка гаснет
+    property var sub: [] // открытые подменю, на экране — последнее
+    property bool menuOpen: false
+    readonly property bool menuHot: !!hotCell || menuHov.hovered
+    onMenuHotChanged: if (!menuHot) menuT.restart()
+    Timer { id: menuT; interval: 300; onTriggered: if (!root.menuHot) root.menuOpen = false }
+    function hover(cell) {
+        const p = cell.mapToItem(stage, cell.width / 2, cell.height);
+        if (!menuOpen || peek?.tray !== cell.modelData.tray) sub = [];
+        peek = { tray: cell.modelData.tray, x: p.x, y: p.y };
+        hotCell = cell;
+        sel = cell.modelData.k;
+        menuOpen = true;
+    }
+
     // приложение: круг 88 с глифом или иконкой точками, подпись — совпавшие буквы белые
     component Cell: Column {
         id: cell
@@ -366,6 +465,10 @@ PanelWindow {
         height: 88 + spacing + label.implicitHeight
         spacing: 10
         onOnChanged: if (on) flick.ensure(mapToItem(body, 0, 0).y - 8, height + 8) // 8 — кольцо образца над кругом
+        HoverHandler {
+            enabled: root.mode === 2
+            onHoveredChanged: if (hovered) root.hover(cell); else if (root.hotCell === cell) root.hotCell = null
+        }
 
         Rectangle {
             id: disc

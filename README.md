@@ -19,7 +19,7 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Bar** | launcher, workspaces, clock, tray | |
 | **Home** | clock, greeting, widgets (cava as a round Glyph Matrix), dot grid | |
 | **Glyph** | screen edges as OSD: volume, brightness, notifications, progress | |
-| **Launcher** | apps, style, windows, calculator | `Super` |
+| **Launcher** | apps, style, tray, calculator | `Super` |
 | **Quick** | quick settings, game mode, media, notifications; also opens from the right edge | `Super` `A` |
 | **Deck** | dashboard from the bottom edge | `Super` `Space` |
 | **Prefs** | settings, bar and home layout, audio devices | `Super` `I` |
