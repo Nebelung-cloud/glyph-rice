@@ -57,12 +57,12 @@ Singleton {
     function own(name) { return st.screens[sid(name)] ?? st.screens[name]; }
     // настройка экрана по имени вывода: своя, иначе общая; bar и home — по умолчанию есть
     function scr(name, key) { return own(name)?.[key] ?? { wall: st.wall, widgets: st.widgets }[key] ?? true; }
-    // undefined — снять своё, экран берёт общее. Запись по имени порта переезжает под модель
+    // undefined — снять своё, экран берёт общее. Запись по имени порта копируется под модель, но остаётся: вернётся двойник —
+    // экран снова ищется по порту
     function setScr(name, key, v) {
         const o = Object.assign({}, own(name)), all = Object.assign({}, st.screens);
         if (v === undefined) delete o[key];
         else o[key] = v;
-        delete all[name];
         all[sid(name)] = o;
         st.screens = all;
     }

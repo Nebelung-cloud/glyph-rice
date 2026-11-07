@@ -1300,7 +1300,7 @@ PanelWindow {
 
     // экран в миниатюре 16:10: обои (сетка точек, если включена) и бар; k — логический px экрана в px макета
     component Mini: Rectangle {
-        readonly property real k: width / ((Rules.mon.w || 2880) / Rules.scale)
+        readonly property real k: width / (Rules.mon.w ? Rules.mon.w / Rules.scale : Quickshell.screens[0]?.width ?? 1920)
         width: 760
         height: 475
         radius: 24

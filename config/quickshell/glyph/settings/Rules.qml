@@ -44,7 +44,7 @@ Singleton {
             id: adapter
             // Display
             property real monScale: 0      // 0 — auto, решает hypr
-            property int refresh: 120
+            property int refresh: 0        // 0 — самые высокие герцы экрана, как mode = "highres" в hyprland.lua
             property string main: ""       // чей monScale и refresh (Rules.mon); пусто — решит первое чтение мониторов
             // остальные экраны, если их крутили в prefs, по Rules.key: { "TS2700-S6-1": { scale: 1, refresh: 144, pos: [-560, -1440] } };
             // pos — от главного, он тогда в 0x0
@@ -98,9 +98,10 @@ Singleton {
     // где он и сколько в нём логических px (повёрнутый — наоборот)
     property var mons: []
     // главный — его ставят monScale и refresh (их читает и demonshot): встроенный, даже выключенный (крышка в доке), а нет его —
-    // первый. Имя помнится в store.main: на десктопе порядок экранов меняется с подключением, масштаб не должен уйти другому
+    // первый. Помнится в store.main моделью (нет её — портом): на десктопе порядок экранов меняется с подключением, а кабель
+    // переезжает в другой порт или док — масштаб не должен уйти другому. Старое store.main — имя порта, его тоже ищем
     property string first: ""
-    readonly property var mon: mons.find(m => m.name === (store.main || first))
+    readonly property var mon: mons.find(m => m.name === (store.main || first)) ?? mons.find(m => m.model && m.model === (store.main || first))
         ?? { name: "", w: 0, h: 0, x: 0, y: 0, lw: 0, lh: 0, transform: 0, scale: 1, hz: 0, rates: [] }
     property bool monWanted: false // monitor() позвали раньше, чем пришёл ответ hyprctl
     property bool driving: false   // мониторы ставит этот процесс (monitor() звал shell.qml); лок только читает
@@ -111,12 +112,13 @@ Singleton {
         stdout: StdioCollector {
             onStreamFinished: {
                 const all = JSON.parse(text);
-                root.first = (all.find(m => /^(eDP|LVDS|DSI)/.test(m.name)) ?? all.find(m => !m.disabled))?.name ?? "";
+                const f = all.find(m => /^(eDP|LVDS|DSI)/.test(m.name)) ?? all.find(m => !m.disabled);
+                root.first = f ? f.model.trim() || f.name : "";
                 root.mons = all.filter(m => !m.disabled && m.mirrorOf === "none").map(m => {
                     const rates = [...new Set(m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s))
                         .filter(r => r && +r[1] === m.width && +r[2] === m.height).map(r => Math.round(+r[3])))].sort((a, b) => a - b);
                     const t = m.transform % 2, lw = Math.round(m.width / m.scale), lh = Math.round(m.height / m.scale);
-                    return { name: m.name, model: m.model.trim(), w: m.width, h: m.height, x: m.x, y: m.y, lw: t ? lh : lw, lh: t ? lw : lh,
+                    return { name: m.name, model: m.model.trim(), desc: m.description, w: m.width, h: m.height, x: m.x, y: m.y, lw: t ? lh : lw, lh: t ? lw : lh,
                              transform: m.transform, scale: m.scale, hz: Math.round(m.refreshRate), rates: rates.length ? rates : [Math.round(m.refreshRate)] };
                 });
                 if (root.monWanted) root.monitor();
@@ -138,12 +140,14 @@ Singleton {
         return { scale: o?.scale ?? m.scale, refresh: o?.refresh ?? m.hz };
     }
     // правило hypr для экрана. Оно заменяет правило из конфига целиком — режим (текущее разрешение) и поворот несём как есть.
-    // Внешние встают по pos от главного, главный тогда в 0x0: на auto hypr поставил бы его правее явных.
+    // Внешние встают по pos от главного, главный тогда в 0x0: на auto hypr поставил бы его правее явных. Выход — как key():
+    // desc: монитора, а не порт — правило живёт в hypr до reload, и проектор в том же порту взял бы место и режим этого
     // ponytail: vrr, 10 бит и hdr из user.lua правило шелла снимает; понадобятся — нести из hyprctl, как transform
     function rule(m) {
         const own = m.name === mon.name, w = want(m), pos = out(m)?.pos;
         const at = own ? (mons.some(x => x.name !== m.name && out(x)?.pos) ? "0x0" : "auto") : pos ? `${pos[0]}x${pos[1]}` : "auto";
-        return `hl.monitor({ output = "${m.name}", mode = "${m.w}x${m.h}@${own ? hz : w.refresh}", position = "${at}", `
+        const output = key(m) !== m.name && m.desc ? `desc:${m.desc}` : m.name;
+        return `hl.monitor({ output = ${JSON.stringify(output)}, mode = "${m.w}x${m.h}@${own ? hz : w.refresh}", position = "${at}", `
              + `scale = ${w.scale || '"auto"'}, transform = ${m.transform} })`;
     }
     // главный и внешние из outs — одним eval, главный первым: остальные встают от него. fresh — сперва перечитать (подключили
@@ -177,8 +181,8 @@ Singleton {
         for (const m of mons) {
             if (m.name === mon.name) continue;
             const p = m.name === name ? { x, y } : m;
+            // запись по порту не стираем: вернётся двойник — экран снова ищется по порту
             o[key(m)] = Object.assign({}, out(m), m.name === name ? extra : null, { pos: [p.x - b.x, p.y - b.y] });
-            if (key(m) !== m.name) delete o[m.name];
         }
         store.outs = o;
         monitor();
@@ -232,7 +236,7 @@ Singleton {
         }
     }
     readonly property var rates: mon.rates.length ? mon.rates : [60, 120]
-    readonly property int refreshHz: rates.reduce((a, b) => Math.abs(b - store.refresh) < Math.abs(a - store.refresh) ? b : a)
+    readonly property int refreshHz: store.refresh ? rates.reduce((a, b) => Math.abs(b - store.refresh) < Math.abs(a - store.refresh) ? b : a) : rates[rates.length - 1]
     readonly property real scale: store.monScale || mon.scale || 1 // что стоит на деле, и при auto
     readonly property var scales: ["auto", "1", "1.25", "1.5", "2"]
     function windows() {
