@@ -11,7 +11,11 @@ Rectangle {
     property string kind // "wifi" | "bt" | "" — закрыт
     signal touched       // любой клик внутри — панель приколота
 
-    readonly property bool isWifi: kind === "wifi"
+    readonly property bool open: kind === "wifi" || kind === "bt"
+    // что показано: закрыли — остаётся, пока список сжимается (Quick), иначе он пустел бы сразу
+    property string shown
+    onVisibleChanged: if (!visible) shown = ""
+    readonly property bool isWifi: shown === "wifi"
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
     readonly property var bt: Bluetooth.defaultAdapter
     readonly property bool on: isWifi ? Networking.wifiEnabled : bt?.enabled ?? false
@@ -20,18 +24,18 @@ Rectangle {
 
     property var ask: null // сеть, которой нужен пароль
     property string err
-    onKindChanged: { ask = null; err = ""; }
+    onKindChanged: { if (open) shown = kind; ask = null; err = ""; }
     // пароль ушёл — фокус обратно на панель, чтобы Esc закрывал её
     onAskChanged: if (!ask && pw.activeFocus) root.forceActiveFocus()
 
-    Binding { when: root.isWifi && root.on; target: root.wifi; property: "scannerEnabled"; value: true }
+    Binding { when: root.kind === "wifi" && root.on; target: root.wifi; property: "scannerEnabled"; value: true }
     Binding { when: root.kind === "bt" && root.on; target: root.bt; property: "discovering"; value: true }
 
     // своя сверху, дальше сохранённые, дальше по силе. Пока вводят пароль — только та сеть: пересортировка не съест набранное
     readonly property var nets: !isWifi || !wifi ? [] : wifi.networks.values.filter(n => n.name)
         .sort((a, b) => b.connected - a.connected || b.known - a.known || b.signalStrength - a.signalStrength).slice(0, 6)
     // безымянные (только адрес) — шум эфира
-    readonly property var devs: kind !== "bt" || !bt ? [] : bt.devices.values.filter(d => d.paired || d.deviceName)
+    readonly property var devs: shown !== "bt" || !bt ? [] : bt.devices.values.filter(d => d.paired || d.deviceName)
         .sort((a, b) => b.connected - a.connected || b.paired - a.paired).slice(0, 6)
     readonly property var rows: !on ? [] : ask ? [ask] : isWifi ? nets : devs
 
@@ -57,7 +61,6 @@ Rectangle {
         ask = o;
     }
 
-    visible: kind === "wifi" || kind === "bt"
     height: list.height + 32
     radius: Theme.corner(30)
     color: Theme.s2

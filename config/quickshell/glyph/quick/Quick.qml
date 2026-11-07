@@ -109,30 +109,40 @@ PanelWindow {
                         }
                     }
 
-                    Row {
+                    Column {
                         width: parent.width
-                        spacing: 12
-                        Pill {
-                            on: Networking.wifiEnabled
-                            icon: on ? "\u{F05A9}" : "\u{F05AA}"
-                            name: "Wi-Fi"
-                            sub: !on ? "off" : (Networking.connectivity === NetworkConnectivity.Portal ? "sign in · " : "") + (root.net?.name ?? "no network")
-                            picked: root.pick === "wifi"
-                            onClicked: Networking.wifiEnabled = !Networking.wifiEnabled
-                            onMenu: root.pick = picked ? "" : "wifi"
+                        Row {
+                            width: parent.width
+                            spacing: 12
+                            Pill {
+                                on: Networking.wifiEnabled
+                                icon: on ? "\u{F05A9}" : "\u{F05AA}"
+                                name: "Wi-Fi"
+                                sub: !on ? "off" : (Networking.connectivity === NetworkConnectivity.Portal ? "sign in · " : "") + (root.net?.name ?? "no network")
+                                picked: root.pick === "wifi"
+                                onClicked: Networking.wifiEnabled = !Networking.wifiEnabled
+                                onMenu: root.pick = picked ? "" : "wifi"
+                            }
+                            Pill {
+                                on: root.bt?.enabled ?? false
+                                icon: on ? "\u{F00AF}" : "\u{F00B2}"
+                                name: "Bluetooth"
+                                sub: !on ? "off" : root.btDev?.name ?? "on"
+                                picked: root.pick === "bt"
+                                onClicked: if (root.bt) root.bt.enabled = !root.bt.enabled
+                                onMenu: root.pick = picked ? "" : "bt"
+                            }
                         }
-                        Pill {
-                            on: root.bt?.enabled ?? false
-                            icon: on ? "\u{F00AF}" : "\u{F00B2}"
-                            name: "Bluetooth"
-                            sub: !on ? "off" : root.btDev?.name ?? "on"
-                            picked: root.pick === "bt"
-                            onClicked: if (root.bt) root.bt.enabled = !root.bt.enabled
-                            onMenu: root.pick = picked ? "" : "bt"
+                        // список выезжает высотой, как уведомления. Отступ над ним — внутри: Column вставил бы свой рывком
+                        Item {
+                            width: parent.width
+                            height: picker.open ? picker.height + 16 : 0
+                            Behavior on height { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                            visible: height > 0
+                            clip: true
+                            Picker { id: picker; y: 16; width: parent.width; kind: root.pick; onTouched: root.pin() }
                         }
                     }
-
-                    Picker { width: parent.width; kind: root.pick; onTouched: root.pin() }
 
                     // наушники Nothing / CMF (Sys.ear): имя и заряд, под ними шумодав — клетки как у режимов питания
                     Column {
