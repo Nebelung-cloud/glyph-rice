@@ -119,7 +119,7 @@ PanelWindow {
     function launch() {
         if (!shown) return; // гаснет Theme.t и ещё ловит клики: второй клик двойного — второе окно
         if (mode === 3) {
-            if (calcOut) Quickshell.execDetached(["wl-copy", calcOut]);
+            if (calcOut) Quickshell.execDetached(["wl-copy", "--", calcOut]);
             return close();
         }
         const it = cur;
