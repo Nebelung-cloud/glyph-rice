@@ -124,26 +124,26 @@ ShellRoot {
     property bool interrupted: false
     Shortcut {
         name: "launcher"
-        description: "лаунчер (тап Super)"
+        description: "launcher (tap Super)"
         onReleased: {
             if (!shell.interrupted) launcher.toggle();
             shell.interrupted = false;
         }
     }
-    Shortcut { name: "launcherArm"; description: "нажатие Super — сброс interrupt"; onPressed: shell.interrupted = false }
-    Shortcut { name: "launcherInterrupt"; description: "Super+<key> — не открывать лаунчер"; onPressed: shell.interrupted = true }
+    Shortcut { name: "launcherArm"; description: "Super pressed — reset interrupt"; onPressed: shell.interrupted = false }
+    Shortcut { name: "launcherInterrupt"; description: "Super+<key> — don't open the launcher"; onPressed: shell.interrupted = true }
     // Super+Space (алтарь у demonshot) — deck, дашборд снизу: лаунчер и так на тапе Super
-    Shortcut { name: "altar"; description: "deck: дашборд снизу"; onPressed: deck.toggle() }
-    Shortcut { name: "quick"; description: "быстрые настройки"; onPressed: quick.toggle() }
-    Shortcut { name: "ward"; description: "быстрые настройки"; onPressed: quick.toggle() } // Super+N у demonshot — те же тумблеры
-    Shortcut { name: "settings"; description: "настройки"; onPressed: prefs.toggle() }
-    Shortcut { name: "power"; description: "меню питания"; onPressed: power.visible ? power.close() : power.open() }
-    Shortcut { name: "shot"; description: "скриншот"; onPressed: shot.open() }
+    Shortcut { name: "altar"; description: "deck: bottom dashboard"; onPressed: deck.toggle() }
+    Shortcut { name: "quick"; description: "quick settings"; onPressed: quick.toggle() }
+    Shortcut { name: "ward"; description: "quick settings"; onPressed: quick.toggle() } // Super+N у demonshot — те же тумблеры
+    Shortcut { name: "settings"; description: "settings"; onPressed: prefs.toggle() }
+    Shortcut { name: "power"; description: "power menu"; onPressed: power.visible ? power.close() : power.open() }
+    Shortcut { name: "shot"; description: "screenshot"; onPressed: shot.open() }
     Shortcut { name: "pact"; description: "vpn: clash verge"; onPressed: vpn.toggle() }
-    Shortcut { name: "clip"; description: "буфер обмена"; onPressed: clip.toggle() }
-    Shortcut { name: "charms"; description: "эмодзи, каомодзи, символы"; onPressed: charms.toggle() }
-    Shortcut { name: "wall"; description: "обои"; onPressed: walls.toggle() }
-    Shortcut { name: "game"; description: "игровой режим"; onPressed: Rules.store.game = !Rules.store.game }
+    Shortcut { name: "clip"; description: "clipboard"; onPressed: clip.toggle() }
+    Shortcut { name: "charms"; description: "emoji, kaomoji, symbols"; onPressed: charms.toggle() }
+    Shortcut { name: "wall"; description: "wallpapers"; onPressed: walls.toggle() }
+    Shortcut { name: "game"; description: "game mode"; onPressed: Rules.store.game = !Rules.store.game }
 
     component Shortcut: GlobalShortcut { appid: "shell" }
 }

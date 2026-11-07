@@ -250,7 +250,7 @@ Singleton {
            + `groupbar = { font_family = "${mono}", text_color = ${c(fg)}, col = { active = ${c(s3)}, inactive = ${c(s1)}, locked_active = ${c(s3)}, locked_inactive = ${c(s1)} } } }, `
            + `misc = { background_color = ${c(bg)} } })`);
 
-        kitty.setText("# glyph: пишет Theme.apply(), руками не править\n" + [
+        kitty.setText("# glyph: written by Theme.apply(), do not edit by hand\n" + [
             ["font_family", "Space Mono"], ["window_padding_width", "26 30"], ["cursor_trail", "0"],
             ["foreground", fg], ["background", s1], ["cursor", fg], ["cursor_text_color", s1],
             ["selection_foreground", fg], ["selection_background", s3], ["url_color", grey],
