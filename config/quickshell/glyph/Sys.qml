@@ -124,7 +124,7 @@ Singleton {
     Timer { id: btKeep; interval: 500; running: true; onTriggered: if (Bluetooth.defaultAdapter?.enabled && !btResumeT.running) root.btResume = root.btOn }
     Connections {
         target: Bluetooth.defaultAdapter
-        function onEnabledChanged() { if (Bluetooth.defaultAdapter.enabled) btResumeT.restart(); else btKeep.stop(); }
+        function onEnabledChanged() { if (Bluetooth.defaultAdapter.enabled) btResumeT.restart(); else { btKeep.stop(); btResumeT.stop(); } }
     }
     // адаптеру нужно время после включения
     Timer { id: btResumeT; interval: 1500; onTriggered: { for (const d of Bluetooth.devices.values) if (root.btResume.includes(d.address) && !d.connected) d.connect(); } }

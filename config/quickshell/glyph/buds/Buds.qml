@@ -12,7 +12,8 @@ PanelWindow {
     id: root
 
     property string name
-    readonly property string art: Quickshell.shellPath("buds/" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".png")
+    readonly property string slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") // кириллица, эмодзи — пусто
+    readonly property string art: slug ? Quickshell.shellPath("buds/" + slug + ".png") : ""
 
     // ход показа: t — карточка, lit — силуэт из точек, pop — устройство встаёт на место, res — точки → фото
     property real t: 0
@@ -142,7 +143,7 @@ PanelWindow {
                     Image {
                         id: photo
                         anchors.fill: parent
-                        source: root.name ? root.art : ""
+                        source: root.art
                         fillMode: Image.PreserveAspectFit
                         mipmap: true
                         opacity: root.res

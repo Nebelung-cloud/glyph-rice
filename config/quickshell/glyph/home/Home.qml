@@ -73,7 +73,7 @@ PanelWindow {
             x: 188
             y: 560
             textFormat: Text.StyledText
-            text: `${root.hello},<br><font color="${Theme.grey}">${Theme.state.name || Quickshell.env("USER")}.</font>`
+            text: `${root.hello},<br><font color="${Theme.grey}">${(Theme.state.name || Quickshell.env("USER")).replace(/&/g, "&amp;").replace(/</g, "&lt;")}.</font>`
             font { family: Theme.ui; pixelSize: 54; weight: Font.Light; letterSpacing: -1 }
             lineHeight: 1.1
             color: Theme.fg
