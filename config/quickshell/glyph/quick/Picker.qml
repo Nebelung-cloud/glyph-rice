@@ -23,6 +23,14 @@ Rectangle {
     readonly property bool portal: Networking.connectivity === NetworkConnectivity.Portal
 
     property var ask: null // the network that needs a password
+    // trust comes once pairing succeeded, not before: BlueZ lets a trusted device connect in without asking, and a cancelled
+    // pairing with a stranger's «headphones» would leave it trusted. A trusted device reconnects by itself (buds out of the case).
+    // From Nebelung-cloud/glyph-rice
+    property var pend: null
+    Connections {
+        target: root.pend
+        function onPairedChanged() { if (root.pend.paired) { root.pend.trusted = true; root.pend = null; } }
+    }
     property string err
     // kind, not open: the open binding may not be recomputed yet at this signal, and the first open showed bluetooth
     onKindChanged: { if (kind === "wifi" || kind === "bt") shown = kind; ask = null; err = ""; }
@@ -54,7 +62,7 @@ Rectangle {
         err = "";
         if (!isWifi) {
             if (o.pairing) return o.cancelPair();
-            if (!o.paired) { o.trusted = true; return o.pair(); }
+            if (!o.paired) { pend = o; return o.pair(); }
             return o.connected ? o.disconnect() : o.connect();
         }
         if (o.connected) return portal ? Qt.openUrlExternally("http://neverssl.com") : o.disconnect();

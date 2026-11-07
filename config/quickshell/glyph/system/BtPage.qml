@@ -8,6 +8,12 @@ import "../prefs"
 // trust, block, connect/disconnect, pair, forget
 Page {
     id: root
+    // trust only once pairing succeeded: a cancelled pairing would leave a stranger's device trusted, free to connect in (as quick/Picker)
+    property var pend: null
+    Connections {
+        target: root.pend
+        function onPairedChanged() { if (root.pend.paired) { root.pend.trusted = true; root.pend = null; } }
+    }
     property bool live
     caption: `bluetooth · ${bt ? bt.name : "no adapter"}`
 
@@ -111,7 +117,7 @@ Page {
                 spacing: 14
                 Act { visible: !!root.dev && root.dev.paired && !root.dev.connected; icon: "\u{F00B1}"; text: "connect"; onHit: root.dev.connect() }
                 Act { visible: !!root.dev?.connected; icon: "\u{F00B3}"; text: "disconnect"; onHit: root.dev.disconnect() }
-                Act { visible: !!root.dev && !root.dev.paired && !root.dev.pairing; icon: "\u{F00B1}"; text: "pair"; onHit: { root.dev.trusted = true; root.dev.pair(); } }
+                Act { visible: !!root.dev && !root.dev.paired && !root.dev.pairing; icon: "\u{F00B1}"; text: "pair"; onHit: { root.pend = root.dev; root.dev.pair(); } }
                 Act { visible: !!root.dev?.pairing; icon: "\u{F0156}"; text: "cancel"; onHit: root.dev.cancelPair() }
                 Act { visible: !!root.dev?.paired; icon: "\u{F0A7A}"; text: "forget"; onHit: { root.dev.forget(); root.cur = ""; } }
             }
