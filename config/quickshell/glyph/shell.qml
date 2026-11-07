@@ -68,6 +68,7 @@ ShellRoot {
     Component.onCompleted: {
         hypr();
         if (Theme.state.paint) Theme.apps(); // rice start ставит ссылки на term/ — цвет надо вернуть
+        Quickshell.execDetached(["gsettings", "set", "org.gnome.desktop.wm.preferences", "button-layout", ""]);
         Rules.night();
         Rules.idle();
     }

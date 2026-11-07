@@ -55,7 +55,9 @@ LINKS=(
     "$G/term/btop                               .config/btop"
     "$G/term/cava                               .config/cava"
     "$G/term/gtk-3.0/gtk.css                    .config/gtk-3.0/gtk.css"
+    "$G/term/gtk-3.0/settings.ini               .config/gtk-3.0/settings.ini"
     "$G/term/gtk-4.0/gtk.css                    .config/gtk-4.0/gtk.css"
+    "$G/term/gtk-4.0/settings.ini               .config/gtk-4.0/settings.ini"
     "config/fish/config.fish                    .config/fish/config.fish"
     "config/fish/functions/fish_greeting.fish   .config/fish/functions/fish_greeting.fish"
     "config/fonts                               .local/share/fonts/glyph"
@@ -134,6 +136,8 @@ links() {
     # тёмный режим для Zen, Electron и libadwaita (через портал) и тёмная gtk3-база под наш gtk.css
     gsettings set org.gnome.desktop.interface color-scheme prefer-dark
     gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
+    # единые элементы управления Nothing OS без дублирующих неработающих кнопок
+    gsettings set org.gnome.desktop.wm.preferences button-layout ''
 }
 
 greeter() { # тема входа. Копия, а не ссылка: пользователь sddm не прочтёт закрытый $HOME. fonts в теме — ссылка на config/fonts, -L копирует сами файлы

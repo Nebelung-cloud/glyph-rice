@@ -22,8 +22,9 @@ PanelWindow {
 
     // Активное окно на текущем рабочем столе
     readonly property var activeWin: Hyprland.toplevels.values.find(t => t.lastIpcObject?.focusHistoryID === 0)
+    readonly property bool isFullscreen: (activeWin?.lastIpcObject?.fullscreen ?? 0) !== 0
     readonly property bool hasWins: !!activeWin && (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
-    visible: hasWins
+    visible: hasWins && !isFullscreen
 
     readonly property real winX: activeWin?.lastIpcObject?.at?.[0] ?? (root.width - pill.width - 14)
     readonly property real winY: activeWin?.lastIpcObject?.at?.[1] ?? 14
