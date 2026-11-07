@@ -64,7 +64,7 @@ Scope {
         aim.shown = false;
         if (shotRec) {
             const g = full ? `-w ${scr.name}` : `-w region -region ${w}x${h}+${x}+${y}`;
-            Quickshell.execDetached(["sh", "-c", `sleep ${delay}; notify-send -a "shot · rec" "Recording." "ctrl+alt+r — stop"; `
+            Quickshell.execDetached(["sh", "-c", `sleep ${delays[delay]}; notify-send -a "shot · rec" "Recording." "ctrl+alt+r — stop"; `
                 + `gpu-screen-recorder ${g} ${Sys.recArgs()} -o "$(xdg-user-dir VIDEOS)/rec-$(date +%F_%H-%M-%S).mp4"`]);
             return fx.restart();
         }
@@ -75,7 +75,7 @@ Scope {
         take.exec(["sh", "-c", `d="$(xdg-user-dir PICTURES)/shots"; mkdir -p "$d"; f="$d/shot-$(date +%F_%H-%M-%S).png"
             if [ "$1" = 0 ]; then vips crop "$4" "$f[compression=1]" $2 2>/dev/null; else sleep "$1"; grim -g "$3" "$f"; fi \
                 && wl-copy -t image/png < "$f" && printf '%s' "$f"`,
-            "sh", String(delay), crop, `${x},${y} ${w}x${h}`, frozen]);
+            "sh", String(delays[delay]), crop, `${x},${y} ${w}x${h}`, frozen]);
     }
 
     Process {
