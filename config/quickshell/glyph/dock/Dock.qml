@@ -27,14 +27,68 @@ PanelWindow {
         }
     }
 
+    // Реактивное обновление при любых событиях окон
+    property int tick: 0
+
+    Connections {
+        target: Hyprland
+        function onRawEvent(e) {
+            if (e.name.startsWith("openwindow") || e.name.startsWith("closewindow") ||
+                e.name.startsWith("activewindow") || e.name.startsWith("movewindow") ||
+                e.name.startsWith("windowtitle") || e.name.startsWith("workspace") ||
+                e.name.startsWith("fullscreen") || e.name.startsWith("destroyworkspace")) {
+                refreshTimer.restart();
+            }
+        }
+    }
+
+    Timer {
+        id: refreshTimer
+        interval: 40
+        onTriggered: {
+            Hyprland.refreshToplevels();
+            root.tick++;
+        }
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: true
+        onTriggered: {
+            Hyprland.refreshToplevels();
+            root.tick++;
+        }
+    }
+
+    Component.onCompleted: {
+        Hyprland.refreshToplevels();
+        root.tick++;
+    }
+
     // Глифы для известных приложений (в точности как в Launcher.qml Nothing OS)
     readonly property var glyphs: [
-        ["zen", "\u{F0239}"], ["firefox", "\u{F0239}"], ["chrom", "\u{F059F}"], ["kitty", "\u{F018D}"], ["foot", "\u{F018D}"],
-        ["spotify", "\u{F04C7}"], ["telegram", "\u{F2C6}"], ["codium", "\u{F0A1E}"], ["code", "\u{F0A1E}"], ["steam", "\u{F04D3}"],
-        ["discord", "\u{F066F}"], ["vesktop", "\u{F066F}"], ["equibop", "\u{F066F}"], ["calculator", "\u{F00EC}"], ["calendar", "\u{F00ED}"],
-        ["camera", "\u{F0100}"], ["thunar", "\u{F024B}"], ["nautilus", "\u{F024B}"], ["files", "\u{F024B}"], ["gimp", "\u{F02E9}"],
-        ["mail", "\u{F01EE}"], ["btop", "\u{F035B}"], ["monitor", "\u{F035B}"], ["obsidian", "\u{F082E}"], ["settings", "\u{F0493}"],
-        ["pavucontrol", "\u{F057E}"], ["mpv", "\u{F040A}"], ["vlc", "\u{F040A}"], ["clash", "\u{F0483}"], ["torrent", "\u{F01DA}"]
+        // Communication & Social (prioritized before generic browsers)
+        ["whatsapp", "\u{F232}"], ["telegram", "\u{F2C6}"], ["discord", "\u{F066F}"], ["vesktop", "\u{F066F}"],
+        ["equibop", "\u{F066F}"], ["slack", "\u{F066F}"], ["signal", "\u{F066F}"], ["element", "\u{F066F}"],
+        // Terminals
+        ["kitty", "\u{F018D}"], ["terminal", "\u{F018D}"], ["ptyxis", "\u{F018D}"], ["foot", "\u{F018D}"], ["alacritty", "\u{F018D}"], ["console", "\u{F018D}"],
+        // Code & IDEs
+        ["antigravity", "\u{F0A1E}"], ["code", "\u{F0A1E}"], ["codium", "\u{F0A1E}"], ["cursor", "\u{F0A1E}"], ["vscode", "\u{F0A1E}"],
+        // Office & Productivity
+        ["calc", "\u{F00EC}"], ["sheet", "\u{F00EC}"], ["excel", "\u{F00EC}"], ["calculator", "\u{F00EC}"], ["qalculate", "\u{F00EC}"],
+        ["writer", "\u{F0219}"], ["word", "\u{F0219}"], ["document", "\u{F0219}"], ["impress", "\u{F0426}"],
+        ["calendar", "\u{F00ED}"], ["mail", "\u{F01EE}"], ["thunderbird", "\u{F01EE}"], ["notes", "\u{F082E}"], ["obsidian", "\u{F082E}"],
+        // Files
+        ["files", "\u{F024B}"], ["nautilus", "\u{F024B}"], ["thunar", "\u{F024B}"], ["dolphin", "\u{F024B}"],
+        // Media & Music
+        ["spotify", "\u{F04C7}"], ["music", "\u{F04C7}"], ["rhythmbox", "\u{F04C7}"], ["vlc", "\u{F040A}"], ["mpv", "\u{F040A}"], ["video", "\u{F040A}"], ["youtube", "\u{F167}"],
+        // Graphics & Tools
+        ["gimp", "\u{F02E9}"], ["inkscape", "\u{F02E9}"], ["camera", "\u{F0100}"], ["steam", "\u{F04D3}"],
+        ["settings", "\u{F0493}"], ["software", "\u{F0493}"], ["pavucontrol", "\u{F057E}"], ["monitor", "\u{F035B}"], ["btop", "\u{F035B}"],
+        ["clash", "\u{F0483}"], ["torrent", "\u{F01DA}"],
+        // Web Browsers (generic fallback after specific web apps/PWAs)
+        ["brave", "\u{F0239}"], ["firefox", "\u{F0239}"], ["zen", "\u{F0239}"], ["chrom", "\u{F059F}"], ["browser", "\u{F0239}"], ["edge", "\u{F0239}"]
     ]
 
     function findGlyph(key) {
@@ -43,123 +97,57 @@ PanelWindow {
         return glyphs.find(g => k.includes(g[0]))?.[1] ?? "";
     }
 
-    // Закреплённые приложения
-    property var pinned: [
-        {
-            id: "brave-browser",
-            name: "Brave Browser",
-            exec: "brave-browser",
-            icon: Quickshell.iconPath("brave-browser", true) || "file:///usr/share/icons/hicolor/48x48/apps/brave-browser.png",
-            glyph: "" // Использует точечный шейдер Dm для льва Brave (как в лаунчере)
-        },
-        {
-            id: "org.gnome.Nautilus",
-            name: "Files",
-            exec: "nautilus",
-            icon: Quickshell.iconPath("org.gnome.Nautilus", true) || "file:///usr/share/icons/Yaru/48x48/apps/org.gnome.Nautilus.png",
-            glyph: "\u{F024B}"
-        },
-        {
-            id: "terminal",
-            name: "Terminal",
-            exec: "kitty",
-            icon: Quickshell.iconPath("kitty", true) || "file:///usr/share/icons/hicolor/scalable/apps/kitty.svg",
-            glyph: "\u{F018D}"
-        },
-        {
-            id: "antigravity",
-            name: "Antigravity IDE",
-            exec: "antigravity",
-            icon: Quickshell.iconPath("antigravity-ide", true) || (Quickshell.env("HOME") ? "file://" + Quickshell.env("HOME") + "/.local/share/icons/hicolor/512x512/apps/antigravity-ide.png" : ""),
-            glyph: "" // Использует точечный шейдер Dm (как в лаунчере)
-        },
-        {
-            id: "discord",
-            name: "Discord",
-            exec: "discord",
-            icon: Quickshell.iconPath("discord", true) || "image://icon/discord",
-            glyph: "\u{F066F}"
-        },
-        {
-            id: "org.gnome.Software",
-            name: "App Center",
-            exec: "gnome-software",
-            icon: Quickshell.iconPath("org.gnome.Software", true) || "file:///usr/share/icons/Yaru/48x48/apps/org.gnome.Software.png",
-            glyph: "\u{F0493}"
-        }
-    ]
+    function resolveIcon(cls, initCls) {
+        if (!cls && !initCls) return "";
+        const c = (cls || "").toLowerCase();
+        const ic = (initCls || "").toLowerCase();
 
-    function resolveIcon(cls) {
-        if (!cls) return "";
-        const c = cls.toLowerCase();
-        const iconName = DesktopEntries.heuristicLookup(cls)?.icon;
+        // 1. Поиск в DesktopEntries
+        const iconName = DesktopEntries.heuristicLookup(cls)?.icon || (initCls ? DesktopEntries.heuristicLookup(initCls)?.icon : "");
         if (iconName) {
             const p = Quickshell.iconPath(iconName, true);
             if (p) return p;
             return "image://icon/" + iconName;
         }
 
+        // 2. Локальные иконки в ~/.local/share/icons для веб-приложений (PWAs)
         const home = Quickshell.env("HOME") || "";
-        if (c.includes("brave")) return Quickshell.iconPath("brave-browser", true) || "file:///usr/share/icons/hicolor/48x48/apps/brave-browser.png";
+        if (home && cls) {
+            const pwaIcon = Quickshell.iconPath(cls, true);
+            if (pwaIcon) return pwaIcon;
+        }
+
+        // 3. Частые приложения
+        if ((c === "brave-browser" || ic === "brave-browser") || (!c.includes("brave-") && (c.includes("brave") || ic.includes("brave")))) {
+            return Quickshell.iconPath("brave-browser", true) || "file:///usr/share/icons/hicolor/48x48/apps/brave-browser.png";
+        }
+        if (c.includes("antigravity") || ic.includes("antigravity")) return Quickshell.iconPath("antigravity-ide", true) || (home ? "file://" + home + "/.local/share/icons/hicolor/512x512/apps/antigravity-ide.png" : "");
         if (c.includes("nautilus") || c.includes("files")) return Quickshell.iconPath("org.gnome.Nautilus", true) || "file:///usr/share/icons/Yaru/48x48/apps/org.gnome.Nautilus.png";
-        if (c.includes("kitty")) return Quickshell.iconPath("kitty", true) || "file:///usr/share/icons/hicolor/scalable/apps/kitty.svg";
-        if (c.includes("ptyxis")) return Quickshell.iconPath("org.gnome.Ptyxis", true) || "file:///usr/share/icons/Yaru/48x48/apps/org.gnome.Ptyxis.png";
-        if (c.includes("antigravity")) return Quickshell.iconPath("antigravity-ide", true) || (home ? "file://" + home + "/.local/share/icons/hicolor/512x512/apps/antigravity-ide.png" : "");
+        if (c.includes("terminal") || c.includes("kitty") || c.includes("ptyxis")) return Quickshell.iconPath("org.gnome.Terminal", true) || Quickshell.iconPath("kitty", true) || "file:///usr/share/icons/Yaru/48x48/apps/org.gnome.Terminal.png";
+        if (c.includes("calc") || c.includes("libreoffice")) return Quickshell.iconPath("libreoffice-calc", true) || "file:///usr/share/icons/Yaru/48x48/apps/libreoffice-calc.png";
         if (c.includes("discord")) return Quickshell.iconPath("discord", true) || "image://icon/discord";
 
-        return "image://icon/" + cls;
+        return "image://icon/" + (cls || initCls);
     }
 
-    // Список элементов дока: закреплённые + все открытые окна
+    // Список элементов дока: ТОЛЬКО реально открытые / используемые окна
     readonly property var items: {
+        root.tick; // Реактивная пересборка списка
         const toplevels = Hyprland.toplevels.values;
         const activeT = ToplevelManager.activeToplevel;
         const activeApp = (activeT?.appId || "").toLowerCase();
         const res = [];
-        const seen = new Set();
 
-        // 1. Закреплённые приложения
-        for (const p of pinned) {
-            const pid = p.id.toLowerCase();
-            const matching = toplevels.filter(t => {
-                const cls = (t.lastIpcObject?.class || "").toLowerCase();
-                const initCls = (t.lastIpcObject?.initialClass || "").toLowerCase();
-                return cls.includes(pid) || pid.includes(cls) || initCls.includes(pid) ||
-                       (pid.includes("terminal") && (cls.includes("kitty") || cls.includes("ptyxis"))) ||
-                       (pid.includes("nautilus") && (cls.includes("files") || cls.includes("nautilus")));
-            });
-
-            const isRunning = matching.length > 0;
-            const isActive = matching.some(t => {
-                const cls = (t.lastIpcObject?.class || "").toLowerCase();
-                return (activeApp && (cls.includes(activeApp) || activeApp.includes(cls))) ||
-                       (t.lastIpcObject?.focusHistoryID === 0);
-            });
-            const curTitle = matching.find(t => t.lastIpcObject?.focusHistoryID === 0)?.title || matching[0]?.title || "";
-
-            res.push({
-                id: p.id,
-                name: p.name,
-                exec: p.exec,
-                icon: p.icon,
-                glyph: p.glyph || root.findGlyph(p.id + " " + p.name),
-                pinned: true,
-                running: isRunning,
-                active: isActive,
-                count: matching.length,
-                title: curTitle,
-                windows: matching
-            });
-            matching.forEach(t => seen.add(t));
-        }
-
-        // 2. Открытые окна, не входящие в закреплённые
+        // Собираем все реально запущенные окна
         for (const t of toplevels) {
-            if (seen.has(t)) continue;
-            const cls = t.lastIpcObject?.class || "app";
+            const cls = (t.lastIpcObject?.class || t.title || "app").trim();
+            if (!cls) continue;
             const clsLower = cls.toLowerCase();
-            const existing = res.find(r => !r.pinned && r.id === clsLower);
-            const isThisActive = (t.lastIpcObject?.focusHistoryID === 0) || (activeApp && clsLower.includes(activeApp));
+            const initCls = (t.lastIpcObject?.initialClass || "").toLowerCase();
+
+            // Проверяем, есть ли уже это приложение в res (группировка нескольких окон одного приложения)
+            const existing = res.find(r => r.id === clsLower || (initCls && r.id === initCls));
+            const isThisActive = (t.lastIpcObject?.focusHistoryID === 0) || (activeApp && (clsLower.includes(activeApp) || activeApp.includes(clsLower)));
 
             if (existing) {
                 existing.count++;
@@ -169,21 +157,36 @@ PanelWindow {
                     existing.title = t.title || existing.name;
                 }
             } else {
+                let friendlyName = "";
+                const entry = DesktopEntries.heuristicLookup(cls) || (initCls ? DesktopEntries.heuristicLookup(initCls) : null);
+                if (entry?.name) {
+                    friendlyName = entry.name;
+                } else if (t.title) {
+                    friendlyName = t.title.split(" - ").pop().split(" — ").pop().trim();
+                }
+                if (!friendlyName) friendlyName = cls;
+
+                let g = root.findGlyph(friendlyName);
+                if (!g && t.title) g = root.findGlyph(t.title);
+                if (!g) g = root.findGlyph(cls + " " + initCls);
+                const ico = root.resolveIcon(cls, initCls);
+
                 res.push({
                     id: clsLower,
-                    name: t.title ? t.title.split(" - ").pop().split(" — ").pop() : cls,
+                    name: friendlyName,
                     exec: clsLower,
-                    icon: resolveIcon(cls),
-                    glyph: root.findGlyph(cls + " " + (t.title || "")),
+                    icon: ico,
+                    glyph: g,
                     pinned: false,
                     running: true,
                     active: isThisActive,
                     count: 1,
-                    title: t.title || cls,
+                    title: t.title || friendlyName,
                     windows: [t]
                 });
             }
         }
+
         return res;
     }
 
@@ -384,20 +387,19 @@ PanelWindow {
                                 Behavior on color { ColorAnimation { duration: Theme.t } }
                             }
 
-                            // 2. Иконка через точечный шейдер Dm (Nothing OS Dot-Matrix LED)
+                            // 2. Иконка приложения (чистая иконка из системы)
                             Image {
                                 id: img
                                 anchors.centerIn: parent
                                 visible: !cell.modelData.glyph && status === Image.Ready
-                                width: 32
-                                height: 32
+                                width: 28
+                                height: 28
                                 source: cell.modelData.icon || ""
-                                sourceSize: Qt.size(32, 32)
+                                sourceSize: Qt.size(28, 28)
                                 asynchronous: true
                                 smooth: true
+                                mipmap: true
                                 retainWhileLoading: true
-                                layer.enabled: true
-                                layer.effect: Dm { step: 2.2 }
                             }
 
                             // 3. Фоллбэк, если иконка не загрузилась
