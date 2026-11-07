@@ -194,7 +194,9 @@ hl.bind("SUPER + V", hl.dsp.global("shell:clip"))
 hl.bind("SUPER + Period", hl.dsp.global("shell:charms"))
 hl.bind(
     "CTRL + SHIFT + ALT + V",
-    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"')
+    -- the text goes through stdin, not as an argument: from an argument «--file=~/.ssh/…» ydotool would take an option and type the file, and \n an Enter.
+    -- printf is a builtin, so the text never reaches argv; $() trims the trailing newline as before. From Nebelung-cloud/glyph-rice
+    hl.dsp.exec_cmd('sleep 0.5s && printf %s "$(cliphist list | head -1 | cliphist decode)" | ydotool type -d 1 -f -')
     -- not locked: on the lock screen it would type the last thing copied into the password field, for anyone at the laptop
 )
 
