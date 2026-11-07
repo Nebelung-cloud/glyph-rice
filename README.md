@@ -104,7 +104,7 @@ hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by de
 | **Optional** | `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` |
 
 From the AUR only `qtengine`, `darkly`, Bibata and Zen, plus Spicetify and Clash Verge if picked; all optional. The VPN panel expects Clash Verge in English.
-NixOS: change the `/usr/lib` agent paths in `hypr/hyprland/execs.lua` and the Papirus path in `quickshell/rice/rice`. Take `quickshell` from nixos-unstable: 26.05 ships 0.3.0, where Prefs → AUDIO crashes the shell.
+NixOS: change the `/usr/lib` agent paths in `hypr/hyprland/execs.lua` and the Papirus path in `quickshell/rice/rice`.
 
 <div align="center"><img src="assets/divider-dots.svg" width="720" alt=""></div>
 
