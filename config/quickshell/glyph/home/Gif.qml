@@ -1,5 +1,6 @@
 import QtQuick
 import qs
+import qs.components
 import qs.services
 
 // гифка плитки-кота — Gifs.cur (services/Gifs: папка гифок, выбор здесь или в настройках → home). Серой матрицей точек
@@ -88,15 +89,6 @@ Item {
     }
 
     TapHandler { onTapped: p => root.step(1, root.mapToItem(fx, p.position)) }
-    WheelHandler {
-        property real acc: 0
-        onWheel: w => {
-            acc += w.angleDelta.y || w.angleDelta.x;
-            while (Math.abs(acc) >= 120) {
-                root.step(acc > 0 ? -1 : 1);
-                acc -= Math.sign(acc) * 120;
-            }
-        }
-    }
+    Notch { onNotch: d => root.step(-d) }
     HoverHandler { cursorShape: Gifs.list.length > 1 ? Qt.PointingHandCursor : Qt.ArrowCursor }
 }

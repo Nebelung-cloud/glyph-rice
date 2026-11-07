@@ -109,30 +109,40 @@ PanelWindow {
                         }
                     }
 
-                    Row {
+                    Column {
                         width: parent.width
-                        spacing: 12
-                        Pill {
-                            on: Networking.wifiEnabled
-                            icon: on ? "\u{F05A9}" : "\u{F05AA}"
-                            name: "Wi-Fi"
-                            sub: !on ? "off" : (Networking.connectivity === NetworkConnectivity.Portal ? "sign in · " : "") + (root.net?.name ?? "no network")
-                            picked: root.pick === "wifi"
-                            onClicked: Networking.wifiEnabled = !Networking.wifiEnabled
-                            onMenu: root.pick = picked ? "" : "wifi"
+                        Row {
+                            width: parent.width
+                            spacing: 12
+                            Pill {
+                                on: Networking.wifiEnabled
+                                icon: on ? "\u{F05A9}" : "\u{F05AA}"
+                                name: "Wi-Fi"
+                                sub: !on ? "off" : (Networking.connectivity === NetworkConnectivity.Portal ? "sign in · " : "") + (root.net?.name ?? "no network")
+                                picked: root.pick === "wifi"
+                                onClicked: Networking.wifiEnabled = !Networking.wifiEnabled
+                                onMenu: root.pick = picked ? "" : "wifi"
+                            }
+                            Pill {
+                                on: root.bt?.enabled ?? false
+                                icon: on ? "\u{F00AF}" : "\u{F00B2}"
+                                name: "Bluetooth"
+                                sub: !on ? "off" : root.btDev?.name ?? "on"
+                                picked: root.pick === "bt"
+                                onClicked: if (root.bt) root.bt.enabled = !root.bt.enabled
+                                onMenu: root.pick = picked ? "" : "bt"
+                            }
                         }
-                        Pill {
-                            on: root.bt?.enabled ?? false
-                            icon: on ? "\u{F00AF}" : "\u{F00B2}"
-                            name: "Bluetooth"
-                            sub: !on ? "off" : root.btDev?.name ?? "on"
-                            picked: root.pick === "bt"
-                            onClicked: if (root.bt) root.bt.enabled = !root.bt.enabled
-                            onMenu: root.pick = picked ? "" : "bt"
+                        // список выезжает высотой, как уведомления. Отступ над ним — внутри: Column вставил бы свой рывком
+                        Item {
+                            width: parent.width
+                            height: picker.open ? picker.height + 16 : 0
+                            Behavior on height { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                            visible: height > 0
+                            clip: true
+                            Picker { id: picker; y: 16; width: parent.width; kind: root.pick; onTouched: root.pin() }
                         }
                     }
-
-                    Picker { width: parent.width; kind: root.pick; onTouched: root.pin() }
 
                     // наушники Nothing / CMF (Sys.ear): имя и заряд, под ними шумодав — клетки как у режимов питания
                     Column {
@@ -283,8 +293,8 @@ PanelWindow {
                         Art { id: mart; x: 12; anchors.verticalCenter: parent.verticalCenter; width: 62; height: 62; step: 4; url: Media.player?.trackArtUrl ?? "" }
                         Column {
                             anchors { left: mart.right; leftMargin: 16; right: mctl.left; rightMargin: 16; verticalCenter: parent.verticalCenter }
-                            Text { width: parent.width; elide: Text.ElideRight; text: Media.player?.trackTitle || "Nothing on"; font { family: Theme.ui; pixelSize: 16; weight: Font.DemiBold } color: Theme.fg }
-                            Text { width: parent.width; elide: Text.ElideRight; text: Media.player?.trackArtist ?? ""; font { family: Theme.ui; pixelSize: 13 } color: Theme.grey }
+                            Text { textFormat: Text.PlainText; width: parent.width; elide: Text.ElideRight; text: Media.player?.trackTitle || "Nothing on"; font { family: Theme.ui; pixelSize: 16; weight: Font.DemiBold } color: Theme.fg }
+                            Text { textFormat: Text.PlainText; width: parent.width; elide: Text.ElideRight; text: Media.player?.trackArtist ?? ""; font { family: Theme.ui; pixelSize: 13 } color: Theme.grey }
                         }
                         Controls { id: mctl; anchors { right: parent.right; rightMargin: 18; verticalCenter: parent.verticalCenter } size: 20; play: 44 }
                     }
@@ -307,7 +317,10 @@ PanelWindow {
                     ListView {
                         id: notes
                         width: parent.width
-                        height: Math.min(contentHeight, stage.height - 28 - 44 - y)
+                        height: Math.min(shown, stage.height - 28 - 44 - y)
+                        // плавно — по контенту (clear all, dismiss); потолок сразу: Picker или плеер выше не выталкивают шапку за экран
+                        property real shown: contentHeight
+                        Behavior on shown { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         clip: true
                         spacing: 10
                         model: Notes.list.slice().reverse()
@@ -348,7 +361,7 @@ PanelWindow {
                                 y: 16
                                 width: parent.width - x - 18
                                 Lb { width: parent.width; elide: Text.ElideRight; text: `${n.appName || "app"} · ${Notes.ago(n, clock.date.getTime())}`; px: 11 }
-                                Text { width: parent.width; elide: Text.ElideRight; text: n.summary; font { family: Theme.ui; pixelSize: 15; weight: Font.DemiBold } color: Theme.fg }
+                                Text { textFormat: Text.PlainText; width: parent.width; elide: Text.ElideRight; text: n.summary; font { family: Theme.ui; pixelSize: 15; weight: Font.DemiBold } color: Theme.fg }
                                 Text {
                                     width: parent.width
                                     visible: !!n.body
@@ -428,6 +441,7 @@ PanelWindow {
             Text {
                 width: parent.width
                 elide: Text.ElideRight
+                textFormat: Text.PlainText
                 text: pill.sub
                 font { family: Theme.mono; pixelSize: 11; letterSpacing: 0.9; capitalization: Font.AllUppercase }
                 color: pill.on ? Theme.ink : Theme.fg
@@ -510,11 +524,26 @@ PanelWindow {
         MouseArea {
             id: area
             property real v
+            property real wacc: 0
             anchors.fill: parent
             preventStealing: true
             function set(x) { v = Math.max(0, Math.min(1, x / width)); sl.moved(v); }
-            onPressed: e => { root.pin(); set(e.x); }
+            // pin на отпускании: в панели, открытой наведением, он отдаёт ей клавиатуру (None → Exclusive), и Hyprland на это
+            // отпускает все кнопки мыши — первый drag после peek доезжал до точки клика и обрывался
+            onPressed: e => set(e.x)
             onPositionChanged: e => set(e.x)
+            onReleased: root.pin()
+            // колесо: засечка — 5 %, тачпад (у него фаза жеста, у колеса нет) вчетверо медленнее, иначе свайп — полшкалы.
+            // Копим до 2 %: мелкие шаги тачпада съедает округление подсветки, и каждый пускал бы brightnessctl.
+            // Без pin: прокрутка — не клик, панель с края закрывается сама и клавиатуру не берёт. Направление — пальцев,
+            // как у Slider в Qt: natural scroll (inverted) не разворачивает, вправо и от себя — больше
+            onWheel: e => {
+                wacc += (e.inverted ? -1 : 1) * (e.angleDelta.y || -e.angleDelta.x) / 120 * 0.05 * (e.phase === Qt.NoScrollPhase ? 1 : 0.25);
+                if (Math.abs(wacc) < 0.02)
+                    return;
+                sl.moved(Math.max(0, Math.min(1, sl.shown + wacc)));
+                wacc = 0;
+            }
         }
     }
 }

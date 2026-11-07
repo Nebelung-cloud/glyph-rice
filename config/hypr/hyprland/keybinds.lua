@@ -149,7 +149,7 @@ hl.bind(vars.kbCommunicationWs, fn.toggle_special("communication"))
 hl.bind(vars.kbTodoWs, fn.toggle_special("todo"))
 
 -- Apps
-hl.bind(vars.kbTerminal, hl.dsp.exec_cmd(vars.terminal))
+hl.bind(vars.kbTerminal, function() hl.exec_cmd(vars.terminal) end) -- при нажатии: user.lua может сменить vars.terminal
 hl.bind(vars.kbBrowser, hl.dsp.exec_cmd(vars.browser))
 hl.bind(vars.kbEditor, function() if vars.apps.editor then hl.exec_cmd(vars.apps.editor) end end)
 hl.bind(vars.kbFileExplorer, hl.dsp.exec_cmd(vars.fileExplorer))
@@ -191,8 +191,8 @@ hl.bind("SUPER + V", hl.dsp.global("shell:clip"))
 hl.bind("SUPER + Period", hl.dsp.global("shell:charms"))
 hl.bind(
     "CTRL + SHIFT + ALT + V",
-    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"'),
-    { locked = true }
+    hl.dsp.exec_cmd('sleep 0.5s && ydotool type -d 1 "$(cliphist list | head -1 | cliphist decode)"')
+    -- без locked: на блокировке он набрал бы последнее скопированное в поле пароля любому, кто сел за ноутбук
 )
 
 -- Testing

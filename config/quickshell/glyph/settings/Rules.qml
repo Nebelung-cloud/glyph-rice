@@ -44,7 +44,11 @@ Singleton {
             id: adapter
             // Display
             property real monScale: 0      // 0 — auto, решает hypr
-            property int refresh: 120
+            property int refresh: 0        // 0 — самые высокие герцы экрана, как mode = "highres" в hyprland.lua
+            property string main: ""       // чей monScale и refresh (Rules.mon); пусто — решит первое чтение мониторов
+            // остальные экраны, если их крутили в prefs, по Rules.key: { "TS2700-S6-1": { scale: 1, refresh: 144, pos: [-560, -1440] } };
+            // pos — от главного, он тогда в 0x0
+            property var outs: ({})
             property int brightness: 62
             property bool night: false
             property int warmth: 4300
@@ -90,40 +94,151 @@ Singleton {
 
     function hypr(lua) { Quickshell.execDetached(["hyprctl", "eval", lua]); }
 
-    // монитор не зашит, как в caelestia: из hyprctl monitors — встроенный (eDP), а нет его — первый; родной режим — самый
-    // большой из его режимов, частоты — те, что у родного. ponytail: настройки на один экран, остальные — по строке в hyprland.lua
-    property var mon: ({ name: "", w: 0, h: 0, scale: 1, rates: [] })
+    // мониторы из hyprctl monitors all — включённые и не зеркала: w × h и rates — текущий режим и его частоты, x, y, lw × lh —
+    // где он и сколько в нём логических px (повёрнутый — наоборот)
+    property var mons: []
+    // главный — его ставят monScale и refresh (их читает и demonshot): встроенный, даже выключенный (крышка в доке), а нет его —
+    // первый. Помнится в store.main моделью (нет её — портом): на десктопе порядок экранов меняется с подключением, а кабель
+    // переезжает в другой порт или док — масштаб не должен уйти другому. Старое store.main — имя порта, его тоже ищем
+    property string first: ""
+    readonly property var mon: mons.find(m => m.name === (store.main || first)) ?? mons.find(m => m.model && m.model === (store.main || first))
+        ?? { name: "", w: 0, h: 0, x: 0, y: 0, lw: 0, lh: 0, transform: 0, scale: 1, hz: 0, rates: [] }
     property bool monWanted: false // monitor() позвали раньше, чем пришёл ответ hyprctl
+    property bool driving: false   // мониторы ставит этот процесс (monitor() звал shell.qml); лок только читает
     Process {
         id: monProc
         running: true
-        command: ["hyprctl", "monitors", "-j"]
+        command: ["hyprctl", "monitors", "all", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const all = JSON.parse(text), m = all.find(x => x.name.startsWith("eDP")) ?? all[0];
-                if (!m) return;
-                const modes = m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s)).filter(Boolean).map(r => [+r[1], +r[2], Math.round(+r[3])]);
-                const [w, h] = modes.reduce((a, b) => b[0] * b[1] > a[0] * a[1] ? b : a, [m.width, m.height]);
-                const rates = [...new Set(modes.filter(r => r[0] === w && r[1] === h).map(r => r[2]))].sort((a, b) => a - b);
-                root.mon = { name: m.name, w, h, scale: m.scale, rates: rates.length ? rates : [Math.round(m.refreshRate)] };
+                const all = JSON.parse(text);
+                const f = all.find(m => /^(eDP|LVDS|DSI)/.test(m.name)) ?? all.find(m => !m.disabled);
+                root.first = f ? f.model.trim() || f.name : "";
+                root.mons = all.filter(m => !m.disabled && m.mirrorOf === "none").map(m => {
+                    const rates = [...new Set(m.availableModes.map(s => /(\d+)x(\d+)@([\d.]+)/.exec(s))
+                        .filter(r => r && +r[1] === m.width && +r[2] === m.height).map(r => Math.round(+r[3])))].sort((a, b) => a - b);
+                    const t = m.transform % 2, lw = Math.round(m.width / m.scale), lh = Math.round(m.height / m.scale);
+                    return { name: m.name, model: m.model.trim(), desc: m.description, w: m.width, h: m.height, x: m.x, y: m.y, lw: t ? lh : lw, lh: t ? lw : lh,
+                             transform: m.transform, scale: m.scale, hz: Math.round(m.refreshRate), rates: rates.length ? rates : [Math.round(m.refreshRate)] };
+                });
                 if (root.monWanted) root.monitor();
+                else root.settle();
             }
         }
     }
     // auto — масштаб выбирает hypr; какой вышел, узнаём, перечитав мониторы
     Timer { id: monReread; interval: 500; onTriggered: monProc.running = true }
-    function monitor() {
-        if (!mon.name) { monWanted = true; return; }
+    // чем экран записан в outs: моделью — это сам монитор, а не порт (в тот же HDMI воткнули проектор — он не возьмёт место и
+    // герцы домашнего; домашний в другом порту — со своими); два одинаковых или без модели — именем порта. Как Theme.sid
+    function key(m) { return m.model && mons.filter(x => x.model === m.model).length === 1 ? m.model : m.name; }
+    // своё у экрана; по имени — запись двойника, оставшегося одним (ключ стал моделью)
+    function out(m) { return store.outs[key(m)] ?? store.outs[m.name]; }
+    // что выбрано у экрана: scale (0 — auto) и refresh
+    function want(m) {
+        if (m.name === mon.name) return { scale: store.monScale, refresh: refreshHz };
+        const o = out(m);
+        return { scale: o?.scale ?? m.scale, refresh: o?.refresh ?? m.hz };
+    }
+    // правило hypr для экрана. Оно заменяет правило из конфига целиком — режим (текущее разрешение) и поворот несём как есть.
+    // Внешние встают по pos от главного, главный тогда в 0x0: на auto hypr поставил бы его правее явных. Выход — как key():
+    // desc: монитора, а не порт — правило живёт в hypr до reload, и проектор в том же порту взял бы место и режим этого
+    // ponytail: vrr, 10 бит и hdr из user.lua правило шелла снимает; понадобятся — нести из hyprctl, как transform
+    function rule(m) {
+        const own = m.name === mon.name, w = want(m), pos = out(m)?.pos;
+        const at = own ? (mons.some(x => x.name !== m.name && out(x)?.pos) ? "0x0" : "auto") : pos ? `${pos[0]}x${pos[1]}` : "auto";
+        const output = key(m) !== m.name && m.desc ? `desc:${m.desc}` : m.name;
+        return `hl.monitor({ output = ${JSON.stringify(output)}, mode = "${m.w}x${m.h}@${own ? hz : w.refresh}", position = "${at}", `
+             + `scale = ${w.scale || '"auto"'}, transform = ${m.transform} })`;
+    }
+    // главный и внешние из outs — одним eval, главный первым: остальные встают от него. fresh — сперва перечитать (подключили
+    // экран): пачка screensChanged схлопывается в одно чтение через 500 мс, и ответ уже с новым экраном. Зовёт только shell.qml
+    function monitor(fresh) {
+        driving = true;
+        if (fresh || !mons.length) {
+            monWanted = true;
+            if (fresh) monReread.restart();
+            return;
+        }
         monWanted = false;
-        hypr(`hl.monitor({ output = "${mon.name}", mode = "${mon.w}x${mon.h}@${hz}", position = "auto", scale = ${store.monScale || '"auto"'} })`);
+        if (!store.main && first) store.main = first;
+        const ms = mons.filter(m => m.name === mon.name || out(m)).sort((a, b) => (b.name === mon.name) - (a.name === mon.name));
+        if (ms.length) hypr(ms.map(rule).join("\n"));
         monReread.restart();
     }
+    // prefs → display: scale (0 — auto) или refresh экрана name. Главному — monScale и refresh, внешнему — outs (place). Масштаб
+    // меняет размер — край к соседу поправит settle после чтения
+    function set(name, k, v) {
+        const m = mons.find(x => x.name === name);
+        if (!m) return;
+        if (m.name !== mon.name) return place(name, m.x, m.y, { [k]: v });
+        store[k === "scale" ? "monScale" : "refresh"] = v;
+        monitor();
+    }
+    // экран name — в x, y (логические px hypr), extra — его поля в outs. Все внешние прибиваются явными pos от главного там, где
+    // стоят: правило без позиции hypr поставил бы на auto, и соседи съехали бы
+    function place(name, x, y, extra) {
+        const b = name === mon.name ? { x, y } : mon, o = Object.assign({}, store.outs);
+        for (const m of mons) {
+            if (m.name === mon.name) continue;
+            const p = m.name === name ? { x, y } : m;
+            // запись по порту не стираем: вернётся двойник — экран снова ищется по порту
+            o[key(m)] = Object.assign({}, out(m), m.name === name ? extra : null, { pos: [p.x - b.x, p.y - b.y] });
+        }
+        store.outs = o;
+        monitor();
+    }
+    // prefs → display «reset»: забыть места, масштаб и герцы внешних — снова как в конфиге hypr (user.lua). Правила шелла живут
+    // в hypr до перечитывания конфига — его и просим; остальное вернёт configreloaded (shell.qml)
+    function forget() {
+        store.outs = {};
+        Quickshell.execDetached(["hyprctl", "reload"]);
+    }
+
+    function hits(a, b) { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+    // куда встанет экран r ({ x, y, w, h }, логические px hypr), если бросить его так: вплотную к стороне соседа, без нахлёста,
+    // общий край — не меньше четверти меньшего из двух; вдоль края — где бросили, но липнет к краям и центру соседа ближе near.
+    // Из всех таких мест — ближайшее; нет ни одного — null
+    function dock(r, others, near) {
+        const stick = (v, lo, hi, to) => {
+            v = Math.max(lo, Math.min(hi, v));
+            return to.find(t => Math.abs(t - v) < near) ?? v;
+        };
+        let best = null, bd = Infinity;
+        for (const o of others) {
+            const kx = Math.min(r.w, o.w) / 4, ky = Math.min(r.h, o.h) / 4;
+            const x = stick(r.x, o.x - r.w + kx, o.x + o.w - kx, [o.x, o.x + o.w - r.w, o.x + (o.w - r.w) / 2]);
+            const y = stick(r.y, o.y - r.h + ky, o.y + o.h - ky, [o.y, o.y + o.h - r.h, o.y + (o.h - r.h) / 2]);
+            for (const c of [{ x: o.x - r.w, y }, { x: o.x + o.w, y }, { x, y: o.y - r.h }, { x, y: o.y + o.h }]) {
+                const p = { x: Math.round(c.x), y: Math.round(c.y), w: r.w, h: r.h }, d = Math.hypot(p.x - r.x, p.y - r.y);
+                if (d < bd && !others.some(q => hits(p, q))) {
+                    best = p;
+                    bd = d;
+                }
+            }
+        }
+        return best;
+    }
+    // внешний с явным pos налез на соседа или повис в воздухе (сменился масштаб, вернулся экран, соседа утащили) — к ближайшему
+    // свободному краю, по одному за чтение. Уже просили туда же, а hypr не поставил — не настаиваем, иначе круг каждые полсекунды.
+    // Допуск 2 px — округление логических размеров
+    function settle() {
+        if (!driving || mons.length < 2) return;
+        const box = m => ({ x: m.x, y: m.y, w: m.lw, h: m.lh }), near = (a, b) => Math.abs(a - b) <= 2;
+        const touch = (a, b) => (near(a.x + a.w, b.x) || near(b.x + b.w, a.x)) && a.y < b.y + b.h && b.y < a.y + a.h
+                             || (near(a.y + a.h, b.y) || near(b.y + b.h, a.y)) && a.x < b.x + b.w && b.x < a.x + a.w;
+        for (const m of mons) {
+            const pos = out(m)?.pos;
+            if (m.name === mon.name || !pos) continue;
+            const r = box(m), rest = mons.filter(x => x !== m).map(box);
+            if (!rest.some(o => hits({ x: r.x + 2, y: r.y + 2, w: r.w - 4, h: r.h - 4 }, o)) && rest.some(o => touch(r, o))) continue;
+            const d = dock(r, rest, 0);
+            if (d && (d.x - mon.x !== pos[0] || d.y - mon.y !== pos[1])) return place(m.name, d.x, d.y);
+        }
+    }
     readonly property var rates: mon.rates.length ? mon.rates : [60, 120]
-    readonly property int refreshHz: rates.reduce((a, b) => Math.abs(b - store.refresh) < Math.abs(a - store.refresh) ? b : a)
+    readonly property int refreshHz: store.refresh ? rates.reduce((a, b) => Math.abs(b - store.refresh) < Math.abs(a - store.refresh) ? b : a) : rates[rates.length - 1]
     readonly property real scale: store.monScale || mon.scale || 1 // что стоит на деле, и при auto
     readonly property var scales: ["auto", "1", "1.25", "1.5", "2"]
-    readonly property int scaleIdx: store.monScale ? scales.indexOf(String(store.monScale)) : 0
-    function setScale(i) { store.monScale = i ? +scales[i] : 0; monitor(); }
     function windows() {
         const s = store;
         hypr(`hl.config({ general = { gaps_in = ${s.gapsIn}, gaps_out = ${s.gapsOut}, border_size = ${s.border} }, `
@@ -157,7 +272,7 @@ Singleton {
         idleDone = true;
         const s = store, dpms = a => `hyprctl dispatch 'hl.dsp.dpms({action = "${a}"})'`;
         const at = (min, on, back) => min ? `\nlistener {\n    timeout = ${min * 60}\n    on-timeout = ${on}${back ? `\n    on-resume = ${back}` : ""}\n}\n` : "";
-        const conf = "# demonshot: пишет Rules.idle() из rules.json, руками не править\n"
+        const conf = "# demonshot: written by Rules.idle() from rules.json, do not edit by hand\n"
             + "general {\n    lock_cmd = ~/.config/quickshell/rice/rice lock\n    inhibit_sleep = 3\n"
             + `    before_sleep_cmd = loginctl lock-session\n    after_sleep_cmd = ${dpms("on")}\n}\n`
             + at(s.lockAfter, "loginctl lock-session") + at(s.dpmsAfter, dpms("off"), dpms("on"))
@@ -206,8 +321,12 @@ Singleton {
         const hz0 = hz, moving0 = moving;
         store.ultra = i === 0;
         PowerProfiles.profile = i === 0 ? PowerProfile.PowerSaver : i - 1;
-        // монитор — только если герцы правда другие: перенастройка вывода мигает экраном и сбрасывает наведение (панели гаснут)
-        if (hz !== hz0) monitor();
+        // монитор — только встроенный и если герцы правда другие: перенастройка вывода мигает экраном и сбрасывает наведение
+        // (панели гаснут)
+        if (hz !== hz0 && mon.name) {
+            hypr(rule(mon));
+            monReread.restart();
+        }
         if (moving !== moving0) motion();
     }
     // что стоит на деле: ultra перекрывает настройки — самые низкие герцы экрана, иначе ближайшие к выбранным

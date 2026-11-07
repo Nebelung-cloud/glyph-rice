@@ -64,7 +64,7 @@ Scope {
         aim.shown = false;
         if (shotRec) {
             const g = full ? `-w ${scr.name}` : `-w region -region ${w}x${h}+${x}+${y}`;
-            Quickshell.execDetached(["sh", "-c", `sleep ${delay}; notify-send -a "shot · rec" "Recording." "ctrl+alt+r — стоп"; `
+            Quickshell.execDetached(["sh", "-c", `sleep ${delay}; notify-send -a "shot · rec" "Recording." "ctrl+alt+r — stop"; `
                 + `gpu-screen-recorder ${g} ${Sys.recArgs()} -o "$(xdg-user-dir VIDEOS)/rec-$(date +%F_%H-%M-%S).mp4"`]);
             return fx.restart();
         }

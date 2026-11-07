@@ -50,7 +50,7 @@ WlSessionLockSurface {
         Item {
             opacity: root.ph(0, 0.6)
             Orb { visible: Theme.state.orb; x: stage.width - 720; y: stage.height - 580 }
-            Wall { width: stage.width; height: stage.height; path: Theme.wallSrc(Theme.state.wall) }
+            Wall { width: stage.width; height: stage.height; path: Theme.wallSrc(Theme.scr(root.screen?.name, "wall")) }
         }
 
         Lb {

@@ -66,12 +66,12 @@ say() { printf '\e[38;2;215;25;33m●\e[0m %s\n' "$*"; }
 extras() { # --with или вопрос → в EXT, ставит yay (и из репо) отдельно от AUR
     local w; EXT=()
     if [ -z "${WITH+x}" ]; then
-        say "что ещё поставить? через пробел, Enter — ничего"
+        say "anything else to install? space-separated, Enter for none"
         for w in "${!EXTRA[@]}"; do printf '  %-9s %s\n' "$w" "${EXTRA[$w]}"; done
         read -rp "  > " WITH || true
     fi
     for w in ${WITH//,/ }; do
-        [ -n "${EXTRA[$w]-}" ] || { echo "нет такого: $w (есть: ${!EXTRA[*]})"; exit 1; }
+        [ -n "${EXTRA[$w]-}" ] || { echo "no such extra: $w (available: ${!EXTRA[*]})"; exit 1; }
         EXT+=(${EXTRA[$w]})
     done
 }
@@ -82,7 +82,7 @@ packages() {
     # Списком, не grep '^pulseaudio-': pulseaudio-alsa и pulseaudio-qt с pipewire живут
     local pa; pa=$(pacman -Qq pulseaudio-{bluetooth,jack,lirc,rtp,zeroconf,equalizer,equalizer-ladspa} 2>/dev/null || true)
     [ -z "$pa" ] || sudo pacman -R $pa
-    pacman -Q pulseaudio &>/dev/null && say "pacman спросит «Remove pulseaudio?» — ответь y, его заменит pipewire-pulse"
+    pacman -Q pulseaudio &>/dev/null && say "pacman will ask \"Remove pulseaudio?\": answer y, pipewire-pulse replaces it"
     # без --noconfirm: на конфликте (pulseaudio → pipewire-pulse) он ответил бы «нет» и уронил установку
     sudo pacman -Syu --needed "${PACMAN[@]}"
 
@@ -96,13 +96,13 @@ packages() {
 
     say "aur"
     # AUR необязателен: упал пакет — сервисы и ссылки всё равно ставим
-    yay -S --needed --noconfirm "${AUR[@]}" || say "aur: встало не всё, см. выше"
+    yay -S --needed --noconfirm "${AUR[@]}" || say "aur: some packages failed, see above"
     # отдельно: не собрался spicetify — ядро AUR от этого не страдает
-    [ ${#EXT[@]} -eq 0 ] || yay -S --needed --noconfirm "${EXT[@]}" || say "на выбор: встало не всё, см. выше"
+    [ ${#EXT[@]} -eq 0 ] || yay -S --needed --noconfirm "${EXT[@]}" || say "extras: some packages failed, see above"
 }
 
 services() {
-    say "сервисы"
+    say "services"
     sudo systemctl enable NetworkManager bluetooth power-profiles-daemon
     systemctl is-enabled -q display-manager.service 2>/dev/null || sudo systemctl enable sddm
     systemctl --user enable pipewire-pulse.socket wireplumber ydotool
@@ -111,7 +111,7 @@ services() {
 }
 
 links() {
-    say "симлинки (старое → $BACKUP)"
+    say "symlinks (old files → $BACKUP)"
     local src dst
     for l in "${LINKS[@]}"; do
         read -r src dst <<<"$l"
@@ -137,8 +137,8 @@ links() {
 }
 
 greeter() { # тема входа. Копия, а не ссылка: пользователь sddm не прочтёт закрытый $HOME. fonts в теме — ссылка на config/fonts, -L копирует сами файлы
-    say "sddm: тема glyph"
-    [ -d /usr/share/sddm/themes ] || { say "sddm не стоит — тему ставить некуда"; return 0; }
+    say "sddm: glyph theme"
+    [ -d /usr/share/sddm/themes ] || { say "sddm isn't installed, skipping the theme"; return 0; }
     # rm: файлы, удалённые из репо, не остаются висеть в теме; chmod: при umask 077 копия вышла бы 600 и sddm её не прочтёт
     sudo rm -rf /usr/share/sddm/themes/glyph
     sudo cp -rLT "$DOTS/config/sddm/glyph" /usr/share/sddm/themes/glyph
@@ -149,20 +149,20 @@ greeter() { # тема входа. Копия, а не ссылка: польз�
     printf '[Theme]\nCurrent=glyph\n\n[General]\nInputMethod=\n' | sudo tee /etc/sddm.conf.d/zz-glyph.conf >/dev/null
     # /etc/sddm.conf главнее conf.d
     if grep -qsE '^\s*Current=' /etc/sddm.conf && ! grep -qsE '^\s*Current=glyph\s*$' /etc/sddm.conf; then
-        say "в /etc/sddm.conf своя тема, он главнее: поставь там Current=glyph"
+        say "/etc/sddm.conf sets its own theme and wins over conf.d: set Current=glyph there"
     fi
 }
 
-[ "$EUID" -eq 0 ] && { echo "запускай от пользователя, sudo спросит сам"; exit 1; }
+[ "$EUID" -eq 0 ] && { echo "run as your user, not root: sudo asks when it needs to"; exit 1; }
 
 case "${1:-}" in
     --links) links ;; # на любом дистрибутиве (NixOS, Fedora…): пакеты тогда свои, список — в README
     --sddm) greeter ;;
-    ""|--with) command -v pacman >/dev/null || { echo "пакеты ставлю только на Arch; на другом дистрибутиве: $0 --links"; exit 1; }
+    ""|--with) command -v pacman >/dev/null || { echo "packages install on Arch only; on another distro: $0 --links"; exit 1; }
         [ "${1:-}" = --with ] && WITH="${*:2}" # и через запятую, и через пробел
         extras; packages; services; links; greeter
         # spicetify нужен уже скачанный Spotify с входом в аккаунт, поэтому применять до первого запуска нечего
-        [[ " ${WITH//,/ } " == *" spotify "* ]] && say "spotify: запусти, войди, потом spicetify config custom_apps marketplace && spicetify backup apply"
-        say "готово. перезагрузись и выбери Hyprland в sddm" ;;
+        [[ " ${WITH//,/ } " == *" spotify "* ]] && say "spotify: launch it, log in, then run spicetify config custom_apps marketplace && spicetify backup apply"
+        say "done. reboot and pick Hyprland in sddm" ;;
     *) echo "usage: $0 [--with telegram,spotify,clash | --links | --sddm]"; exit 1 ;;
 esac

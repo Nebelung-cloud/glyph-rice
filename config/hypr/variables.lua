@@ -20,7 +20,7 @@ return {
     lockCmd                    = rice .. " lock", -- лок текущего шелла; второй не запускает
 
     -- Apps
-    terminal                   = "kitty -1", -- single-instance: новые окна из живого процесса, ~40 мс вместо ~400
+    terminal                   = "kitty", -- не -1: общий процесс, сломав GL после сна (AMD и Intel), белил все новые окна до перезагрузки (#12); цена — ~230 мс вместо ~20
     browser                    = "zen-browser",
     fileExplorer               = "thunar",
     audioSettings              = "pavucontrol",

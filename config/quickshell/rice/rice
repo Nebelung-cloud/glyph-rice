@@ -1,11 +1,11 @@
 #!/bin/sh
-# rice — какой шелл quickshell сейчас живой (demonshot, glyph…) и переключение между ними.
-#   rice                текущий
-#   rice list           все шеллы: папки в ~/.config/quickshell с rice.json
-#   rice start          поднять текущий (hypr на старте)
-#   rice restart|kill   перезапустить (и hypr) / погасить текущий
-#   rice switch <имя>   погасить текущий, вернуть hypr к его конфигу, поднять другой
-#   rice lock           блокировка текущего шелла (бинд, hypridle, меню питания)
+# rice — which quickshell shell is live (demonshot, glyph…) and switching between them.
+#   rice                current shell
+#   rice list           all shells: folders in ~/.config/quickshell with rice.json
+#   rice start          start the current one (hypr runs this at startup)
+#   rice restart|kill   restart it (and reload hypr) / stop it
+#   rice switch <name>  stop the current one, reset hypr to its own config, start another
+#   rice lock           lock screen of the current shell (keybind, hypridle, power menu)
 q=$HOME/.config/quickshell
 state=${XDG_STATE_HOME:-$HOME/.local/state}/rice
 cur=$(cat "$state/shell" 2>/dev/null)
@@ -79,7 +79,7 @@ case $1 in
     restart) term "$cur"; stop "$cur"; hyprctl reload >/dev/null; exec qs -p "$q/$cur" -d ;; # reload снимает и залипшую плашку ошибок hypr
     kill) stop "$cur" ;;
     switch)
-        [ -f "$q/$2/rice.json" ] || { echo "rice: нет шелла «$2»" >&2; exit 1; }
+        [ -f "$q/$2/rice.json" ] || { echo "rice: no shell \"$2\"" >&2; exit 1; }
         mkdir -p "$state"
         echo "$2" > "$state/shell"
         stop "$cur"

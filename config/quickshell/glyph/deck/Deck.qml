@@ -47,14 +47,16 @@ Scope {
             Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
             screen: modelData
-            visible: Theme.state.deckHover && root.ids.length > 0 || t > 0
+            // в фулскрине Top не рисуется, Qt не коммитит кадры и смену слоя Hyprland не видит — полосы там нет,
+            // Super+Space создаёт окно заново, уже в Overlay. ponytail: hasFullscreen — и maximized (Super+Alt+F), край там тоже молчит
+            visible: Theme.state.deckHover && root.ids.length > 0 && !Hyprland.monitorFor(modelData)?.activeWorkspace?.hasFullscreen || t > 0
             anchors.bottom: true
             implicitWidth: Math.ceil(panel.width * Theme.s)
             implicitHeight: Math.ceil((panel.height + 14) * Theme.s)
             exclusionMode: ExclusionMode.Ignore
             color: "transparent"
-            // ponytail: Top, не Overlay — под полноэкранным окном край не ловит; Glyph-полоса прогресса рисуется поверх
-            WlrLayershell.layer: WlrLayer.Top
+            // закрыта — Top: Glyph-полоса прогресса поверх; открыта — Overlay, видна и над полноэкранным окном
+            WlrLayershell.layer: t > 0 ? WlrLayer.Overlay : WlrLayer.Top
             WlrLayershell.namespace: "glyph-deck"
             // закрыта — мышь ловит только полоса у края (углы экрана свободны), открыта — всё окно вместе со щелью под панелью
             mask: Region { y: win.open ? 0 : win.height - 2; width: win.width; height: win.open ? win.height : 2 }
@@ -308,10 +310,11 @@ Scope {
                                 maximumLineCount: 2
                                 elide: Text.ElideRight
                                 text: Media.player?.trackTitle || "Nothing on"
+                                textFormat: Text.PlainText
                                 font { family: Theme.ui; pixelSize: 17; weight: Font.DemiBold }
                                 color: Theme.fg
                             }
-                            Text { width: parent.width; elide: Text.ElideRight; text: Media.player?.trackArtist ?? ""; font { family: Theme.ui; pixelSize: 13 } color: Theme.grey }
+                            Text { textFormat: Text.PlainText; width: parent.width; elide: Text.ElideRight; text: Media.player?.trackArtist ?? ""; font { family: Theme.ui; pixelSize: 13 } color: Theme.grey }
                         }
                     }
                     Item { width: 1; height: 16 }

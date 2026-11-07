@@ -41,10 +41,30 @@ Singleton {
     readonly property string mono: "Space Mono"            // метки капсом
     readonly property string nf: "JetBrainsMono Nerd Font" // иконки
 
-    // холст макета 1920×1080 → экран. ponytail: по первому экрану; мониторы разного размера — считать от screen окна
+    // холст макета 1920×1080 → экран. ponytail: по первому экрану, на втором раскладка та же (масштаб — hypr), дом лишь тянет
+    // бенто к правому краю
     readonly property real s: {
         const sc = Quickshell.screens[0];
         return sc ? Math.min(sc.width / 1920, sc.height / 1080) : 1;
+    }
+    // своё у экрана — в state.screens по модели монитора: это сам монитор, а не порт (тот же монитор в другом порту или через
+    // док — со своим). Два одинаковых или без модели — по имени порта. Модель та же, что в hyprctl (Rules.key)
+    function sid(name) {
+        const m = Quickshell.screens.find(s => s.name === name)?.model.trim();
+        return m && Quickshell.screens.filter(s => s.model.trim() === m).length === 1 ? m : name;
+    }
+    // по имени — старая запись (до моделей) или двойника, оставшегося одним
+    function own(name) { return st.screens[sid(name)] ?? st.screens[name]; }
+    // настройка экрана по имени вывода: своя, иначе общая; bar и home — по умолчанию есть
+    function scr(name, key) { return own(name)?.[key] ?? { wall: st.wall, widgets: st.widgets }[key] ?? true; }
+    // undefined — снять своё, экран берёт общее. Запись по имени порта копируется под модель, но остаётся: вернётся двойник —
+    // экран снова ищется по порту
+    function setScr(name, key, v) {
+        const o = Object.assign({}, own(name)), all = Object.assign({}, st.screens);
+        if (v === undefined) delete o[key];
+        else o[key] = v;
+        all[sid(name)] = o;
+        st.screens = all;
     }
 
     // glide: ease-out-quart, без перелёта — как bezier glide в hypr
@@ -59,7 +79,9 @@ Singleton {
 
     // ---- тона обоев: до четырёх на выбор, как в android. Они в glyph.json: лок (отдельный процесс) берёт готовые и не мигает
     // красным ----
-    readonly property var tones: st.wall ? st.tones : []
+    // обои, с которых цвет: первого экрана — свои или общие (свои у всех экранов — общих не видно нигде)
+    readonly property string wall: scr(Quickshell.screens[0]?.name, "wall")
+    readonly property var tones: wall ? st.tones : []
     function hueName(c) {
         const h = Qt.color(c).hslHue * 360;
         return ["red", "orange", "yellow", "green", "teal", "blue", "violet", "pink", "red"][[15, 40, 65, 160, 195, 250, 290, 335, 361].findIndex(x => h < x)];
@@ -182,12 +204,15 @@ Singleton {
             property var bar: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"] // трей бара сверху вниз, см. bars
             property bool barTitle: true   // заголовок окна столбиком в баре
             property string barAt: "left" // left или top; за баром едут календарь, карточка батареи, дом, остров и вспышка Glyph
+            // свои у монитора, по модели (Theme.sid): { "TS2700-S6-1": { bar: false, home: false, wall: "…", widgets: […] } }; нет — общие (Theme.scr)
+            property var screens: ({})
             // запись (quick/Rec, Sys.recArgs)
             property int recArea: 0        // 0 весь монитор, 1 область (slurp)
             property int recAudio: 0       // 0 без звука, 1 система, 2 микрофон, 3 оба одной дорожкой
             property int recFps: 60
             property int recQuality: 2     // medium, high, very_high, ultra
             property bool recCursor: true
+            property bool vpnPortal: false // туннель снят из-за портала, вернуть в открытой сети (vpn/Vpn)
         }
     }
 
@@ -225,7 +250,7 @@ Singleton {
            + `groupbar = { font_family = "${mono}", text_color = ${c(fg)}, col = { active = ${c(s3)}, inactive = ${c(s1)}, locked_active = ${c(s3)}, locked_inactive = ${c(s1)} } } }, `
            + `misc = { background_color = ${c(bg)} } })`);
 
-        kitty.setText("# glyph: пишет Theme.apply(), руками не править\n" + [
+        kitty.setText("# glyph: written by Theme.apply(), do not edit by hand\n" + [
             ["font_family", "Space Mono"], ["window_padding_width", "26 30"], ["cursor_trail", "0"],
             ["foreground", fg], ["background", s1], ["cursor", fg], ["cursor_text_color", s1],
             ["selection_foreground", fg], ["selection_background", s3], ["url_color", grey],

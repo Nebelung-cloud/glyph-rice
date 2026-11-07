@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -19,10 +20,10 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // обои — свой экран (wall/Walls), его открывает shell.qml
-    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "POWER", "INPUT", "IDLE", "SHELL"]
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, rings, "↵ or click a mode", rings, "drag the marks", ""]
+    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, "drag a screen to move it · " + rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", ""]
     readonly property var r: Rules.store
 
     // глифы видов дома, секций deck и трея бара
@@ -41,6 +42,7 @@ PanelWindow {
     property real t: shown ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
     function open() {
+        pickMon = Hyprland.focusedMonitor?.name ?? "";
         shown = true;
         stage.forceActiveFocus();
     }
@@ -51,27 +53,36 @@ PanelWindow {
         stage.forceActiveFocus(); // фокус в скрытом разделе потерялся бы
     }
 
+    // экран, который настраивают DISPLAY и HOME: открылись — тот, где фокус; его отключили — первый
+    property string pickMon
+    readonly property var names: Quickshell.screens.map(s => s.name)
+    readonly property string mon: names.includes(pickMon) ? pickMon : names[0] ?? ""
+    readonly property bool multi: names.length > 1
+    onMonChanged: home.cur = 0 // у другого экрана свой набор — курсор с прошлого мимо
+
     // ---- списки id в Theme.state: виджеты дома, секции deck, трей бара. Правим копию — JsonAdapter пишет файл на присваивание.
-    // Все возвращают новый курсор ----
+    // Все возвращают новый курсор. Виджеты — экрана mon: экранов несколько — правка даёт ему свой набор, пока не правили — общий ----
+    function list(key) { return key === "widgets" ? Theme.scr(mon, "widgets") : Theme.state[key]; }
     function edit(key, f) {
-        const a = Theme.state[key].slice();
+        const a = list(key).slice();
         f(a);
-        Theme.state[key] = a;
+        if (key === "widgets" && (multi || Theme.own(mon)?.widgets)) Theme.setScr(mon, "widgets", a);
+        else Theme.state[key] = a;
     }
     function move(key, i, to) {
-        if (to < 0 || to >= Theme.state[key].length || to === i) return i;
+        if (to < 0 || to >= list(key).length || to === i) return i;
         edit(key, a => a.splice(to, 0, a.splice(i, 1)[0]));
         return to;
     }
     function cut(key, i) {
-        const n = Theme.state[key].length;
+        const n = list(key).length;
         if (i >= n) return i;
         edit(key, a => a.splice(i, 1));
         return Math.max(0, Math.min(i, n - 2));
     }
     // ↵ на выбранном: следующий из all, которого ещё нет. В пустом списке — первый свободный
     function cycle(key, i, all) {
-        const a = Theme.state[key];
+        const a = list(key);
         if (all.every(k => a.includes(k))) return i;
         i = Math.min(i, a.length);
         let j = all.indexOf(a[i]);
@@ -81,7 +92,7 @@ PanelWindow {
     }
     // лоток: есть — убрать, нет — поставить за выбранным
     function flip(key, w, cur) {
-        const a = Theme.state[key], i = a.indexOf(w);
+        const a = list(key), i = a.indexOf(w);
         if (i >= 0) {
             edit(key, b => b.splice(i, 1));
             return Math.max(0, Math.min(i < cur ? cur - 1 : cur, a.length - 2));
@@ -92,7 +103,7 @@ PanelWindow {
     }
     // клавиши списка в фокусе: ←→ выбрать, shift ←→ переставить, ↵/пробел — сменить вид, del — убрать. -1 — клавиша не наша
     function nav(e, key, cur, all) {
-        const n = Theme.state[key].length, d = e.key === Qt.Key_Left ? -1 : e.key === Qt.Key_Right ? 1 : 0;
+        const n = list(key).length, d = e.key === Qt.Key_Left ? -1 : e.key === Qt.Key_Right ? 1 : 0;
         if (d && (e.modifiers & Qt.ShiftModifier)) return move(key, cur, cur + d);
         if (d) return n ? (cur + d + n) % n : 0;
         if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) return cycle(key, cur, all);
@@ -135,7 +146,9 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // экранов несколько — по требованию: клик в окно на другом мониторе забирает клавиатуру, клик сюда — возвращает. Один —
+    // Exclusive: иначе новое окно забрало бы клавиатуру под сплошным фоном, и стрелки и esc ушли бы в невидимое
+    WlrLayershell.keyboardFocus: shown ? multi ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.namespace: "glyph-prefs"
 
     Rectangle {
@@ -202,12 +215,14 @@ PanelWindow {
         }
 
         // ---- HOME: дом в масштабе 168/220 — те же виды, порядок и укладка. Клик — выбрать, ещё клик или ↵ — следующий вид,
-        // тянуть — встать на место того, на кого бросили. Что не влезло в 3 × 3 — справа бледным контуром ----
+        // тянуть — встать на место того, на кого бросили. Что не влезло в 3 × 3 — справа бледным контуром.
+        // Экранов несколько — сверху какой: у каждого свой набор ----
         Page {
             id: home
             k: 0
-            caption: `home · bento 3 × 3 · ${used} of 9 cells`
-            readonly property var cells: root.pack(Theme.state.widgets)
+            caption: `home${root.multi ? ` · ${root.mon.toLowerCase()}${Theme.scr(root.mon, "home") ? "" : " · hidden there, display shows it"}` : ""}`
+                + ` · bento 3 × 3 · ${used} of 9 cells`
+            readonly property var cells: root.pack(root.list("widgets"))
             readonly property var placed: cells.filter(c => c.fits)
             readonly property var off: cells.filter(c => !c.fits)
             readonly property int used: placed.reduce((a, c) => a + c.span, 0)
@@ -226,6 +241,8 @@ PanelWindow {
                 const n = placed.filter(c => c.row * 3 + c.col < at).length; // влезшие — всегда начало списка
                 cur = root.move("widgets", i, hit ? hit.i : i < n ? n - 1 : n);
             }
+
+            Pick { visible: root.multi; label: "screen"; opts: root.names.map(n => n.toLowerCase()); cur: root.names.indexOf(root.mon); onPicked: i => root.pickMon = root.names[i] }
 
             Row {
                 spacing: 60
@@ -341,7 +358,7 @@ PanelWindow {
             Tray {
                 ids: Object.keys(Theme.kinds)
                 icons: root.icons
-                used: Theme.state.widgets
+                used: root.list("widgets")
                 dim: home.off.map(c => c.id)
                 widths: Theme.kinds
                 onToggled: key => home.cur = root.flip("widgets", key, home.cur)
@@ -788,17 +805,17 @@ PanelWindow {
                             height: 105
                             radius: Theme.corner(14)
                             color: "transparent"
-                            border { width: Theme.state.wall ? 0 : 1; color: Theme.s3 }
+                            border { width: Theme.wall ? 0 : 1; color: Theme.s3 }
                             Image {
                                 anchors.fill: parent
-                                source: visible ? Theme.url(Theme.wallSrc(Theme.state.wall)) : "" // не видно — без текстуры
+                                source: visible ? Theme.url(Theme.wallSrc(Theme.wall)) : "" // не видно — без текстуры
                                 fillMode: Image.PreserveAspectCrop
                                 sourceSize: Qt.size(336, 210)
                                 asynchronous: true
                                 layer.enabled: true
                                 layer.effect: Dm { step: 4 }
                             }
-                            Lb { visible: !Theme.state.wall; anchors.centerIn: parent; px: 10; text: "no wallpaper" }
+                            Lb { visible: !Theme.wall; anchors.centerIn: parent; px: 10; text: "no wallpaper" }
                             TapHandler {
                                 onTapped: {
                                     root.close();
@@ -925,61 +942,155 @@ PanelWindow {
             }
         }
 
-        // ---- DISPLAY: яркость большим кольцом (живая, из sysfs), экран точками — с масштабом точки крупнее и реже ----
+        // ---- DISPLAY: экраны, как их расставил hypr (клик или ←→ — выбрать); всё ниже — выбранного: яркость (у встроенного),
+        // логические px, масштаб и герцы, бар и дом на нём. Ночник — на все ----
         Page {
+            id: disp
             k: 6
-            caption: `display · ${Rules.mon.name.toLowerCase()} · ${Rules.hz} hz`
+            readonly property var m: Rules.mons.find(x => x.name === root.mon) ?? Rules.mon
+            readonly property var w: Rules.want(m)
+            caption: `display · ${m.name.toLowerCase()} · ${m.w} × ${m.h} · ${m.hz} hz`
 
             Row {
                 spacing: 60
                 Column {
-                    visible: Sys.hasBri
+                    z: 1 // тянут экран за край схемы — поверх кольца яркости
                     spacing: 22
-                    Dial { anchors.horizontalCenter: parent.horizontalCenter; size: 340; n: 60; live: true; label: "brightness"; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
-                    // шаг клавиш яркости: делений на шкалу (Backlight.steps)
-                    Pick { anchors.horizontalCenter: parent.horizontalCenter; label: "step"; opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 22
-                    Rectangle {
-                        width: 420
-                        height: 262
-                        radius: 24
-                        color: Theme.bg
-                        border { width: 1; color: Theme.s3 }
-                        Image {
-                            readonly property real p: 5 * Rules.scale
-                            anchors { fill: parent; margins: 14 }
-                            fillMode: Image.Tile
-                            source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${p}" height="${p}"><circle cx="${p / 2}" cy="${p / 2}" r="${p * 0.2}" fill="#${Theme.hex(Theme.mute)}"/></svg>`)
+                    Item {
+                        id: map
+                        readonly property var ms: Rules.mons
+                        // тянут экран held: at — куда он встанет (логические px); держим там, пока hypr не ответит новыми мониторами
+                        property string held: ""
+                        property var at: null
+                        onMsChanged: held = ""
+                        readonly property real x0: Math.min(...ms.map(m => m.x))
+                        readonly property real y0: Math.min(...ms.map(m => m.y))
+                        readonly property real bw: Math.max(...ms.map(m => m.x + m.lw)) - x0
+                        readonly property real bh: Math.max(...ms.map(m => m.y + m.lh)) - y0
+                        readonly property real k: Math.min(width / bw, height / bh)
+                        width: 560
+                        height: 320
+                        activeFocusOnTab: true
+                        Keys.onPressed: e => {
+                            const d = e.key === Qt.Key_Left ? -1 : e.key === Qt.Key_Right ? 1 : 0, n = root.names.length;
+                            if (!d || !n) return;
+                            root.pickMon = root.names[(root.names.indexOf(root.mon) + d + n) % n];
+                            e.accepted = true;
+                        }
+                        Repeater {
+                            model: map.ms
+                            Rectangle {
+                                id: sc
+                                required property var modelData
+                                readonly property bool on: modelData.name === root.mon
+                                readonly property var p: map.held === modelData.name && map.at ? map.at : modelData
+                                x: (map.width - map.bw * map.k) / 2 + (p.x - map.x0) * map.k + 5
+                                y: (map.height - map.bh * map.k) / 2 + (p.y - map.y0) * map.k + 5
+                                z: map.held === modelData.name ? 1 : 0
+                                width: modelData.lw * map.k - 10
+                                height: modelData.lh * map.k - 10
+                                radius: Theme.corner(18)
+                                color: Theme.bg
+                                border { width: sc.on && map.activeFocus ? 2 : 1; color: sc.on ? Theme.fg : Theme.s3 }
+                                Behavior on border.color { ColorAnimation { duration: Theme.t } }
+                                Image {
+                                    anchors { fill: parent; margins: 12 }
+                                    fillMode: Image.Tile
+                                    source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="1.5" fill="#${Theme.hex(sc.on ? Theme.mute : Theme.s2)}"/></svg>`)
+                                }
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+                                    Lb { anchors.horizontalCenter: parent.horizontalCenter; text: sc.modelData.name; color: sc.on ? Theme.fg : Theme.grey }
+                                    Lb { anchors.horizontalCenter: parent.horizontalCenter; text: `${sc.modelData.w} × ${sc.modelData.h}`; px: 10 }
+                                }
+                                TapHandler {
+                                    onTapped: {
+                                        root.pickMon = sc.modelData.name;
+                                        map.forceActiveFocus();
+                                    }
+                                }
+                                HoverHandler { cursorShape: root.multi ? Qt.OpenHandCursor : Qt.PointingHandCursor }
+                                // тянуть — к соседу встаёт вплотную (Rules.dock); бросили — Rules.place. Пока hypr не ответил на
+                                // прошлый бросок, не тянется: расчёт шёл бы от старых мест. Без target сдвиг — в px сцены, а Stage
+                                // масштабирован
+                                DragHandler {
+                                    target: null
+                                    enabled: root.multi && (!map.held || active)
+                                    cursorShape: Qt.ClosedHandCursor
+                                    onActiveTranslationChanged: {
+                                        if (!active) return;
+                                        const m = sc.modelData, k = Theme.s * map.k;
+                                        map.at = Rules.dock({ x: m.x + activeTranslation.x / k, y: m.y + activeTranslation.y / k, w: m.lw, h: m.lh },
+                                                           map.ms.filter(o => o.name !== m.name), 16 / map.k);
+                                    }
+                                    onActiveChanged: {
+                                        const m = sc.modelData;
+                                        if (active) {
+                                            root.pickMon = m.name;
+                                            map.at = null;
+                                            map.held = m.name;
+                                            return;
+                                        }
+                                        if (map.at && (map.at.x !== m.x || map.at.y !== m.y)) Rules.place(m.name, map.at.x, map.at.y);
+                                        else map.held = "";
+                                    }
+                                }
+                            }
                         }
                     }
                     Row {
                         spacing: 14
-                        Num { id: resW; text: Math.round(Rules.mon.w / Rules.scale); font.pixelSize: 72 }
+                        Num { id: resW; text: disp.m.lw; font.pixelSize: 72 }
                         Num { anchors.baseline: resW.baseline; text: "×"; font.pixelSize: 40; color: Theme.mute }
-                        Num { anchors.baseline: resW.baseline; text: Math.round(Rules.mon.h / Rules.scale); font.pixelSize: 72 }
+                        Num { anchors.baseline: resW.baseline; text: disp.m.lh; font.pixelSize: 72 }
                     }
                     Lb { text: "logical pixels" }
+                }
+                // подсветка — у встроенного; внешние по DDC — нет (services/Backlight)
+                Column {
+                    visible: Sys.hasBri && disp.m.name === Rules.mon.name
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 22
+                    Dial { anchors.horizontalCenter: parent.horizontalCenter; size: 300; n: 60; live: true; label: "brightness"; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
+                    // шаг клавиш яркости: делений на шкалу (Backlight.steps)
+                    Pick { anchors.horizontalCenter: parent.horizontalCenter; label: "step"; opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
                 }
             }
             Row {
                 spacing: 24
-                Pick { label: "scale"; opts: Rules.scales; cur: Rules.scaleIdx; onPicked: i => Rules.setScale(i) }
-                Pick { label: "hz"; opts: Rules.rates.map(String); cur: Rules.rates.indexOf(Rules.refreshHz); onPicked: i => { root.r.refresh = Rules.rates[i]; Rules.monitor(); } }
+                Pick { label: "scale"; opts: Rules.scales; cur: disp.w.scale ? Rules.scales.indexOf(String(disp.w.scale)) : 0; onPicked: i => Rules.set(disp.m.name, "scale", i ? +Rules.scales[i] : 0) }
+                // частот бывает и пять, и восемь (телевизор, 165 Гц) — уже сегменты, чтобы строка не ушла за край холста
+                Pick { label: "hz"; seg: Math.min(104, 416 / opts.length); opts: disp.m.rates.map(String); cur: disp.m.rates.indexOf(disp.w.refresh); onPicked: i => Rules.set(disp.m.name, "refresh", disp.m.rates[i]) }
+            }
+            // и на одном экране: бар сняли с ноутбука в доке, отстыковали — вернуть его можно только здесь
+            Row {
+                spacing: 20
+                Toggle { text: "bar"; on: Theme.scr(root.mon, "bar"); onFlip: Theme.setScr(root.mon, "bar", !on) }
+                Toggle { text: "home"; on: Theme.scr(root.mon, "home"); onFlip: Theme.setScr(root.mon, "home", !on) }
+                Lb { anchors.verticalCenter: parent.verticalCenter; leftPadding: 10; text: "on this screen · its widgets — in home" }
+                // свои места, масштаб и герцы внешних — забыть, снова как в конфиге hypr (Rules.forget)
+                Act { visible: Object.keys(Rules.store.outs).length > 0; icon: "\u{F0450}"; text: "hypr config"; onHit: Rules.forget() }
             }
             Row {
                 spacing: 40
                 Toggle { anchors.verticalCenter: parent.verticalCenter; text: "night light"; on: Sys.night; onFlip: Sys.toggleNight() }
-                Dial { label: "warmth · k"; from: 2500; to: 6500; step: 100; value: root.r.warmth; onMoved: v => { root.r.warmth = v; if (root.r.night) Rules.night(); } }
+                Dial { label: "warmth · k · all screens"; from: 2500; to: 6500; step: 100; value: root.r.warmth; onMoved: v => { root.r.warmth = v; if (root.r.night) Rules.night(); } }
             }
+        }
+
+        // ---- AUDIO: output and input — volume, mute, level, the default device (prefs/Audio) ----
+        Page {
+            id: audioPage
+            k: 7
+            caption: aud.caption
+            Audio { id: aud; live: audioPage.visible && root.shown }
         }
 
         // ---- POWER: режимы питания (Rules.modes) — четыре круга, кольцо горит по силе, выбранный белый.
         // ultra — power saver и ещё 60 Гц, без анимаций, blur и теней поверх настроек ----
         Page {
-            k: 7
+            k: 8
             caption: `power · ${Rules.modes[Rules.mode].what} · ${Rules.hz} hz`
 
             Row {
@@ -1022,7 +1133,7 @@ PanelWindow {
         // ---- INPUT: держишь клавишу — первая точка сразу, пауза delay, дальше rate в секунду; по живым кольцам ----
         Page {
             id: inp
-            k: 8
+            k: 9
             caption: "input · keyboard · touchpad"
             property int n: 0 // сколько «напечатано»; 0 — клавиша отпущена
             Timer {
@@ -1081,7 +1192,7 @@ PanelWindow {
         // ---- IDLE: шкала минут без ввода. Точки тускнеют на каждом событии: бодр → заперт → экран погас → спит.
         // Метки тянутся вдоль, правее 60 — never ----
         Page {
-            k: 9
+            k: 10
             caption: "idle · minutes without input · hypridle"
 
             Item {
@@ -1136,7 +1247,7 @@ PanelWindow {
 
         // ---- SHELL: знак райса и имя живого шелла; переключатель — приложение Rice ----
         Page {
-            k: 10
+            k: 11
             caption: "shell · quickshell"
 
             Row {
@@ -1189,7 +1300,7 @@ PanelWindow {
 
     // экран в миниатюре 16:10: обои (сетка точек, если включена) и бар; k — логический px экрана в px макета
     component Mini: Rectangle {
-        readonly property real k: width / ((Rules.mon.w || 2880) / Rules.scale)
+        readonly property real k: width / (Rules.mon.w ? Rules.mon.w / Rules.scale : Quickshell.screens[0]?.width ?? 1920)
         width: 760
         height: 475
         radius: 24
