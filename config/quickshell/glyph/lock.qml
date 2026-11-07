@@ -18,9 +18,11 @@ ShellRoot {
         property string buffer: ""
         property bool fail: false
         property bool leaving: false // пароль принят: поверхность доигрывает уход, потом unlockT снимает лок
+        property string note: ""     // что PAM сказал, кроме вопроса: faillock — «account is locked… minutes left», иначе пусто
         readonly property bool busy: pam.active
         function submit() {
             if (!buffer || pam.active || leaving) return;
+            note = "";
             pam.start();
         }
     }
@@ -30,6 +32,7 @@ ShellRoot {
         config: "lock"
         configDirectory: Quickshell.shellPath("pam")
         onResponseRequiredChanged: if (responseRequired) respond(gate.buffer)
+        onPamMessage: if (!responseRequired) gate.note = (gate.note + " " + message).trim()
         onCompleted: res => {
             gate.buffer = "";
             if (res === PamResult.Success) {

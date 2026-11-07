@@ -12,7 +12,7 @@ import qs.services
 WlSessionLockSurface {
     id: root
 
-    required property var auth // { buffer, fail, busy, leaving, submit() } из lock.qml
+    required property var auth // { buffer, fail, busy, leaving, note, submit() } из lock.qml
     property string layout: "en"
 
     color: Theme.bg
@@ -183,7 +183,7 @@ WlSessionLockSurface {
             Lb {
                 anchors.horizontalCenter: parent.horizontalCenter
                 opacity: root.ph(0.8, 1)
-                text: root.auth.busy ? "checking…" : root.auth.fail ? "wrong password · try again" : "enter password"
+                text: root.auth.busy ? "checking…" : root.auth.fail ? root.auth.note.toLowerCase() || "wrong password · try again" : "enter password"
                 color: root.auth.fail ? Theme.red : Theme.grey
             }
         }
