@@ -78,7 +78,6 @@ Item {
         readonly property real pitch: 6
         readonly property real dots: 1
         readonly property real mono: 1
-        readonly property real vivid: 0 // серая, как задумано — vivid только в look 3 обоев
         readonly property real bright: 1
         property real wave: 0
         readonly property real hasA: root.cur.status === Image.Ready ? 1 : 0

@@ -1,6 +1,5 @@
 #version 440
 // обои: картинка матрицей точек-светодиодов (dots 1) или фото (dots 0), mono — в тон темы (lo…hi), иначе цвет.
-// vivid — точки берут цвет клетки: тон = 20% яркость + 80% цвет, чёрное остаётся тёмным (look 3 в Walls).
 // Смена — волна от origin: клетка решает целиком, перед фронтом srcA, за ним srcB. На гребне клетка всегда точка,
 // вспухает и светлеет — фото рассыпается в матрицу и собирается уже новым. Сторона без картинки прозрачная (под ней сетка
 // и шар дома), гребень по ней всё равно бежит
@@ -26,7 +25,6 @@ layout(std140, binding = 0) uniform buf {
     float wave;   // 0 … 1
     float hasA;
     float hasB;
-    float vivid;  // 1 — точки берут цвет пикселя под собой (colorful dots); 0 — как раньше
 };
 layout(binding = 1) uniform sampler2D srcA;
 layout(binding = 2) uniform sampler2D srcB;
@@ -49,9 +47,7 @@ void main() {
     vec4 t = isB ? texture(srcB, uv * cropB + 0.5) : texture(srcA, uv * cropA + 0.5);
     vec3 rgb = t.rgb + bg.rgb * (1.0 - t.a); // прозрачное в картинке — на фон
     float l = dot(rgb, vec3(0.299, 0.587, 0.114));
-    // vivid: тон в точках — цвет клетки (с яркостью в тон, чтоб чёрный остался тёмным); волна и crest как прежде
-    vec3 tone = mix(mix(lo.rgb, hi.rgb, l), rgb, vivid * 0.8);
-    vec3 col = has > 0.5 ? mix(bg.rgb, mix(rgb, tone, mono), bright) : bg.rgb;
+    vec3 col = has > 0.5 ? mix(bg.rgb, mix(rgb, mix(lo.rgb, hi.rgb, l), mono), bright) : bg.rgb;
     col = mix(col, hi.rgb, 0.4 * crest);
 
     // точка: радиус от «вся клетка» (фото) до .3 шага (как Dm), на гребне вспухает
