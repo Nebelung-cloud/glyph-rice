@@ -64,6 +64,8 @@ git clone https://github.com/Nebelung-cloud/glyph-rice ~/.local/share/glyph
 Without `--with` it asks which extras to add: `telegram` (`Super` `D`), `spotify` with Spicetify (`Super` `M`),
 `clash` for the VPN panel. Old configs go to `~/.dots-backup-<date>/`. Wallpapers are read from `~/Pictures/Wallpapers`,
 gifs for the home cat tile from `~/Pictures/Gifs` (pick one in prefs → home, or click the tile; none there — the cat).
+Weather (home, deck, lock) comes from open-meteo; the place is looked up by your IP at ipinfo.io unless
+`DEMONSHOT_LATLON` is set, e.g. `hl.env("DEMONSHOT_LATLON", "52.52,13.40")` in `user.lua`.
 
 | `config/` | goes to |
 |---|---|

@@ -3,3 +3,5 @@ config/hypr/user.lua
 config/quickshell/glyph/buds/*.png
 # fontconfig пишет его в config/fonts после fc-cache (install.sh): у каждого свой
 config/fonts/.uuid
+# Claude Code: свои настройки и скиллы. git add . их не подхватит
+.claude/
