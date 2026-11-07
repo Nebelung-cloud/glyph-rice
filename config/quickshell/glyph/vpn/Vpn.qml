@@ -95,20 +95,24 @@ PanelWindow {
     property date since: new Date()
     onConnectedChanged: if (connected) since = new Date()
 
-    // публичная сеть со страницей входа: туннель её не пропустит (dns-hijack, MATCH,PROXY) — выключаем и открываем портал;
-    // сеть пустила (Full) — включаем обратно. NM проверяет связь мимо туннеля (привязан к wlan0), так что Portal он видит честно.
-    // Туннель, поднятый уже за порталом (verge стартует позже шелла), снимаем так же; включённый руками после этого — не трогаем
+    // публичная сеть со страницей входа: туннель её не пропустит (dns-hijack, MATCH,PROXY). NM видит Portal мимо туннеля (привязан
+    // к wlan0), но его проверка — простой http, и подменная точка доступа скажет «портал» когда угодно. Поэтому туннель (и kill
+    // switch) сами не снимаем: уведомление, клик — выключаем и открываем портал; сеть пустила (Full) — включаем обратно.
+    // Туннель, поднятый уже за порталом (verge стартует позже шелла), — спрашиваем так же; включённый руками после этого — не трогаем.
+    // Туннеля нет — защищать нечего, страница входа открывается сразу. Всё это раз на сеть: seen сбрасывают None и Full
     // Туннель снят из-за портала — вернуть, когда сеть пустит. Флаг в glyph.json: verge помнит, что его выключили, и после
     // перезагрузки посреди портала туннель так и остался бы выключенным. Вернуть — когда меню verge пришло (live и flip() настоящие)
     readonly property bool portal: Theme.state.vpnPortal
     readonly property bool ready: child(tray, "System Proxy") !== null
     onReadyChanged: wall()
+    property bool seen: false
     function wall() {
-        if (Networking.connectivity === NetworkConnectivity.Portal && live && connected && !portal) {
-            Theme.state.vpnPortal = true;
-            flip();
-            Quickshell.execDetached(["notify-send", "-a", "vpn", "Portal", "tunnel off until you sign in"]);
-        } else if (Networking.connectivity === NetworkConnectivity.Full && portal) {
+        const c = Networking.connectivity;
+        if (c === NetworkConnectivity.None || c === NetworkConnectivity.Full) seen = false;
+        if (c === NetworkConnectivity.Portal && live && connected && !portal && !seen) {
+            seen = true;
+            ask.running = true;
+        } else if (c === NetworkConnectivity.Full && portal) {
             if (!ready) return verge || Quickshell.execDetached(["clash-verge"]); // спит — разбудить, вернём по ready
             Theme.state.vpnPortal = false;
             if (!connected) flip();
@@ -117,10 +121,26 @@ PanelWindow {
     Connections {
         target: Networking
         function onConnectivityChanged() {
-            const fresh = !root.portal; // браузер — раз на портал, а не на каждый скачок Portal↔Limited
             root.wall();
-            if (Networking.connectivity === NetworkConnectivity.Portal && fresh) gate.restart(); // когда verge уже снял system proxy
+            if (Networking.connectivity === NetworkConnectivity.Portal && !root.seen && !root.connected) {
+                root.seen = true;
+                gate.restart();
+            }
         }
+    }
+    // notify-send ждёт клика и печатает имя действия; закрыли или истекло — пусто, туннель остаётся
+    Process {
+        id: ask
+        command: ["notify-send", "-a", "vpn", "-A", "default=sign in", "Portal", "this network wants a sign-in page · click to turn the tunnel off and open it"]
+        stdout: StdioCollector { onStreamFinished: if (text.trim() === "default") root.signIn() }
+    }
+    function signIn() {
+        if (Networking.connectivity !== NetworkConnectivity.Portal) return;
+        if (live && connected && !portal) {
+            Theme.state.vpnPortal = true;
+            flip();
+        }
+        gate.restart(); // когда verge уже снял system proxy
     }
     Timer { id: gate; interval: 1500; onTriggered: Qt.openUrlExternally("http://neverssl.com") }
     // после входа NM перепроверяет связь с растущим шагом до 5 минут — торопим сами; включили руками — ждать нечего
@@ -149,9 +169,11 @@ PanelWindow {
         return `${n.toFixed(i > 2 ? 2 : 0)} ${u[i]}`;
     }
 
-    // ---- verge: ядро. Сокет сервиса verge или его собственный, секрет — из конфига verge; $0 — путь API ----
+    // ---- verge: ядро. Сокет сервиса verge или его собственный, секрет — из конфига verge; $0 — путь API.
+    // Секрет — заголовком из stdin (-K -), не в argv: оттуда его видно в ps всем на машине, а /traffic висит всегда. heredoc, не
+    // pipe: exec остаётся последним, curl — сам процесс, и остановка Process гасит его, а не оставляет сиротой ----
     readonly property string core: `d='${home}'; s=/run/clash-verge-service/users/$(id -u)/verge-mihomo.sock; [ -S "$s" ] || s="$d/verge-mihomo.sock"; `
-        + `exec curl -sfN --unix-socket "$s" -H "Authorization: Bearer $(sed -n 's/^secret: *//p' "$d/config.yaml")" "http://core$0"`
+        + `exec curl -sfN -K - --unix-socket "$s" "http://core$0" <<EOF\nheader = "Authorization: Bearer $(sed -n 's/^secret: *//p' "$d/config.yaml")"\nEOF\n`
 
     // скорость раз в секунду, последние 10 минут — копится всегда, чтобы график не начинался с нуля
     property var toll: []
