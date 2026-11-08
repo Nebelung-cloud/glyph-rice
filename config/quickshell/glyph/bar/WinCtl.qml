@@ -8,7 +8,7 @@ import qs.settings
 
 // WinCtl: Верхние кнопки управления окном в аутентичном стиле Nothing OS
 // В обычном состоянии — аккуратная незаметная точка [●], не перекрывающая вкладки и кнопку [+].
-// При наведении мыши плавно разворачивается в [ ⠿ ] [ − ] [ ⧉ ] [ ✕ ].
+// Разворачивается ТОЛЬКО по нажатию (клику) мыши, а не по наведению.
 // Можно скрыть в любой момент клавишей Super+\ или Super+`
 PanelWindow {
     id: root
@@ -38,14 +38,13 @@ PanelWindow {
     property real userDragX: 0
     property real userDragY: 0
 
-    // Режим фиксации: если пользователь нажал замочек, капсула остаётся развёрнутой
-    property bool lockedOpen: false
-
-    readonly property bool isExpanded: lockedOpen || pillHover.containsMouse
+    // Развёрнутое состояние: ТОЛЬКО по клику / нажатию
+    property bool isExpanded: false
 
     onActiveWinChanged: {
         userDragX = 0;
         userDragY = 0;
+        isExpanded = false;
     }
 
     // Пропускаем клики мимо капсулы насквозь в окна
@@ -88,7 +87,7 @@ PanelWindow {
         height: 28
         radius: Theme.corner(14)
         color: Theme.s1
-        border { width: 1.5; color: pillHover.containsMouse ? Theme.fg : Theme.s2 }
+        border { width: 1.5; color: (pillMouse.containsMouse || root.isExpanded) ? Theme.fg : Theme.s2 }
 
         Behavior on width {
             NumberAnimation {
@@ -110,32 +109,32 @@ PanelWindow {
             Behavior on opacity { NumberAnimation { duration: 140 } }
         }
 
-        // Область отслеживания мыши для всей капсулы
+        // Область клика по свёрнутой точке (нажатие для разворачивания)
         MouseArea {
-            id: pillHover
+            id: pillMouse
             anchors.fill: parent
             hoverEnabled: true
-            acceptedButtons: Qt.RightButton
-            onClicked: mouse => {
-                if (mouse.button === Qt.RightButton) {
-                    root.lockedOpen = !root.lockedOpen;
-                }
+            cursorShape: Qt.PointingHandCursor
+            enabled: !root.isExpanded
+            onClicked: {
+                root.isExpanded = true;
+                root.hoverTip = "";
             }
             onEntered: {
-                if (!root.isExpanded) root.hoverTip = "Window Controls (Right-click to pin)";
+                if (!root.isExpanded) root.hoverTip = "Window Controls (Click to open)";
             }
             onExited: {
-                if (root.hoverTip.includes("Window Controls")) root.hoverTip = "";
+                if (root.hoverTip.startsWith("Window Controls")) root.hoverTip = "";
             }
         }
 
-        // Кнопки управления (видны при наведении)
+        // Кнопки управления (видны только в развёрнутом виде)
         Row {
             id: row
             x: 6
             anchors.verticalCenter: parent.verticalCenter
             spacing: 4
-            visible: width > 0
+            visible: root.isExpanded
             opacity: root.isExpanded ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 140 } }
 
@@ -204,7 +203,10 @@ PanelWindow {
                     cursorShape: Qt.PointingHandCursor
                     onEntered: root.hoverTip = "Minimize (Super+M)"
                     onExited: if (root.hoverTip.startsWith("Minimize")) root.hoverTip = ""
-                    onClicked: Hyprland.dispatch("movetoworkspacesilent special:minimized")
+                    onClicked: {
+                        root.isExpanded = false;
+                        Hyprland.dispatch("movetoworkspacesilent special:minimized");
+                    }
                 }
             }
 
@@ -232,7 +234,9 @@ PanelWindow {
                     cursorShape: Qt.PointingHandCursor
                     onEntered: root.hoverTip = "Toggle Float / Tile (Super+T)"
                     onExited: if (root.hoverTip.startsWith("Toggle Float")) root.hoverTip = ""
-                    onClicked: Hyprland.dispatch("togglefloating")
+                    onClicked: {
+                        Hyprland.dispatch("togglefloating");
+                    }
                 }
             }
 
@@ -260,7 +264,39 @@ PanelWindow {
                     cursorShape: Qt.PointingHandCursor
                     onEntered: root.hoverTip = "Close (Super+C)"
                     onExited: if (root.hoverTip.startsWith("Close")) root.hoverTip = ""
-                    onClicked: Hyprland.dispatch("killactive")
+                    onClicked: {
+                        root.isExpanded = false;
+                        Hyprland.dispatch("killactive");
+                    }
+                }
+            }
+
+            // 4. Свернуть обратно в точку (Collapse button)
+            Rectangle {
+                id: collapseBtn
+                width: 18
+                height: 22
+                radius: 4
+                anchors.verticalCenter: parent.verticalCenter
+                color: collapseArea.containsMouse ? Theme.s3 : "transparent"
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "›"
+                    font { family: Theme.mono; pixelSize: 13; bold: true }
+                    color: collapseArea.containsMouse ? Theme.fg : Theme.grey
+                }
+                MouseArea {
+                    id: collapseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onEntered: root.hoverTip = "Collapse"
+                    onExited: if (root.hoverTip.startsWith("Collapse")) root.hoverTip = ""
+                    onClicked: {
+                        root.isExpanded = false;
+                        root.hoverTip = "";
+                    }
                 }
             }
         }
