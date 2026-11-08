@@ -23,11 +23,12 @@ PanelWindow {
 
     // Активное окно на текущем рабочем столе
     readonly property var activeWin: Hyprland.toplevels.values.find(t => t.lastIpcObject?.focusHistoryID === 0)
-    readonly property bool isFullscreen: (activeWin?.lastIpcObject?.fullscreen ?? 0) !== 0
+    readonly property bool isTrueFullscreen: (activeWin?.lastIpcObject?.fullscreen ?? 0) === 2
+    readonly property bool isMaximized: (activeWin?.lastIpcObject?.fullscreen ?? 0) === 1
     readonly property bool hasWins: !!activeWin && (Hyprland.focusedWorkspace?.toplevels.values.length ?? 0) > 0
 
-    // Полное скрытие по Super+\ или настройке
-    visible: hasWins && !isFullscreen && Theme.state.winCtl
+    // Полное скрытие по Super+\ или настройке (скрывается только в настоящем полноэкранном режиме fullscreen 2)
+    visible: hasWins && !isTrueFullscreen && Theme.state.winCtl
 
     readonly property real winX: activeWin?.lastIpcObject?.at?.[0] ?? (root.width - pill.width - 14)
     readonly property real winY: activeWin?.lastIpcObject?.at?.[1] ?? 14
@@ -109,22 +110,61 @@ PanelWindow {
             Behavior on opacity { NumberAnimation { duration: 140 } }
         }
 
-        // Область клика по свёрнутой точке (нажатие для разворачивания)
+        // Область клика по свёрнутой точке (нажатие для разворачивания или перетаскивание окна)
         MouseArea {
             id: pillMouse
             anchors.fill: parent
             hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
+            cursorShape: isDragging ? Qt.SizeAllCursor : Qt.PointingHandCursor
             enabled: !root.isExpanded
+
+            property real startX: 0
+            property real startY: 0
+            property real lastScreenX: 0
+            property real lastScreenY: 0
+            property bool isDragging: false
+
+            onPressed: (mouse) => {
+                let p = pillMouse.mapToItem(null, mouse.x, mouse.y);
+                startX = p.x;
+                startY = p.y;
+                lastScreenX = p.x;
+                lastScreenY = p.y;
+                isDragging = false;
+            }
+            onPositionChanged: (mouse) => {
+                if (pressed) {
+                    let p = pillMouse.mapToItem(null, mouse.x, mouse.y);
+                    let totalDist = Math.hypot(p.x - startX, p.y - startY);
+                    if (totalDist > 4) {
+                        if (!isDragging && root.isMaximized) {
+                            Hyprland.dispatch("fullscreen 1");
+                        }
+                        isDragging = true;
+                        let dx = Math.round(p.x - lastScreenX);
+                        let dy = Math.round(p.y - lastScreenY);
+                        if (dx !== 0 || dy !== 0) {
+                            lastScreenX = p.x;
+                            lastScreenY = p.y;
+                            Hyprland.dispatch(`moveactive ${dx} ${dy}`);
+                        }
+                    }
+                }
+            }
             onClicked: {
-                root.isExpanded = true;
-                root.hoverTip = "";
+                if (!isDragging) {
+                    root.isExpanded = true;
+                    root.hoverTip = "";
+                }
+            }
+            onReleased: {
+                isDragging = false;
             }
             onEntered: {
-                if (!root.isExpanded) root.hoverTip = "Window Controls (Click to open)";
+                if (!root.isExpanded) root.hoverTip = "Click to open • Drag to move window";
             }
             onExited: {
-                if (root.hoverTip.startsWith("Window Controls")) root.hoverTip = "";
+                if (root.hoverTip.includes("Drag to move")) root.hoverTip = "";
             }
         }
 
@@ -157,24 +197,39 @@ PanelWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.SizeAllCursor
-                    drag.target: pill
-                    drag.axis: Drag.XAndYAxis
-                    drag.minimumX: 8
-                    drag.maximumX: root.width - pill.width - 8
-                    drag.minimumY: 8
-                    drag.maximumY: root.height - pill.height - 8
-                    onPositionChanged: {
-                        if (drag.active) {
-                            root.userDragX = pill.x - pill.defaultX;
-                            root.userDragY = pill.y - pill.defaultY;
+                    property real lastScreenX: 0
+                    property real lastScreenY: 0
+                    property bool isDragging: false
+
+                    onPressed: (mouse) => {
+                        let p = dragHandleArea.mapToItem(null, mouse.x, mouse.y);
+                        lastScreenX = p.x;
+                        lastScreenY = p.y;
+                        isDragging = true;
+                    }
+                    onPositionChanged: (mouse) => {
+                        if (isDragging && pressed) {
+                            if (root.isMaximized) {
+                                Hyprland.dispatch("fullscreen 1");
+                            }
+                            let p = dragHandleArea.mapToItem(null, mouse.x, mouse.y);
+                            let dx = Math.round(p.x - lastScreenX);
+                            let dy = Math.round(p.y - lastScreenY);
+                            if (dx !== 0 || dy !== 0) {
+                                lastScreenX = p.x;
+                                lastScreenY = p.y;
+                                Hyprland.dispatch(`moveactive ${dx} ${dy}`);
+                            }
                         }
                     }
-                    onEntered: root.hoverTip = "Drag to reposition (Double-click to reset)"
-                    onExited: if (root.hoverTip.startsWith("Drag")) root.hoverTip = ""
-                    onDoubleClicked: {
-                        root.userDragX = 0;
-                        root.userDragY = 0;
+                    onReleased: {
+                        isDragging = false;
                     }
+                    onCanceled: {
+                        isDragging = false;
+                    }
+                    onEntered: root.hoverTip = "Drag to move window"
+                    onExited: if (root.hoverTip.startsWith("Drag to move")) root.hoverTip = ""
                 }
             }
 
