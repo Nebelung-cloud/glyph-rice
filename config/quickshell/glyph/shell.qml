@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import "alttab"
 import "bar"
 import "buds"
 import "cal"
@@ -38,6 +39,7 @@ ShellRoot {
     Shot { id: shot }
     Vpn { id: vpn }
     Walls { id: walls }
+    AltTab { id: alttab }
 
     Variants {
         model: Quickshell.screens
@@ -140,6 +142,9 @@ ShellRoot {
     Shortcut { name: "wall"; description: "обои"; onPressed: walls.toggle() }
     Shortcut { name: "game"; description: "игровой режим"; onPressed: Rules.store.game = !Rules.store.game }
     Shortcut { name: "winctl"; description: "показать/скрыть кнопки окна"; onPressed: Theme.state.winCtl = !Theme.state.winCtl }
+    Shortcut { name: "alttab"; description: "переключение приложений"; onPressed: alttab.next() }
+    Shortcut { name: "alttabPrev"; description: "переключение приложений назад"; onPressed: alttab.prev() }
+    Shortcut { name: "alttabRelease"; description: "открыть приложение на весь экран"; onPressed: alttab.commit() }
 
     component Shortcut: GlobalShortcut { appid: "shell" }
 }
