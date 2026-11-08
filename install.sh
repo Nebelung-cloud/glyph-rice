@@ -136,8 +136,6 @@ links() {
     # тёмный режим для Zen, Electron и libadwaita (через портал) и тёмная gtk3-база под наш gtk.css
     gsettings set org.gnome.desktop.interface color-scheme prefer-dark
     gsettings set org.gnome.desktop.interface gtk-theme adw-gtk3-dark
-    # единые элементы управления Nothing OS без дублирующих неработающих кнопок
-    gsettings set org.gnome.desktop.wm.preferences button-layout ''
 }
 
 greeter() { # тема входа. Копия, а не ссылка: пользователь sddm не прочтёт закрытый $HOME. fonts в теме — ссылка на config/fonts, -L копирует сами файлы
