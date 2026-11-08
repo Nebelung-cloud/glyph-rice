@@ -29,7 +29,7 @@ PanelWindow {
     // Автоматическое подтверждение при задержке без отпускания клавиши
     Timer {
         id: autoCommitTimer
-        interval: 3000
+        interval: 1000
         onTriggered: if (root.open) root.commit()
     }
 
@@ -143,11 +143,9 @@ PanelWindow {
             Hyprland.dispatch(`movetoworkspace ${curWs},address:${target.address}`);
         }
 
-        // Переводим фокус на выбранное окно
+        // Переводим фокус на выбранное окно и поднимаем на передний план (модель Ubuntu)
         Hyprland.dispatch(`focuswindow address:${target.address}`);
-
-        // Раскрываем выбранное приложение во весь экран (fullscreen 1)
-        Hyprland.dispatch("fullscreen 1");
+        Hyprland.dispatch("bringactivetotop");
     }
 
     function cancel() {
@@ -333,7 +331,7 @@ PanelWindow {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Alt + Tab to cycle • Release Alt to open Full Screen"
+                    text: "Alt + Tab to cycle • Release Alt to switch • Click to select"
                     font { family: Theme.mono; pixelSize: 10 }
                     color: Theme.mute
                 }

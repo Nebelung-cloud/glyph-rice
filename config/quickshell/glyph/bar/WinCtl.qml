@@ -232,10 +232,10 @@ PanelWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onEntered: root.hoverTip = "Toggle Float / Tile (Super+T)"
-                    onExited: if (root.hoverTip.startsWith("Toggle Float")) root.hoverTip = ""
+                    onEntered: root.hoverTip = "Maximize / Restore (Super+F)"
+                    onExited: if (root.hoverTip.startsWith("Maximize")) root.hoverTip = ""
                     onClicked: {
-                        Hyprland.dispatch("togglefloating");
+                        Hyprland.dispatch("fullscreen 1");
                     }
                 }
             }

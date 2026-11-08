@@ -6,9 +6,10 @@ local vars = require("variables")
 
 hl.window_rule({ match = { fullscreen = false }, opacity = vars.windowOpacity .. " override" })
 
--- приложения (kitty) сами просят maximize при открытии — игнорируем, тайлинг решает сам
+-- Ubuntu-style floating desktop: all windows float and center by default, ignore app-forced maximize/fullscreen
 hl.window_rule({ match = { class = ".*" }, suppress_event = "maximize" })
-
+hl.window_rule({ match = { class = ".*" }, suppress_event = "fullscreen" })
+hl.window_rule({ match = { class = ".*" }, float = true })
 hl.window_rule({ match = { float = true, xwayland = false }, center = true }) -- Center all floating windows (not xwayland cause popups)
 
 -- Floating Applications
