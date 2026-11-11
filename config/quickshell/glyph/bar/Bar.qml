@@ -30,15 +30,23 @@ PanelWindow {
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
 
-    readonly property int active: Hyprland.focusedWorkspace?.id ?? 0
-    // шесть точек, больше — если занят или открыт дальний
-    readonly property int count: Math.min(10, Math.max(6, active, ...Hyprland.workspaces.values.filter(w => w.toplevels.values.length).map(w => w.id)))
+    // стол своего монитора (не глобальный фокус): на втором мониторе показывается его собственный стол
+    readonly property var mon: Hyprland.monitorFor(screen) ?? Hyprland.monitors.values.find(m => m.name === screen?.name) ?? null
+    readonly property int active: mon?.activeWorkspace?.id ?? Hyprland.focusedWorkspace?.id ?? 0
+    // группа из десяти столов, к которой относится активный (1–10, 11–20, …)
+    readonly property int base: Math.floor((Math.max(active, 1) - 1) / 10) * 10
+    // шесть точек, больше — если занят или открыт дальний (в пределах группы)
+    readonly property int count: Math.min(10, Math.max(6, active - base, ...Hyprland.workspaces.values.filter(w => w.toplevels.values.length && w.id > base && w.id <= base + 10).map(w => w.id - base)))
     readonly property var top: ToplevelManager.activeToplevel
     readonly property var bat: UPower.displayDevice
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
 
     // hyprland 0.56 с lua: dispatch принимает lua-выражение
-    function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
+    // сначала монитор этого бара: иначе стол откроется на том мониторе, где сейчас фокус (главный)
+    function go(ws) {
+        if (screen?.name) Hyprland.dispatch(`hl.dsp.focus({ monitor = "${screen.name}" })`);
+        Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`);
+    }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
@@ -85,7 +93,7 @@ PanelWindow {
 
                     Rectangle {
                         required property int index
-                        readonly property int n: index + 1
+                        readonly property int n: root.base + index + 1
                         readonly property bool occ: (Hyprland.workspaces.values.find(w => w.id === n)?.toplevels.values.length ?? 0) > 0
                         readonly property bool on: root.active === n
                         property real len: on ? 28 : 8
