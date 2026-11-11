@@ -110,8 +110,10 @@ PanelWindow {
                     }
 
                     Column {
+                        id: nets
                         width: parent.width
                         Row {
+                            id: pills
                             width: parent.width
                             spacing: 12
                             Pill {
@@ -140,7 +142,16 @@ PanelWindow {
                             Behavior on height { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                             visible: height > 0
                             clip: true
-                            Picker { id: picker; y: 16; width: parent.width; kind: root.pick; onTouched: root.pin() }
+                            Picker {
+                                id: picker
+                                y: 16
+                                width: parent.width
+                                kind: root.pick
+                                onTouched: root.pin()
+                                // потолок — экран минус остальная панель (уведомления сожмутся до нуля): шесть сетей не выталкивают шапку за экран
+                                max: stage.height - 28 - 44 - 16 - pills.height
+                                    - col.children.filter(c => c.visible && c !== nets && c !== notes).reduce((s, c) => s + c.height + col.spacing, 0)
+                            }
                         }
                     }
 
