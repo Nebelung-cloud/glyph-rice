@@ -27,9 +27,36 @@ Rectangle {
     // pairing with a stranger's «headphones» would leave it trusted. A trusted device reconnects by itself (buds out of the case).
     // From Nebelung-cloud/glyph-rice
     property var pend: null
+    property var pairNext: null
     Connections {
         target: root.pend
-        function onPairedChanged() { if (root.pend.paired) { root.pend.trusted = true; root.pend = null; } }
+        function onPairedChanged() { root.settle() }
+        function onPairingChanged() { root.settle() }
+    }
+    // pairing finished: trust only on success. BlueZ rejects Connect during Pair, and right after it the buds
+    // often connect by themselves; a second connect on top gives connect → disconnect. Wait, check, then connect
+    function settle() {
+        const d = root.pend;
+        if (!d) return;
+        if (!(d.paired || d.bonded)) {
+            if (!d.pairing) root.pend = null;
+            return;
+        }
+        if (d.pairing) return;
+        root.pend = null;
+        d.trusted = true;
+        root.pairNext = d;
+        pairConnect.restart();
+    }
+    Timer {
+        id: pairConnect
+        interval: 600
+        onTriggered: {
+            const d = root.pairNext;
+            root.pairNext = null;
+            if (!d || d.connected || d.pairing || d.state === BluetoothDeviceState.Connecting || d.state === BluetoothDeviceState.Disconnecting) return;
+            d.connect();
+        }
     }
     property string err
     // kind, not open: the open binding may not be recomputed yet at this signal, and the first open showed bluetooth
@@ -44,8 +71,12 @@ Rectangle {
     readonly property var nets: !isWifi || !wifi ? [] : wifi.networks.values.filter(n => n.name)
         .sort((a, b) => b.connected - a.connected || b.known - a.known || b.signalStrength - a.signalStrength).slice(0, 6)
     // nameless ones (just an address) — airwave noise
-    readonly property var devs: shown !== "bt" || !bt ? [] : bt.devices.values.filter(d => d.paired || d.deviceName)
-        .sort((a, b) => b.connected - a.connected || b.paired - a.paired).slice(0, 6)
+    readonly property var devs: shown !== "bt" || !bt ? [] : bt.devices.values.filter(d => d.paired || d.bonded || d.connected || d.deviceName)
+    // known ones always on top, in their own group: paired/bonded keeps them from mixing with strangers' devices around
+    readonly property var known: devs.filter(d => d.paired || d.bonded || d.connected)
+        .sort((a, b) => b.connected - a.connected || b.paired - a.paired)
+    readonly property var nearby: devs.filter(d => !(d.paired || d.bonded || d.connected))
+        .sort((a, b) => (a.name || a.address).localeCompare(b.name || b.address)).slice(0, 6)
     readonly property var rows: !on ? [] : ask ? [ask] : isWifi ? nets : devs
 
     function bars(n) {
@@ -62,8 +93,12 @@ Rectangle {
         err = "";
         if (!isWifi) {
             if (o.pairing) return o.cancelPair();
-            if (!o.paired) { pend = o; return o.pair(); }
-            return o.connected ? o.disconnect() : o.connect();
+            if (o.connected) return o.disconnect();
+            if (o.state === BluetoothDeviceState.Connecting || o.state === BluetoothDeviceState.Disconnecting) return;
+            // already known — connect only; BlueZ rejects pair() on a bonded device, and «pair + connect at once» drops the link
+            if (o.paired || o.bonded) return o.connect();
+            pend = o;
+            return o.pair();
         }
         if (o.connected) return portal ? Qt.openUrlExternally("http://neverssl.com") : o.disconnect();
         if (o.known || o.security === WifiSecurityType.Open || o.security === WifiSecurityType.Owe) return o.connect();
@@ -99,7 +134,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     text: !root.on ? `${root.isWifi ? "wi-fi" : "bluetooth"} · off`
                         : root.ask ? "password"
-                        : root.isWifi ? `networks · ${root.nets.length}` : `devices · ${root.bt?.discovering ? "searching" : root.devs.length}`
+                        : root.isWifi ? `networks · ${root.nets.length}` : `devices · ${root.bt?.discovering ? "searching" : root.known.length + root.nearby.length}`
                 }
                 Lb {
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
@@ -113,8 +148,9 @@ Rectangle {
                 }
             }
 
-            Repeater {
-                model: root.rows
+            // one row per network and per device
+            Component {
+                id: deviceRow
                 Rectangle {
                     id: row
                     required property var modelData
@@ -157,13 +193,13 @@ Rectangle {
                             text: root.isWifi
                                 ? `${row.on ? (root.portal ? "sign in" : "connected") : row.busy ? "connecting" : row.o.known ? "saved" : WifiSecurityType.toString(row.o.security).toLowerCase()} · ${Math.round(row.o.signalStrength * 100)}%`
                                 : (row.o.pairing ? "pairing" : row.o.state === BluetoothDeviceState.Connecting ? "connecting" : row.o.state === BluetoothDeviceState.Disconnecting ? "disconnecting"
-                                   : row.on ? "connected" : row.o.paired ? "paired" : "pair") + (row.o.batteryAvailable ? ` · ${Math.round(row.o.battery * 100)}%` : "")
+                                   : row.on ? "connected" : (row.o.paired || row.o.bonded) ? "paired" : "pair") + (row.o.batteryAvailable ? ` · ${Math.round(row.o.battery * 100)}%` : "")
                         }
                     }
                     HoverHandler { id: hov; cursorShape: Qt.PointingHandCursor }
                     TapHandler { onTapped: root.tap(row.o) }
                     // right click on a saved one — forget
-                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.touched(); if (row.o.known || row.o.paired) row.o.forget(); } }
+                    TapHandler { acceptedButtons: Qt.RightButton; onTapped: { root.touched(); if (row.o.known || row.o.paired || row.o.bonded) row.o.forget(); } }
                     // no password or a wrong one — NM asks for a secret: the password row again
                     Connections {
                         target: root.isWifi ? row.o : null
@@ -174,6 +210,38 @@ Rectangle {
                         }
                     }
                 }
+            }
+
+            Repeater {
+                model: root.isWifi ? root.rows : []
+                delegate: deviceRow
+            }
+
+            // bonded ones — a separate group on top, so they do not mix with strangers' devices around
+            Lb {
+                visible: root.shown === "bt" && root.on && root.known.length > 0
+                x: 4
+                px: 10
+                topPadding: 8
+                bottomPadding: 2
+                text: `paired · ${root.known.length}`
+            }
+            Repeater {
+                model: root.shown === "bt" && root.on ? root.known : []
+                delegate: deviceRow
+            }
+
+            Lb {
+                visible: root.shown === "bt" && root.on && root.nearby.length > 0
+                x: 4
+                px: 10
+                topPadding: 8
+                bottomPadding: 2
+                text: `nearby · ${root.nearby.length}`
+            }
+            Repeater {
+                model: root.shown === "bt" && root.on ? root.nearby : []
+                delegate: deviceRow
             }
 
             Rectangle {
