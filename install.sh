@@ -16,7 +16,7 @@ PACMAN=(
     hyprland hypridle hyprsunset hyprpicker xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
     sddm quickshell polkit-gnome gnome-keyring geoclue upower xdg-user-dirs
     # звук, сеть, bluetooth
-    pipewire pipewire-pulse pipewire-alsa wireplumber networkmanager bluez bluez-utils power-profiles-daemon
+    pipewire pipewire-pulse pipewire-alsa wireplumber networkmanager bluez bluez-utils blueman power-profiles-daemon
     # утилиты, которые зовут бинды и шелл
     brightnessctl playerctl wl-clipboard cliphist grim slurp swappy imagemagick libvips libqalculate
     gpu-screen-recorder ydotool libnotify trash-cli
