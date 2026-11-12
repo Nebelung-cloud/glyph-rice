@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Nothing / CMF earbuds via their RFCOMM protocol (borrowed from Gadgetbridge: service/devices/nothing/NothingProtocol.java)
-#   ear MAC          → {"mode": 4, "l": 100, "r": 95, "case": 80}  (case — only when the earbuds are in the case)
+#   ear MAC          → {"mode": 4, "l": 100, "r": 95, "case": 80}  (case — only when the earbuds are in the case;
+#                       headphones and neckbands have one "bat"; without noise cancelling — Ear (open) — no "mode")
 #   ear MAC mode N   → set the mode, the answer is the same
 # modes: 1 high, 2 mid, 3 low, 4 adaptive, 5 off, 7 transparency
 import json, re, socket, struct, sys, uuid
@@ -38,7 +39,10 @@ def ask(s, reqs):
     want = {cmd & 0x7FFF for cmd, _ in reqs}
     got, buf = {}, b""
     while want - got.keys():
-        d = s.recv(1024)
+        try:
+            d = s.recv(1024)
+        except TimeoutError:  # a model without noise cancelling may not answer that request — return what we have
+            break
         if not d:  # the earbuds left mid-exchange — recv returns b"" endlessly, the loop would spin forever
             sys.exit("closed")
         buf += d
@@ -61,10 +65,13 @@ with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOM
     s.connect((mac, channel(mac)))
     got = ask(s, reqs + [(0xC007, b""), (0xC01E, b"")])
 
-# battery: the number of batteries, then pairs (2 left, 3 right, 4 case; level & 7f). Mode: 01 MM 00 …
-bat, mode = got[0x4007], got[0x401E]
-out = {"mode": mode[1]}
+# battery: the number of batteries, then pairs (2 left, 3 right, 4 case, 6 a single one; level & 7f). Mode: 01 MM 00 …
+if 0x4007 not in got:
+    sys.exit("no battery")
+bat, out = got[0x4007], {}
+if len(got.get(0x401E, b"")) > 1:
+    out["mode"] = got[0x401E][1]
 for i in range(bat[0]):
     k, v = bat[1 + 2 * i], bat[2 + 2 * i]
-    out[{2: "l", 3: "r", 4: "case"}.get(k, str(k))] = v & 0x7F
+    out[{2: "l", 3: "r", 4: "case", 6: "bat"}.get(k, str(k))] = v & 0x7F
 print(json.dumps(out))

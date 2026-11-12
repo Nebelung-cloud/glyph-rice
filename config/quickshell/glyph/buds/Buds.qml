@@ -12,7 +12,7 @@ PanelWindow {
     id: root
 
     property string name
-    readonly property string slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") // кириллица, эмодзи — пусто
+    readonly property string slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") // Cyrillic or emoji leave it empty
     readonly property string art: slug ? Quickshell.shellPath("buds/" + slug + ".png") : ""
 
     // the show's progress: t — the card, lit — the dot silhouette, pop — the device settles into place, res — dots → photo
@@ -166,13 +166,13 @@ PanelWindow {
                 }
             }
 
-            // battery: left, right, case (the case — only when the earbuds are in it). Until ear answers — empty
+            // battery: left, right, case (the case only when the earbuds are in it), one bat for headphones. Empty until ear answers
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 330
                 spacing: 34
                 Repeater {
-                    model: ["l", "r", "case"].filter(k => Sys.ear?.[k] !== undefined)
+                    model: Sys.earBat
                     Column {
                         id: bat
                         required property string modelData

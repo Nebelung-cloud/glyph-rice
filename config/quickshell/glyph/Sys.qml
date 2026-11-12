@@ -118,13 +118,22 @@ Singleton {
 
     // ---- Nothing / CMF earbuds: noise cancelling and battery via ./ear (their RFCOMM protocol). Asked when quick settings open.
     // ponytail: recognised by name, like Gadgetbridge; not Nothing — ear won't answer, ear stays null ----
-    readonly property var buds: Bluetooth.devices.values.find(d => d.connected && /^(nothing|cmf|ear)\b/i.test(d.name)) ?? null
-    property var ear: null // {mode, l, r, case?}
+    readonly property var buds: Bluetooth.devices.values.find(d => d.connected && /^(nothing|cmf|ear)\b|^(buds|neckband) pro$/i.test(d.name)) ?? null
+    property var ear: null // {mode?, l, r, case?}, or {mode?, bat} for headphones and neckbands
+    readonly property var earBat: ["bat", "l", "r", "case"].filter(k => ear?.[k] !== undefined)
     onBudsChanged: ear = null
     // right after connecting the channel isn't ready yet — ask every 2 s until they answer. ponytail: a non-Nothing device with a similar
     // name will keep being polled while connected
     Timer { interval: 2000; repeat: true; running: !!root.buds && !root.ear; onTriggered: root.earRun([]) }
-    readonly property var ancModes: [[5, "off"], [7, "transp"], [3, "low"], [2, "mid"], [1, "high"], [4, "auto"]]
+    // modes per model, as in BudsLink (deviceConfigs). Models not listed get the full set: the other Ear, CMF and Headphone have it. From Nebelung-cloud/glyph-rice
+    readonly property var ancModes: {
+        const n = buds?.name ?? "";
+        if (/ear \((open|stick)\)$/i.test(n)) return [];
+        if (/^cmf buds( 2a| neo)?$/i.test(n)) return [[5, "off"], [7, "transp"], [4, "on"]];
+        if (/ear \(1\)$/i.test(n)) return [[5, "off"], [7, "transp"], [3, "low"], [1, "high"]];
+        if (/buds pro$/i.test(n)) return [[5, "off"], [7, "transp"], [3, "low"], [2, "mid"], [1, "high"]];
+        return [[5, "off"], [7, "transp"], [3, "low"], [2, "mid"], [1, "high"], [4, "auto"]];
+    }
     property var earNext: null
     function earRun(a) {
         if (!buds) return;
