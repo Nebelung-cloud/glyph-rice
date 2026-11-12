@@ -167,12 +167,13 @@ PanelWindow {
                             Lb {
                                 anchors.right: parent.right
                                 rightPadding: 6
-                                text: ["l", "r", "case"].filter(k => Sys.ear?.[k] !== undefined).map(k => `${k} ${Sys.ear[k]}`).join(" · ")
+                                text: Sys.earBat.map(k => `${k} ${Sys.ear[k]}`).join(" · ")
                                 color: Theme.fg
                             }
                         }
                         Rectangle {
                             id: anc
+                            visible: Sys.ancModes.length > 0 // Ear (open), Ear (stick) — без шумодава
                             width: parent.width
                             height: 54
                             radius: Theme.corner(27)

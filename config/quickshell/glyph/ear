@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # наушники Nothing / CMF по их RFCOMM-протоколу (подсмотрен в Gadgetbridge: service/devices/nothing/NothingProtocol.java)
-#   ear MAC          → {"mode": 4, "l": 100, "r": 95, "case": 80}  (case — только когда наушники в кейсе)
+#   ear MAC          → {"mode": 4, "l": 100, "r": 95, "case": 80}  (case — только когда наушники в кейсе;
+#                       у полноразмерных и шейных одно "bat"; без шумодава — Ear (open) — нет "mode")
 #   ear MAC mode N   → поставить режим, ответ тот же
 # режимы: 1 high, 2 mid, 3 low, 4 adaptive, 5 off, 7 transparency
 import json, re, socket, struct, sys, uuid
@@ -38,7 +39,10 @@ def ask(s, reqs):
     want = {cmd & 0x7FFF for cmd, _ in reqs}
     got, buf = {}, b""
     while want - got.keys():
-        d = s.recv(1024)
+        try:
+            d = s.recv(1024)
+        except TimeoutError:  # модель без шумодава может не ответить на его запрос — отдать, что есть
+            break
         if not d:  # наушники ушли посреди обмена — recv отдаёт b"" без конца, цикл крутился бы вечно
             sys.exit("closed")
         buf += d
@@ -61,10 +65,13 @@ with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOM
     s.connect((mac, channel(mac)))
     got = ask(s, reqs + [(0xC007, b""), (0xC01E, b"")])
 
-# заряд: число батарей, дальше пары (2 левый, 3 правый, 4 кейс; уровень & 7f). Режим: 01 MM 00 …
-bat, mode = got[0x4007], got[0x401E]
-out = {"mode": mode[1]}
+# заряд: число батарей, дальше пары (2 левый, 3 правый, 4 кейс, 6 одна на всё; уровень & 7f). Режим: 01 MM 00 …
+if 0x4007 not in got:
+    sys.exit("no battery")
+bat, out = got[0x4007], {}
+if len(got.get(0x401E, b"")) > 1:
+    out["mode"] = got[0x401E][1]
 for i in range(bat[0]):
     k, v = bat[1 + 2 * i], bat[2 + 2 * i]
-    out[{2: "l", 3: "r", 4: "case"}.get(k, str(k))] = v & 0x7F
+    out[{2: "l", 3: "r", 4: "case", 6: "bat"}.get(k, str(k))] = v & 0x7F
 print(json.dumps(out))

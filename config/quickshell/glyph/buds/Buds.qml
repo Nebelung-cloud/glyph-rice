@@ -158,13 +158,13 @@ PanelWindow {
                 }
             }
 
-            // заряд: левый, правый, кейс (кейс — только когда наушники в нём). Пока ear не ответил — пусто
+            // заряд: левый, правый, кейс (кейс — только когда наушники в нём), у полноразмерных одно bat. Пока ear не ответил — пусто
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: 330
                 spacing: 34
                 Repeater {
-                    model: ["l", "r", "case"].filter(k => Sys.ear?.[k] !== undefined)
+                    model: Sys.earBat
                     Column {
                         id: bat
                         required property string modelData
