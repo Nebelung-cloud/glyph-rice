@@ -28,10 +28,17 @@ Rectangle {
     // From Nebelung-cloud/glyph-rice
     property var pend: null
     property var pairNext: null
+    property bool pairPairable: false
     Connections {
         target: root.pend
         function onPairedChanged() { root.settle() }
         function onPairingChanged() { root.settle() }
+    }
+    // BlueZ does not store the bond if the adapter is not pairable: Pair() seems to pass, but the link stays temporary,
+    // drops right after connect, and Paired goes back to no. Turn pairable on only for the pairing, then restore it.
+    function restorePairable() {
+        if (root.pairPairable && root.bt) root.bt.pairable = false;
+        root.pairPairable = false;
     }
     // pairing finished: trust only on success. BlueZ rejects Connect during Pair, and right after it the buds
     // often connect by themselves; a second connect on top gives connect → disconnect. Wait, check, then connect
@@ -39,11 +46,12 @@ Rectangle {
         const d = root.pend;
         if (!d) return;
         if (!(d.paired || d.bonded)) {
-            if (!d.pairing) root.pend = null;
+            if (!d.pairing) { root.pend = null; root.restorePairable(); }
             return;
         }
         if (d.pairing) return;
         root.pend = null;
+        root.restorePairable();
         d.trusted = true;
         root.pairNext = d;
         pairConnect.restart();
@@ -97,6 +105,8 @@ Rectangle {
             if (o.state === BluetoothDeviceState.Connecting || o.state === BluetoothDeviceState.Disconnecting) return;
             // already known — connect only; BlueZ rejects pair() on a bonded device, and «pair + connect at once» drops the link
             if (o.paired || o.bonded) return o.connect();
+            // without pairable BlueZ will not keep the bond — the device connects, drops at once, and Paired goes back to no
+            if (root.bt && !root.bt.pairable) { root.bt.pairable = true; root.pairPairable = true; }
             pend = o;
             return o.pair();
         }
