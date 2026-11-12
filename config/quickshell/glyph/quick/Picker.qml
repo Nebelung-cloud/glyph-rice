@@ -27,10 +27,17 @@ Rectangle {
     // знакомство с чужим «наушником» оставляло бы его доверенным. Доверенный сам переподключается (наушники из кейса)
     property var pend: null
     property var pairNext: null
+    property bool pairPairable: false
     Connections {
         target: root.pend
         function onPairedChanged() { root.settle() }
         function onPairingChanged() { root.settle() }
+    }
+    // BlueZ не пишет bond, если адаптер не pairable: Pair() будто проходит, но связь остаётся временной и рвётся сразу
+    // после connect, а Paired снова становится no. Включаем pairable только на время знакомства и возвращаем как было.
+    function restorePairable() {
+        if (root.pairPairable && root.bt) root.bt.pairable = false;
+        root.pairPairable = false;
     }
     // знакомство закончилось: доверяем только после успеха. Connect во время Pair BlueZ отвергает, а сразу после —
     // наушники часто подключаются сами, и второй connect поверх этого даёт connect → disconnect. Ждём, проверяем, потом подключаем
@@ -38,11 +45,12 @@ Rectangle {
         const d = root.pend;
         if (!d) return;
         if (!(d.paired || d.bonded)) {
-            if (!d.pairing) root.pend = null;
+            if (!d.pairing) { root.pend = null; root.restorePairable(); }
             return;
         }
         if (d.pairing) return;
         root.pend = null;
+        root.restorePairable();
         d.trusted = true;
         root.pairNext = d;
         pairConnect.restart();
@@ -96,6 +104,8 @@ Rectangle {
             if (o.state === BluetoothDeviceState.Connecting || o.state === BluetoothDeviceState.Disconnecting) return;
             // уже знакомы — только connect; pair() на связанном устройстве BlueZ отвергает, а «pair + сразу connect» рвёт связь
             if (o.paired || o.bonded) return o.connect();
+            // без pairable BlueZ не сохранит bond — устройство подключится и сразу отвалится, и Paired снова станет no
+            if (root.bt && !root.bt.pairable) { root.bt.pairable = true; root.pairPairable = true; }
             pend = o;
             return o.pair();
         }
