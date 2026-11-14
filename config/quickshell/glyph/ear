@@ -69,6 +69,8 @@ with socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOM
 if 0x4007 not in got:
     sys.exit("no battery")
 bat, out = got[0x4007], {}
+if not bat or len(bat) < 1 + 2 * bat[0]:
+    sys.exit("invalid battery")
 if len(got.get(0x401E, b"")) > 1:
     out["mode"] = got[0x401E][1]
 for i in range(bat[0]):
