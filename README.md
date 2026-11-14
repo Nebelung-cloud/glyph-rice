@@ -29,7 +29,7 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Walls** | wallpapers as dots | `Super` `Shift` `W` |
 | **VPN** | Clash Verge panel | `Super` `P` |
 | **Cal** | calendar, focus timer | click the clock |
-| **Buds** | Nothing / CMF earbuds: battery, ANC | |
+| **Buds** | Nothing / CMF earbuds and headphones: battery, model-specific ANC, product renders | |
 | **Power** | power menu | `Super` `Esc` |
 | **Lock** | lock screen | `Super` `L` |
 | **Login** | SDDM theme: sessions on a camera dial, a Glyph tachometer that fills as you type, a staged power-on | `←` `→` |
@@ -79,7 +79,9 @@ Weather (home, deck, lock) comes from open-meteo; the place is looked up by your
 | `sddm/glyph/` | copied to `/usr/share/sddm/themes/glyph` (the `sddm` user can't read your home), set in `/etc/sddm.conf.d/zz-glyph.conf`; to undo, delete both |
 
 Monitor, backlight, GPU and sensors are detected. Keyboard layouts are in `hypr/hyprland/input.lua`,
-default apps in `hypr/variables.lua`. Earbuds photo: `quickshell/glyph/buds/<device-name>.png`.
+default apps in `hypr/variables.lua`. Nothing / CMF product renders are included in `quickshell/glyph/buds/`.
+For a custom Bluetooth name, add `<device-name>.png` there: lowercase, with punctuation and spaces replaced by a single hyphen
+(e.g. `Nothing Ear (3)` → `nothing-ear-3.png`). A missing image falls back to the headphones icon.
 Your own binds and overrides go in `hypr/user.lua`: it's gitignored, so `git pull` never touches it.
 Apps for the special workspaces and the editor are read when you press the key, so `user.lua` can swap them:
 
