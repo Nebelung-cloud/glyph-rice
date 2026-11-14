@@ -146,6 +146,24 @@ PanelWindow {
     // после входа NM перепроверяет связь с растущим шагом до 5 минут — торопим сами; включили руками — ждать нечего
     Timer { running: root.portal && !root.connected; interval: 5000; repeat: true; onTriggered: Networking.checkConnectivity() }
 
+    // ---- kill switch: наружу только через туннель (nft-таблица, /usr/local/bin/glyph-kill через pkexec). Нет хелпера — нет кнопки.
+    // ponytail: хелпер и polkit-правило ставятся руками, не install.sh. На портале снят, иначе страница входа не откроется
+    readonly property string killer: "/usr/local/bin/glyph-kill"
+    property bool killable: false
+    readonly property bool kill: Theme.state.vpnKill && !portal
+    // не execDetached: pkexec отказывает процессу, чей родитель — init («dead parents»)
+    // команда — здесь, не привязкой: onKillChanged бывает раньше, чем привязка пересчитается, и шло прошлое on/off
+    Process { id: killP }
+    function killApply() {
+        if (!killable) return;
+        killP.running = false;
+        killP.command = ["pkexec", killer, kill ? "on" : "off"];
+        killP.running = true;
+    }
+    onKillChanged: killApply()
+    onKillableChanged: killApply()
+    Process { running: true; command: ["test", "-x", root.killer]; onExited: code => root.killable = code === 0 }
+
     // ---- verge: профиль (имя, откуда, когда обновлён, сколько потрачено) ----
     readonly property string home: (Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/io.github.clash-verge-rev.clash-verge-rev"
     property var prof: ({})
@@ -293,6 +311,7 @@ PanelWindow {
                 else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) root.go(root.cur);
                 else if (e.key === Qt.Key_S) root.flip();
                 else if (e.key === Qt.Key_T) root.ping();
+                else if (e.key === Qt.Key_X && root.killable) Theme.state.vpnKill = !Theme.state.vpnKill;
                 else if (e.key === Qt.Key_Tab) root.route((root.mode + 1) % 3);
                 else if (e.key === Qt.Key_Escape) root.close();
                 else return;
@@ -380,6 +399,20 @@ PanelWindow {
                         }
                     }
                 }
+            }
+
+            // kill switch — в углу квадрата кольца; снят порталом — серый замок
+            Rectangle {
+                visible: root.killable
+                x: 36 + 340 - width
+                y: 36 + 340 - height
+                width: 44
+                height: 44
+                radius: 22
+                color: root.kill ? Theme.fg : Theme.s2
+                Behavior on color { ColorAnimation { duration: Theme.t } }
+                Icon { anchors.centerIn: parent; text: Theme.state.vpnKill ? "\u{F099D}" : "\u{F099E}"; font.pixelSize: 20; color: root.kill ? Theme.ink : Theme.fg }
+                MouseArea { anchors.fill: parent; onClicked: Theme.state.vpnKill = !Theme.state.vpnKill } // не TapHandler: кольцо под ним тоже бы щёлкнуло
             }
 
             Column {
@@ -539,7 +572,7 @@ PanelWindow {
             opacity: root.t
             spacing: 34
             Repeater {
-                model: ["↑↓ node", "↵ connect", "s tunnel", "t ping", "tab route", "esc close"]
+                model: ["↑↓ node", "↵ connect", "s tunnel", "t ping", "tab route", ...(root.killable ? ["x kill switch"] : []), "esc close"]
                 Lb { required property string modelData; text: modelData }
             }
         }

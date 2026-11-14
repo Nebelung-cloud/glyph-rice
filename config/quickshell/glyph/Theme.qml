@@ -213,6 +213,7 @@ Singleton {
             property int recQuality: 2     // medium, high, very_high, ultra
             property bool recCursor: true
             property bool vpnPortal: false // туннель снят из-за портала, вернуть в открытой сети (vpn/Vpn)
+            property bool vpnKill: false   // kill switch (vpn/Vpn, есть только с /usr/local/bin/glyph-kill)
         }
     }
 
