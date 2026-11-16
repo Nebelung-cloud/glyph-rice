@@ -37,16 +37,64 @@ PanelWindow {
     readonly property var bat: UPower.displayDevice
     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
 
+    // ---- автоскрытие (Theme.state.barMode = hidden): прячется, когда на этом столе есть окна. Пока бар виден по
+    // режиму — он держит место под собой; скрыт — окна растягиваются; выезд по удержанию курсора у края ложится
+    // поверх, без рефлоу ----
+    readonly property bool autohide: Theme.state.barMode === "hidden"
+    // стол своего монитора: второй монитор не должен прятать бар из-за окон на первом
+    readonly property int desk: Hyprland.monitorFor(root.screen)?.activeWorkspace?.id ?? root.active
+    readonly property var wins: Hyprland.toplevels.values.filter(t => t.workspace?.id === root.desk)
+    readonly property bool wanted: !root.autohide || root.wins.length === 0
+    property bool hovered: false
+    property bool peeking: false
+    readonly property bool shown: root.wanted || root.peeking || Sys.barMenu || root.powOpen
+    property real t: root.shown ? 1 : 0
+    Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+    // окно живёт всегда — иначе не поймать курсор; скрытым ловит только полоска у края
+    readonly property int edge: 4
+    mask: Region {
+        width: root.vert ? (root.shown ? root.width : root.edge) : root.width
+        height: root.vert ? root.height : (root.shown ? root.height : root.edge)
+    }
+    exclusionMode: root.wanted ? ExclusionMode.Auto : ExclusionMode.Ignore
+    onWantedChanged: {
+        if (root.wanted) {
+            root.peeking = false;
+            holdT.stop();
+            hideT.stop();
+        } else if (root.hovered) root.peeking = true;
+        else if (root.peeking) hideT.restart();
+    }
+    Timer { id: holdT; interval: Theme.state.barHoldMs; onTriggered: if (root.hovered && !root.wanted) root.peeking = true }
+    Timer { id: hideT; interval: 300; onTriggered: if (!root.hovered) root.peeking = false }
+
     // hyprland 0.56 с lua: dispatch принимает lua-выражение
     function go(ws) { Hyprland.dispatch(`hl.dsp.focus({ workspace = "${ws}" })`); }
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
     Stage {
+        HoverHandler {
+            onHoveredChanged: {
+                root.hovered = hovered;
+                if (hovered) {
+                    hideT.stop();
+                    if (!root.wanted) {
+                        if (root.shown) root.peeking = true;
+                        else holdT.restart();
+                    }
+                } else {
+                    holdT.stop();
+                    if (root.peeking) hideT.restart();
+                }
+            }
+        }
+
         Rectangle {
             id: pill
-            x: 14 // от краёв экрана
-            y: 14
+            x: 14 + (root.vert ? -(1 - root.t) * (pill.width + 14) : 0) // сбоку уезжает влево
+            y: 14 + (root.vert ? 0 : -(1 - root.t) * (pill.height + 14)) // сверху — вверх
+            opacity: root.t
             width: root.vert ? 64 : parent.width - 28
             height: root.vert ? parent.height - 28 : 64
             radius: Theme.corner(32)

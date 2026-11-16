@@ -19,6 +19,8 @@ Singleton {
     property bool deckOpen: false
     // пикер обоев открыт — дом меняет обои сразу, без волны: её уже показал пикер
     property bool wallOpen: false
+    // открыта панель из бара (календарь, quick, power, лаунчер) — бар не прячется
+    property bool barMenu: false
 
     // ---- звук ----
     readonly property var sink: Pipewire.defaultAudioSink

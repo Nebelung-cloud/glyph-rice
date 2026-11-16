@@ -40,6 +40,13 @@ ShellRoot {
     Vpn { id: vpn }
     Walls { id: walls }
 
+    // панель, открытая кликом из бара, держит бар на экране; клавиатурные (Super+A/Space) — нет.
+    // Флаг снимается, когда все панели закрылись
+    property bool barMenuHeld: false
+    readonly property bool anyMenu: cal.open || quick.open || power.visible || launcher.shown
+    onAnyMenuChanged: if (!shell.anyMenu) shell.barMenuHeld = false
+    Binding { target: Sys; property: "barMenu"; value: shell.barMenuHeld && shell.anyMenu }
+
     Variants {
         model: Quickshell.screens
         Scope {
@@ -53,10 +60,13 @@ ShellRoot {
             Bar {
                 screen: s.modelData
                 visible: Theme.scr(s.modelData.name, "bar")
-                onMarkClicked: launcher.toggle()
-                onTrayClicked: quick.toggle()
-                onPowerClicked: power.visible ? power.close() : power.open()
-                onClockClicked: cal.toggle()
+                onMarkClicked: { if (!launcher.shown) shell.barMenuHeld = true; launcher.toggle(); }
+                onTrayClicked: { if (!quick.open) shell.barMenuHeld = true; quick.toggle(); }
+                onPowerClicked: {
+                    if (power.visible) power.close();
+                    else { shell.barMenuHeld = true; power.open(); }
+                }
+                onClockClicked: { if (!cal.open) shell.barMenuHeld = true; cal.toggle(); }
             }
         }
     }

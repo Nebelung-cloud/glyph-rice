@@ -204,6 +204,8 @@ Singleton {
             property var bar: ["layout", "wifi", "bluetooth", "sound", "notes", "battery", "mode", "power"] // трей бара сверху вниз, см. bars
             property bool barTitle: true   // заголовок окна столбиком в баре
             property string barAt: "left" // left или top; за баром едут календарь, карточка батареи, дом, остров и вспышка Glyph
+            property string barMode: "always" // always — как обычно, hidden — прячется, когда на столе есть окна
+            property int barHoldMs: 300   // hidden: сколько держать курсор у края, прежде чем бар выедет
             // свои у монитора, по модели (Theme.sid): { "TS2700-S6-1": { bar: false, home: false, wall: "…", widgets: […] } }; нет — общие (Theme.scr)
             property var screens: ({})
             // запись (quick/Rec, Sys.recArgs)
