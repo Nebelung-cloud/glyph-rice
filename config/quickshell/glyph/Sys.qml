@@ -70,13 +70,17 @@ Singleton {
     // ---- layout: at start — the main keyboard from hyprctl, then the activelayout event ----
     property string kbd: ""
     Process {
+        id: kbdQuery
         running: true
         command: ["hyprctl", "devices", "-j"]
-        stdout: StdioCollector { onStreamFinished: root.kbd = JSON.parse(this.text).keyboards.find(k => k.main)?.active_keymap ?? "" }
+        stdout: StdioCollector { onStreamFinished: root.kbd = JSON.parse(this.text).keyboards.find(k => k.main)?.active_keymap || root.kbd }
     }
+    // the event comes from every keyboard — a newly plugged one announces its own layout — so we ask for the main one's instead.
+    // One switch sends an event per device (a dozen on a laptop): 50 ms after the last of them, one query
+    Timer { id: kbdT; interval: 50; onTriggered: kbdQuery.running = true }
     Connections {
         target: Hyprland
-        function onRawEvent(e) { if (e.name === "activelayout") root.kbd = e.data.slice(e.data.lastIndexOf(",") + 1); }
+        function onRawEvent(e) { if (e.name === "activelayout") kbdT.restart(); }
     }
     readonly property string layout: kbd.slice(0, 2).toLowerCase() // "English (US)" → en
 
