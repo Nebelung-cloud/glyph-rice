@@ -70,8 +70,7 @@ Singleton {
 
     // ---- layout: at start — the main keyboard from hyprctl, then the activelayout event ----
     property string kbd: ""
-    // every keyboard on one layout (kbd.js): a switch on one moves them all, a newly plugged one is pulled in without a pill.
-    // shortcut: a keyboard reconnecting under a known name on another layout counts as a switch — rare; track device add/remove if it bites
+    // every keyboard on one layout (kbd.js): a switch on one moves them all, a newly plugged or reconnected one is pulled in without a pill
     property var kbdSeen: ({})
     property int kbdCur: -1
     Process {

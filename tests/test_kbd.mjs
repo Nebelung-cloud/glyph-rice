@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 const src = readFileSync(new URL("../config/quickshell/glyph/kbd.js", import.meta.url), "utf8").replace(".pragma library", "");
 const { decide } = new Function(src + "; return { decide };")();
 const names = ["English (US)", "Russian"];
-const kb = (name, i, main = false) => ({ name, active_layout_index: i, active_keymap: names[i], main });
+const kb = (name, i, main = false, address = "0x" + name) => ({ name, address, active_layout_index: i, active_keymap: names[i], main });
 
 // start: devices disagree (as after old per-keyboard switches) — the main one wins, the rest follow
 let r = decide([kb("laptop", 1, true), kb("video-bus", 0)], {}, -1);
@@ -20,10 +20,12 @@ r = decide([kb("laptop", 0, true), kb("video-bus", 0)], r.seen, r.cur);
 assert.deepEqual([r.cur, r.name, r.sync], [0, "", false]);
 
 // on Russian, a keyboard is plugged in on English and becomes main: keep Russian, pull it in, say nothing
-r = decide([kb("laptop", 1), kb("video-bus", 1)], { laptop: 1, "video-bus": 1 }, 1);
+r = decide([kb("laptop", 1), kb("video-bus", 1)], { "0xlaptop": 1, "0xvideo-bus": 1 }, 1);
 r = decide([kb("laptop", 1), kb("video-bus", 1), kb("usb", 0, true)], r.seen, r.cur);
 assert.deepEqual([r.cur, r.name, r.sync], [1, "", true]);
-assert.equal(r.seen.usb, 1);
+assert.equal(r.seen["0xusb"], 1);
 
-// the same keyboard reconnecting under a known name looks like a switch — accepted limit, see Sys.qml
-console.log("kbd: 4 cases pass");
+// the same keyboard reconnects (ydotoold restart, bluetooth): same name, new address, back on English — pulled in, no pill
+r = decide([kb("laptop", 1), kb("video-bus", 1), kb("usb", 0, true, "0xusb-again")], r.seen, r.cur);
+assert.deepEqual([r.cur, r.name, r.sync], [1, "", true]);
+console.log("kbd: 5 cases pass");
