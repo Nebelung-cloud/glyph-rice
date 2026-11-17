@@ -52,7 +52,7 @@ PanelWindow {
     }
     // the window address for hl: with 0x (in Quickshell it sometimes comes without)
     function addr(w) { const a = String(w.address); return `address:${a.startsWith("0x") ? a : "0x" + a}`; }
-    function moveTo(w, id) { Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${id}, window = "${addr(w)}", follow = false })`); }
+    function moveTo(w, id) { Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${JSON.stringify(id)}, window = "${addr(w)}", follow = false })`); }
 
     // windows moved, opened, closed — the geometry from hyprctl (lastIpcObject) is fresh only after a refresh
     Connections {
@@ -70,11 +70,23 @@ PanelWindow {
     readonly property real gx: (1920 - cols * tw - (cols - 1) * gap) / 2
     readonly property real lx: (1920 - 5 * tw - 4 * gap) / 2 // the left edge of the header and hints — like the full grid's
     readonly property real gy: 330
-    function tileX(i) { return gx + i % cols * (tw + gap); }
-    function tileY(i) { return gy + Math.floor(i / cols) * (th + 80); }
+    // tiles 0..n-1 are workspaces base+1.., then one smaller row for the special workspaces: windows drag in and out of them too
+    readonly property var specials: ["special", "sysmon", "music", "communication", "todo"]
+    readonly property real sk: 0.6 // full size, ten workspaces would push the row into the hints
+    function tileX(i) { return i < n ? gx + i % cols * (tw + gap) : lx + (i - n) * (tw * sk + gap); }
+    function tileY(i) { return i < n ? gy + Math.floor(i / cols) * (th + 80) : gy + Math.ceil(n / cols) * (th + 80) - 10; }
+    function tileW(i) { return i < n ? tw : tw * sk; }
+    function tileH(i) { return i < n ? th : th * sk; }
+    function wsOf(i) { return i < n ? base + i + 1 : "special:" + specials[i - n]; }
+    function idxOf(ws) {
+        const name = ws?.name ?? "";
+        if (name.startsWith("special:")) { const j = specials.indexOf(name.slice(8)); return j < 0 ? -1 : n + j; }
+        const id = ws?.id ?? 0;
+        return id > base && id <= base + n ? id - base - 1 : -1;
+    }
     function tileAt(x, y) {
-        for (let i = 0; i < n; i++)
-            if (x >= tileX(i) && x <= tileX(i) + tw && y >= tileY(i) && y <= tileY(i) + th) return i;
+        for (let i = 0; i < n + specials.length; i++)
+            if (x >= tileX(i) && x <= tileX(i) + tileW(i) && y >= tileY(i) && y <= tileY(i) + tileH(i)) return i;
         return -1;
     }
 
@@ -180,26 +192,48 @@ PanelWindow {
                 HoverHandler { cursorShape: Qt.PointingHandCursor; onHoveredChanged: if (hovered) root.sel = tile.index }
             }
         }
+        Repeater {
+            model: root.specials
+            Item {
+                id: stile
+                required property string modelData
+                required property int index
+                readonly property int i: root.n + index
+                readonly property int count: Hyprland.toplevels.values.filter(t => t.workspace?.name === "special:" + modelData).length
+                x: root.tileX(i)
+                y: root.tileY(i)
+                width: root.tileW(i)
+                height: root.tileH(i)
+                opacity: Math.max(0, Math.min(1, root.t * 2.2 - Math.min(i, 9) * 0.12))
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.corner(16)
+                    color: Theme.s1
+                    border { width: stage.drop === stile.i ? 2 : 1; color: stage.drop === stile.i ? Theme.grey : Theme.s2 }
+                }
+                Lb { y: parent.height + 8; text: `${stile.modelData} · ${stile.count ? stile.count + " open" : "empty"}`; px: 10 }
+                TapHandler { onTapped: { Hyprland.dispatch(`hl.dsp.workspace.toggle_special("${stile.modelData}")`); root.close(); } }
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
+            }
+        }
         // the tile a window is being dragged over right now
         property int drop: -1
 
         // ---- windows: one layer, coordinates — from the tile of their workspace ----
         Repeater {
-            model: Hyprland.toplevels.values.filter(t => {
-                const id = t.workspace?.id ?? 0;
-                return id > root.base && id <= root.base + root.n;
-            })
+            model: Hyprland.toplevels.values.filter(t => root.idxOf(t.workspace) >= 0)
             Item {
                 id: win
                 required property var modelData
                 readonly property var o: modelData.lastIpcObject ?? {}
                 readonly property var mon: modelData.monitor?.lastIpcObject ?? {}
-                readonly property int idx: (modelData.workspace?.id ?? 1) - root.base - 1
+                readonly property int idx: Math.max(0, root.idxOf(modelData.workspace))
                 // the screen's logical size — Hyprland computes the window's at/size in it
                 readonly property real mw: (mon.width ?? 1920) / (mon.scale ?? 1)
                 readonly property real mh: (mon.height ?? 1080) / (mon.scale ?? 1)
-                readonly property real sx: root.tw / mw
-                readonly property real sy: root.th / mh
+                readonly property real sx: root.tileW(idx) / mw
+                readonly property real sy: root.tileH(idx) / mh
                 readonly property real hx: root.tileX(idx) + ((o.at?.[0] ?? 0) - (mon.x ?? 0)) * sx
                 readonly property real hy: root.tileY(idx) + ((o.at?.[1] ?? 0) - (mon.y ?? 0)) * sy
                 readonly property bool dragging: drag.active
@@ -213,7 +247,7 @@ PanelWindow {
                 width: Math.max(18, (o.size?.[0] ?? 400) * sx)
                 height: Math.max(12, (o.size?.[1] ?? 300) * sy)
                 z: dragging ? 10 : modelData.activated ? 2 : 1
-                opacity: Math.max(0, Math.min(1, root.t * 2.2 - idx * 0.12))
+                opacity: Math.max(0, Math.min(1, root.t * 2.2 - Math.min(idx, 9) * 0.12))
                 scale: dragging ? 1.06 : 1
                 Behavior on x { enabled: win.ready && !win.dragging; NumberAnimation { duration: Theme.t * 1.4; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                 Behavior on y { enabled: win.ready && !win.dragging; NumberAnimation { duration: Theme.t * 1.4; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
@@ -267,7 +301,7 @@ PanelWindow {
                         if (active) return;
                         const to = root.tileAt(win.x + win.width / 2, win.y + win.height / 2);
                         stage.drop = -1;
-                        if (to >= 0 && to !== win.idx) root.moveTo(win.modelData, root.base + to + 1);
+                        if (to >= 0 && to !== win.idx) root.moveTo(win.modelData, root.wsOf(to));
                         // back into its tile (or a new one, when the event arrives) — in flight
                         win.dx = 0;
                         win.dy = 0;

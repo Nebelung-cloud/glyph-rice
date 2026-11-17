@@ -118,7 +118,21 @@ local function toggle_special(name)
     end
 end
 
+-- Super+Alt+S: a window on any special workspace goes back to the normal workspace on its screen; any other window
+-- goes into special:special
+local function special_move()
+    local w = hl.get_active_window()
+    if not (w and w.workspace) then return end
+    local to = "special:special"
+    if w.workspace.special then
+        local ws = w.monitor and w.monitor.active_workspace
+        to = ws and ws.id or "e+0"
+    end
+    hl.dispatch(hl.dsp.window.move({ workspace = to, window = "address:" .. w.address }))
+end
+
 return {
+    special_move         = special_move,
     toggle_special       = toggle_special,
     resizer              = resizer,
     resize_by_screen     = resize_by_screen,

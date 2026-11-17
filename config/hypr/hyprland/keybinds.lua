@@ -86,7 +86,7 @@ hl.bind("CTRL + SUPER + SHIFT + left", fn.wsstep(-1, true), { repeating = true }
 -- Move window to/from special workspace
 hl.bind("CTRL + SUPER + SHIFT + up", hl.dsp.window.move({ workspace = "special:special" }))
 hl.bind("CTRL + SUPER + SHIFT + down", hl.dsp.window.move({ workspace = "e+0" }))
-hl.bind("SUPER + ALT + S", hl.dsp.window.move({ workspace = "special:special" }))
+hl.bind("SUPER + ALT + S", fn.special_move) -- in or out: from any special workspace back to the screen's normal one
 
 -- Window groups
 hl.bind(vars.kbWindowGroupCycleNext, hl.dsp.window.cycle_next(), { repeating = true })

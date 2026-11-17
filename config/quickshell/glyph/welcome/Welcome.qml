@@ -18,6 +18,7 @@ PanelWindow {
         ["Super + Shift + S", "screenshot"], ["Super + Period", "emoji"],
         ["Super + Q", "close a window"], ["Super + 1…9", "go to a workspace"],
         ["Super + drag", "move a window"], ["Super + X + drag", "resize a window"],
+        ["Ctrl + Alt + R", "record or stop"], ["Super + Alt + S", "window into or out of special"],
         ["Super + L", "lock"], ["Super + Esc", "power menu"]
     ]
 
