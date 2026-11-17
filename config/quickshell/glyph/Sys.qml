@@ -10,7 +10,6 @@ import Quickshell.Services.SystemTray
 import Quickshell.Wayland
 import qs.services
 import qs.settings
-import "kbd.js" as Kbd
 
 // what the bar, quick settings, Glyph and the lock touch: sound, brightness, layout, recording, night light, airplane mode, caffeine, vpn
 Singleton {
@@ -70,28 +69,15 @@ Singleton {
 
     // ---- layout: at start — the main keyboard from hyprctl, then the activelayout event ----
     property string kbd: ""
-    // every keyboard on one layout (kbd.js): a switch on one moves them all, a newly plugged or reconnected one is pulled in without a pill
-    property var kbdSeen: ({})
-    property int kbdCur: -1
     Process {
-        id: kbdQuery
         running: true
         command: ["hyprctl", "devices", "-j"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const r = Kbd.decide(JSON.parse(this.text).keyboards, root.kbdSeen, root.kbdCur);
-                root.kbdSeen = r.seen;
-                root.kbdCur = r.cur;
-                if (r.name) root.kbd = r.name;
-                if (r.sync) Quickshell.execDetached(["hyprctl", "switchxkblayout", "all", String(r.cur)]);
-            }
-        }
+        stdout: StdioCollector { onStreamFinished: root.kbd = JSON.parse(this.text).keyboards.find(k => k.main)?.active_keymap ?? "" }
     }
-    // one switch sends an event per device (a dozen on a laptop): 50 ms after the last of them, one query
-    Timer { id: kbdT; interval: 50; onTriggered: kbdQuery.running = true }
     Connections {
         target: Hyprland
-        function onRawEvent(e) { if (e.name === "activelayout") kbdT.restart(); }
+        // not from virtual keyboards: ydotoold restarting announced "English (US)" mid-Russian. It must stay on us anyway — ydotool type assumes it
+        function onRawEvent(e) { if (e.name === "activelayout" && !/virtual/i.test(e.data.slice(0, e.data.lastIndexOf(",")))) root.kbd = e.data.slice(e.data.lastIndexOf(",") + 1); }
     }
     readonly property string layout: kbd.slice(0, 2).toLowerCase() // "English (US)" → en
 

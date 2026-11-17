@@ -46,16 +46,14 @@ ShellRoot {
     property string layout: "en"
     function short(name) { return name.slice(0, 2).toLowerCase(); }
     Process {
-        id: kbdQuery
         running: true
         command: ["sh", "-c", "hyprctl devices -j | jq -r '.keyboards[] | select(.main) | .active_keymap'"]
         stdout: StdioCollector { onStreamFinished: if (text.trim()) shell.layout = shell.short(text.trim()) }
     }
-    // every keyboard sends the event (a plugged one announces its own layout): ask for the main one's, once per burst — as in Sys.qml
-    Timer { id: kbdT; interval: 50; onTriggered: kbdQuery.running = true }
     Connections {
         target: Hyprland
-        function onRawEvent(e) { if (e.name === "activelayout") kbdT.restart(); }
+        // not from virtual keyboards (ydotoold restarting) — as in Sys.qml
+        function onRawEvent(e) { if (e.name === "activelayout" && !/virtual/i.test(e.data.slice(0, e.data.lastIndexOf(",")))) shell.layout = shell.short(e.data.split(",").pop()); }
     }
 
     WlSessionLock {
