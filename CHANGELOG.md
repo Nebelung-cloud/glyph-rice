@@ -7,6 +7,7 @@ The newest changes come first. To get them, press **update everything** in Syste
 ### Keyboard
 
 - New: switching the keyboard layout shows it for a moment in the island at the top: the layout's name and its short code, such as RUSSIAN · RU or ARABIC · AR. It shows there even when volume uses the screen edge, and it turns off with the Glyph lights. Requested in #27.
+- Fixed: restarting the typing tool (ydotool) made the bar and the lock screen show EN while you were typing in another layout.
 
 ### Terminals
 
