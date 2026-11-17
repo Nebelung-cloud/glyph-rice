@@ -161,6 +161,9 @@ ShellRoot {
     Shortcut { name: "settings"; description: "system: network, bluetooth, sound, display"; onPressed: system.get().toggle() }
     Shortcut { name: "power"; description: "power menu"; onPressed: shell.togglePower() }
     Shortcut { name: "shot"; description: "screenshot"; onPressed: shot.open() }
+    Shortcut { name: "rec"; description: "record or stop, as set in quick settings"; onPressed: Sys.toggleRec() }
+    Shortcut { name: "recScreen"; description: "record the whole screen or stop"; onPressed: Sys.toggleRec(0) }
+    Shortcut { name: "recRegion"; description: "record a region or stop"; onPressed: Sys.toggleRec(1) }
     Shortcut { name: "pact"; description: "vpn: clash verge"; onPressed: vpn.toggle() }
     Shortcut { name: "clip"; description: "clipboard"; onPressed: clip.get().toggle() }
     Shortcut { name: "charms"; description: "emoji, kaomoji, symbols"; onPressed: charms.get().toggle() }

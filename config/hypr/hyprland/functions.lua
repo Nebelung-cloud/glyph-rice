@@ -118,19 +118,8 @@ local function toggle_special(name)
     end
 end
 
--- gpu-screen-recorder screen recording: the same bind again — stop
-local function record(region, sound)
-    return function()
-        local mon = hl.get_active_monitor()
-        local w   = region and '-w region -region "$(slurp -f %wx%h+%x+%y)"' or "-w " .. (mon and mon.name or "region")
-        hl.exec_cmd("pkill -INT -f '^gpu-screen-recorder' || gpu-screen-recorder " .. w ..
-            (sound and " -a default_output" or "") .. ' -o "$(xdg-user-dir VIDEOS)/rec-$(date +%F_%H-%M-%S).mp4"')
-    end
-end
-
 return {
     toggle_special       = toggle_special,
-    record               = record,
     resizer              = resizer,
     resize_by_screen     = resize_by_screen,
     resize_active_window = resize_active_window,

@@ -106,9 +106,10 @@ Singleton {
         const a = ["", "default_output", "default_input", "default_output|default_input"][st.recAudio];
         return `-f ${st.recFps} -q ${["medium", "high", "very_high", "ultra"][st.recQuality]} -cursor ${st.recCursor ? "yes" : "no"}` + (a ? ` -a "${a}"` : "");
     }
-    // the second time — stop. Region — slurp; selection cancelled — gsr doesn't start, polling fixes rec
-    function toggleRec() {
-        const w = Theme.state.recArea ? `-w region -region "$(slurp -f %wx%h+%x+%y)"` : `-w ${Hyprland.focusedMonitor?.name ?? "screen"}`;
+    // the second time — stop. Region — slurp; selection cancelled — gsr doesn't start, polling fixes rec.
+    // area: 0 screen, 1 region, left out: the setting. Every record bind comes here, so the sound setting always applies
+    function toggleRec(area) {
+        const w = (area ?? Theme.state.recArea) ? `-w region -region "$(slurp -f %wx%h+%x+%y)"` : `-w ${Hyprland.focusedMonitor?.name ?? "screen"}`;
         sh(`pkill -INT -f '^gpu-screen-recorder' || exec gpu-screen-recorder ${w} ${recArgs()} -o "$(xdg-user-dir VIDEOS)/rec-$(date +%F_%H-%M-%S).mp4"`);
         rec = !rec;
     }

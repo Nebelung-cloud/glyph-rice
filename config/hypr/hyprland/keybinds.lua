@@ -158,9 +158,10 @@ hl.bind("CTRL + ALT + V", hl.dsp.exec_cmd(vars.audioSettings))
 -- Utilities
 hl.bind("Print", hl.dsp.global("shell:shot"))
 hl.bind("SUPER + SHIFT + S", hl.dsp.global("shell:shot"))
-hl.bind("SUPER + ALT + R", fn.record(false, true))
-hl.bind("CTRL + ALT + R", fn.record(false, false))
-hl.bind("SUPER + SHIFT + ALT + R", fn.record(true, false))
+-- recording goes through the shell, so the sound chosen in quick settings or the screenshot tool applies to every bind
+hl.bind("CTRL + ALT + R", hl.dsp.global("shell:rec"))
+hl.bind("SUPER + ALT + R", hl.dsp.global("shell:recScreen"))
+hl.bind("SUPER + SHIFT + ALT + R", hl.dsp.global("shell:recRegion"))
 hl.bind("SUPER + SHIFT + C", hl.dsp.exec_cmd("hyprpicker -a"))
 hl.bind("SUPER + SHIFT + U", hl.dsp.exec_cmd("hyprctl kill"))
 -- Volume

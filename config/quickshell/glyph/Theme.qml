@@ -261,7 +261,7 @@ Singleton {
             property bool liteSet: false
             // recording (quick/Rec, Sys.recArgs)
             property int recArea: 0        // 0 the whole monitor, 1 a region (slurp)
-            property int recAudio: 0       // 0 no sound, 1 system, 2 microphone, 3 both on one track
+            property int recAudio: 1       // 0 no sound, 1 system, 2 microphone, 3 both on one track
             property int recFps: 60
             property int recQuality: 2     // medium, high, very_high, ultra
             property bool recCursor: true

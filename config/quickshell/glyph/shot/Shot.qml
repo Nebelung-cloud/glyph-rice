@@ -20,7 +20,7 @@ Scope {
     property int mode: 0
     property int delay: 0
     property string frozen: ""
-    property var scr: null
+    property var scr: Quickshell.screens[0] ?? null // set at start, not at the first shot: the windows below exist from the start
     // everything below — in layout pixels (Stage); logical = × Theme.s, the frame's — × k
     property var wins: []       // the current ws's windows: { x, y, w, h }
     property rect drag: Qt.rect(0, 0, 0, 0) // w = 0 — nothing selected
@@ -38,9 +38,11 @@ Scope {
     property string shotDims: ""
     property rect shotRect
     property bool shotRec: false
+    // record mode: the area and sound live in Theme.state, shared with quick settings → record and Ctrl+Alt+R
+    readonly property bool recScreen: mode === 3 && Theme.state.recArea === 0
 
     function open() {
-        if (aim.visible) return;
+        if (aim.t > 0) return;
         const mon = Hyprland.focusedMonitor;
         scr = Quickshell.screens.find(s => s.name === mon?.name) ?? Quickshell.screens[0];
         Hyprland.refreshToplevels();
@@ -51,7 +53,7 @@ Scope {
     function close() { aim.shown = false; }
 
     function fire() {
-        const r = sel.width > 2 && sel.height > 2 ? sel : Qt.rect(0, 0, stage.width, stage.height);
+        const r = !recScreen && sel.width > 2 && sel.height > 2 ? sel : Qt.rect(0, 0, stage.width, stage.height);
         const full = r.width === stage.width && r.height === stage.height;
         const s = Theme.s, w = Math.round(r.width * s), h = Math.round(r.height * s);
         const x = Math.round(scr.x + r.x * s), y = Math.round(scr.y + r.y * s);
@@ -122,8 +124,12 @@ Scope {
         property real t: shown ? 1 : 0
         Behavior on t { enabled: !aim.snap; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
+        // always mapped, hidden and click-through while idle. Creating a full-screen window at shot time failed under GPU memory
+        // pressure (a game like Sober running: "Could not create EGL surface", EGL_BAD_ALLOC), and Quickshell crashed with it.
+        // Made at shell start, nothing new is allocated when you press the key. Changing screens still makes a new one
         screen: root.scr
-        visible: t > 0
+        visible: true
+        mask: Region { item: aim.t > 0 ? stage : null }
         anchors { left: true; right: true; top: true; bottom: true }
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
@@ -133,6 +139,7 @@ Scope {
 
         Stage {
             id: stage
+            visible: aim.t > 0
             opacity: aim.shown ? 1 : aim.t
             focus: true
             Keys.onPressed: e => {
@@ -142,6 +149,8 @@ Scope {
                 else if (e.key === Qt.Key_Tab) root.mode = (root.mode + 1) % 4;
                 else if (e.key === Qt.Key_Backtab) root.mode = (root.mode + 3) % 4;
                 else if (e.key === Qt.Key_T) root.delay = (root.delay + 1) % 3;
+                else if (e.key === Qt.Key_A && root.mode === 3) Theme.state.recAudio = (Theme.state.recAudio + 1) % 4;
+                else if (e.key === Qt.Key_F && root.mode === 3) Theme.state.recArea = 1 - Theme.state.recArea;
                 else return;
                 e.accepted = true;
             }
@@ -295,11 +304,11 @@ Scope {
                 onPositionChanged: e => {
                     root.mx = e.x;
                     root.my = e.y;
-                    if (pressed && (root.mode === 0 || root.mode === 3))
+                    if (pressed && (root.mode === 0 || root.mode === 3 && !root.recScreen))
                         root.drag = Qt.rect(Math.min(from.x, e.x), Math.min(from.y, e.y), Math.abs(e.x - from.x), Math.abs(e.y - from.y));
                 }
                 onPressed: e => {
-                    if (root.mode === 1 || root.mode === 2) return root.fire(); // a window or the screen — shoot on click
+                    if (root.mode === 1 || root.mode === 2 || root.recScreen) return root.fire(); // a window or the screen — shoot on click
                     from = Qt.point(e.x, e.y);
                     root.drag = Qt.rect(e.x, e.y, 0, 0);
                 }
@@ -330,13 +339,42 @@ Scope {
                         onClicked: root.delay = (root.delay + 1) % 3
                     }
                 }
+                // record only: what to record and which sound. Text on every chip, so the choice doesn't rest on colour
+                Pill {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: root.mode === 3
+                    spacing: 6
+                    Repeater {
+                        model: ["screen", "region"]
+                        Chip {
+                            required property string modelData
+                            required property int index
+                            text: modelData
+                            on: index === Theme.state.recArea
+                            onClicked: Theme.state.recArea = index
+                        }
+                    }
+                    Item { width: 18; height: 36; Rectangle { anchors.centerIn: parent; width: 4; height: 4; radius: 2; color: Theme.mute } }
+                    Lb { anchors.verticalCenter: parent.verticalCenter; text: "audio"; px: 10 }
+                    Repeater {
+                        model: ["off", "system", "mic", "both"]
+                        Chip {
+                            required property string modelData
+                            required property int index
+                            text: modelData
+                            on: index === Theme.state.recAudio
+                            onClicked: Theme.state.recAudio = index
+                        }
+                    }
+                }
                 Pill {
                     anchors.horizontalCenter: parent.horizontalCenter
                     height: 36
                     pad: 22
                     spacing: 28
                     Repeater {
-                        model: ["drag select", "space window", "tab mode", "t timer", "↵ capture", "esc cancel"]
+                        model: root.mode !== 3 ? ["drag select", "space window", "tab mode", "t timer", "↵ capture", "esc cancel"]
+                            : [root.recScreen ? "click record" : "drag select", "f area", "a audio", "tab mode", "t timer", "↵ record", "esc cancel"]
                         Lb { required property string modelData; text: modelData; px: 10 }
                     }
                 }
@@ -347,18 +385,20 @@ Scope {
     // ============ the shot: the frame flashes, the shot slides in as a card to the bottom right corner ============
     PanelWindow {
         id: fired
+        property bool on: false // always mapped like the viewfinder, for the same reason; on while the flash and card play
         screen: root.scr
-        visible: false
+        visible: true
         anchors { left: true; right: true; top: true; bottom: true }
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
-        mask: Region { item: root.shotRec ? null : card } // clicks outside the card pass through
+        mask: Region { item: fired.on && !root.shotRec ? card : null } // clicks outside the card pass through
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         WlrLayershell.namespace: "glyph-shot"
 
         Stage {
             id: fstage
+            visible: fired.on
 
             // the flash: the shot region glows white and fades. Recording — a red frame outside, no fill or glow:
             // the recorder starts while it fades, it mustn't get into the frame. ponytail: when recording the whole screen the frame is past the edge — not visible
@@ -371,7 +411,7 @@ Scope {
                 height: root.shotRect.height + o * 2
                 color: root.shotRec ? "transparent" : Theme.fade(Theme.fg, 0.12)
                 border { width: 2; color: root.shotRec ? Theme.accent : Theme.fg }
-                layer.enabled: fired.visible && !root.shotRec
+                layer.enabled: fired.on && !root.shotRec
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowColor: Theme.glow
@@ -426,7 +466,7 @@ Scope {
                 }
                 Rectangle { id: thumbMask; width: 328; height: 184; radius: Theme.corner(24); visible: false; layer.enabled: true }
 
-                TapHandler { onTapped: { fx.stop(); fired.visible = false; editor.open(root.shot, root.scr); } }
+                TapHandler { onTapped: { fx.stop(); fired.on = false; editor.open(root.shot, root.scr); } }
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
             }
         }
@@ -434,14 +474,14 @@ Scope {
         // the flash fades over 0.9 s, the card slides in from the right, hangs for a couple of seconds and leaves the same way
         SequentialAnimation {
             id: fx
-            PropertyAction { target: fired; property: "visible"; value: true }
+            PropertyAction { target: fired; property: "on"; value: true }
             ParallelAnimation {
                 NumberAnimation { target: flash; property: "opacity"; from: 1; to: 0; duration: 900; easing.type: Easing.OutQuad }
                 NumberAnimation { target: card; property: "t"; from: 0; to: 1; duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
             }
             PauseAnimation { duration: 2200 }
             NumberAnimation { target: card; property: "t"; to: 0; duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
-            PropertyAction { target: fired; property: "visible"; value: false }
+            PropertyAction { target: fired; property: "on"; value: false }
         }
     }
 
