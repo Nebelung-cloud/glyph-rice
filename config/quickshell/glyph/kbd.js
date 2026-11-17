@@ -9,10 +9,7 @@ function decide(ks, seen, cur) {
     // at start — the main keyboard; later — a known keyboard whose layout moved since last time: that one was switched
     const lead = start ? ks.find(k => k.main) ?? ks[0] : ks.find(k => k.name in seen && seen[k.name] !== k.active_layout_index);
     if (lead) cur = lead.active_layout_index;
-    return {
-        cur,
-        name: lead ? lead.active_keymap : "",
-        sync: ks.some(k => k.active_layout_index !== cur),
-        seen: Object.fromEntries(ks.map(k => [k.name, cur]))
-    };
+    const next = {}; // not Object.fromEntries: Quickshell's JS engine doesn't have it
+    for (const k of ks) next[k.name] = cur;
+    return { cur, name: lead ? lead.active_keymap : "", sync: ks.some(k => k.active_layout_index !== cur), seen: next };
 }
