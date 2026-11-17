@@ -57,7 +57,16 @@ PanelWindow {
         height: root.vert ? root.height : (root.shown ? root.height : root.edge)
     }
     exclusionMode: root.wanted ? ExclusionMode.Auto : ExclusionMode.Ignore
+    // бар занимает место по режиму — OSD встаёт под него; peek/панели сюда не входят
+    function syncBarVisible() {
+        const m = Object.assign({}, Sys.barVisible);
+        if (root.screen?.name) m[root.screen.name] = root.wanted;
+        Sys.barVisible = m;
+    }
+    Component.onCompleted: syncBarVisible()
+    Component.onDestruction: { const m = Object.assign({}, Sys.barVisible); delete m[root.screen?.name ?? ""]; Sys.barVisible = m; }
     onWantedChanged: {
+        root.syncBarVisible();
         if (root.wanted) {
             root.peeking = false;
             holdT.stop();
