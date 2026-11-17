@@ -10,6 +10,7 @@ import Quickshell.Services.SystemTray
 import Quickshell.Wayland
 import qs.services
 import qs.settings
+import "kbd.js" as Kbd
 
 // what the bar, quick settings, Glyph and the lock touch: sound, brightness, layout, recording, night light, airplane mode, caffeine, vpn
 Singleton {
@@ -69,14 +70,25 @@ Singleton {
 
     // ---- layout: at start — the main keyboard from hyprctl, then the activelayout event ----
     property string kbd: ""
+    // every keyboard on one layout (kbd.js): a switch on one moves them all, a newly plugged one is pulled in without a pill.
+    // shortcut: a keyboard reconnecting under a known name on another layout counts as a switch — rare; track device add/remove if it bites
+    property var kbdSeen: ({})
+    property int kbdCur: -1
     Process {
         id: kbdQuery
         running: true
         command: ["hyprctl", "devices", "-j"]
-        stdout: StdioCollector { onStreamFinished: root.kbd = JSON.parse(this.text).keyboards.find(k => k.main)?.active_keymap || root.kbd }
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const r = Kbd.decide(JSON.parse(this.text).keyboards, root.kbdSeen, root.kbdCur);
+                root.kbdSeen = r.seen;
+                root.kbdCur = r.cur;
+                if (r.name) root.kbd = r.name;
+                if (r.sync) Quickshell.execDetached(["hyprctl", "switchxkblayout", "all", String(r.cur)]);
+            }
+        }
     }
-    // the event comes from every keyboard — a newly plugged one announces its own layout — so we ask for the main one's instead.
-    // One switch sends an event per device (a dozen on a laptop): 50 ms after the last of them, one query
+    // one switch sends an event per device (a dozen on a laptop): 50 ms after the last of them, one query
     Timer { id: kbdT; interval: 50; onTriggered: kbdQuery.running = true }
     Connections {
         target: Hyprland
