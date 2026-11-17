@@ -4,6 +4,33 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 ## November 2026
 
+### Screenshots and recording
+
+- Fixed: the shell crashed when you took a screenshot over a full-screen game such as Sober. The game held so much graphics memory that the screenshot overlay couldn't be created, and Quickshell crashed instead of failing. The overlay is now created once at startup, so a shot needs nothing new.
+- New: if the shell ever crashes, it comes back by itself and tells you. After more than 3 crashes in a minute it stops and asks you to run `rice restart`.
+- Fixed: recordings made with `Ctrl` `Alt` `R` had no sound and ignored the recording settings. Every record key now uses the same settings as quick settings.
+- New: the screenshot tool's record mode lets you choose the area (screen or region) and the sound (off, system, mic or both). `F` and `A` switch them. Full screen starts on a click.
+- Sound defaults to system on new installs. If yours was off, pick it once in record mode.
+- `Super` `Alt` `R` records the whole screen and `Super` `Shift` `Alt` `R` a region. Both stop with the same key.
+- The screenshot timer waits the 3 or 13 seconds it shows. From the original repository.
+
+### Special workspaces
+
+- `Super` `Alt` `S` now takes a window out of any special workspace, back to the workspace you're on. On a normal workspace it still sends the window into the special one.
+- The overview shows the five special workspaces in a row under the others. Drag windows in and out of them.
+
+### From the original repository
+
+- New: a TRAY tab in the launcher, for apps sitting in the system tray.
+- New: every Nothing and CMF earbuds model, with the right noise-control options for each.
+- Fixed: Bluetooth devices reconnect when Bluetooth is turned back on, and a device is trusted only after pairing succeeds.
+- Fixed: the VPN no longer drops by itself behind a fake captive portal. It asks with a notification instead.
+- Fixed: typing the clipboard (`Ctrl` `Shift` `Alt` `V`) works with text starting with `-`, and a negative calculator result copies.
+- Security: `ydotool` gets its device through a udev rule instead of the `input` group, which let any app read every keyboard. `--update` adds the rule. If you're still in the `input` group, it says how to leave it.
+- Security: a wallpaper is decoded by its extension, so a file pretending to be an image can't reach other decoders. Login screen installs refuse linked files.
+- Quick settings: the Wi-Fi and Bluetooth lists have a height limit and scroll, and right-clicking Wi-Fi opens the network list again. The notification list shrinks smoothly when cleared, thanks to [@malievo](https://github.com/malievo).
+- System → Sound scrolls past four devices.
+
 ### Lock screen
 
 - New: sleep, reboot and power off on the lock screen, in the same list as the Lock greeter. Click them or press `F10` `F11` `F12`. Reboot and power off ask for a second press within 5 seconds, because the locked session can hold unsaved work.

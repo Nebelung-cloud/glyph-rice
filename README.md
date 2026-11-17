@@ -25,7 +25,7 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | **Drives** | Plugged-in drives mount by themselves, with a page to open them and safely remove them. |
 | **Network editor** | Everything `nmtui` can do: Wi-Fi, Ethernet, DSL, InfiniBand, bond, bridge, team, VLAN, IP tunnel and WireGuard connections, with IP, DNS and security fields. |
 | **Password windows** | Bluetooth pairing codes, Wi-Fi passwords and admin prompts (polkit) appear as Glyph cards instead of hiding behind the settings. |
-| **Workspace overview** (`Super` `Tab`) | Live thumbnails, drag a window to another workspace, set the number of workspaces. A wrap-around limit that the binds respect. |
+| **Workspace overview** (`Super` `Tab`) | Live thumbnails, drag a window to another workspace or in and out of a special one, set the number of workspaces. A wrap-around limit that the binds respect. |
 | **Display arrangement** | Choose which side a second screen sits on, mirror it or turn it off. |
 | **File manager choice** | Thunar, Dolphin or Strata, at install or later from System → Apps. Dolphin gets what it needs outside Plasma, like thumbnails and a working "Open With". |
 | **Default apps** | One click from a list of apps of the right kind for each category, so a code editor never shows up as a browser. `Super` `E` and `Super` `W` follow your choice. |
@@ -58,6 +58,8 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | Wallpaper beat, off by default | wall picker | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
 | tmux and Firefox follow the palette | automatic if installed | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
 | Hide the password's length, plain cover on other screens | prefs → LOOK | [@SenulMapa](https://github.com/SenulMapa/glyph-rice) |
+| TRAY tab, every Nothing and CMF earbuds model, safer typing of the clipboard, ydotool without the input group, and other fixes from November 2026 | launcher, quick settings, automatic | [@Nebelung-cloud](https://github.com/Nebelung-cloud/glyph-rice) |
+| Smooth notification list height on clear all | quick settings | [@malievo](https://github.com/malievo) |
 | A rotated first screen no longer shrinks the shell | automatic | [@SenulMapa](https://github.com/SenulMapa/glyph-rice) |
 | GPU load on Intel integrated graphics | deck, home | [@Dimashyt](https://github.com/Dimashyt/glyph-rice) |
 | The idea of a bar position setting | prefs → BAR | [@Shykid002](https://github.com/Nebelung-cloud/glyph-rice/issues/1) |
@@ -90,6 +92,10 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - `--fix-plasma` on the second laptop: its Wi-Fi now connects by itself after a reboot, with no password prompt.
 
 - The lock screen's power list on a real session lock, with a stand-in for `systemctl`: keys, clicks, the second press, and holding a key not counting as one.
+- Recording with sound from the screenshot tool, `Ctrl` `Alt` `R`, `Super` `Alt` `R` and `Super` `Shift` `Alt` `R`: each file has an audio track, and a region is recorded at the dragged size.
+- The screenshot tool over a full-screen app (an OpenGL app and Sober's home screen) without crashing, and the shell coming back after a forced crash.
+- `Super` `Alt` `S` moving a window into `special` and back out of `special` and `music`, and dragging windows between special and normal tiles in the overview.
+- System → Sound with seven outputs: four show and the rest scroll.
 
 **Not tested yet, so tell me if something breaks:**
 
@@ -97,6 +103,8 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 - The **update everything** button on a real update, and the pacman notice during a real `pacman` run. The notice's script and the hook's text were tested, but not pacman running it.
 - A real `yay` update through the update button.
 - Really sleeping, rebooting or powering off from the lock screen.
+- The screenshot tool over Sober during a real game, where the crash was first seen. The cause is fixed, and if it still crashes the shell now comes back.
+- Earbuds models other than the developer's, and the TRAY tab with many tray apps.
 - Whether `--fix-plasma` read the passwords from a real KDE Wallet, or they were typed. The format comes from KDE's source code.
 - Saving a Wi-Fi password typed into the agent during a real connection. The save itself was tested on a throwaway profile.
 - The lock screen's keyboard long term on the laptop where it failed. It worked again once that laptop was updated, but the problem couldn't be reproduced, so the safeguard isn't proven to be the reason.
@@ -123,8 +131,8 @@ Developed on one laptop: AMD CPU, NVIDIA GPU, one 1080p screen, CachyOS, Hyprlan
 | **Deck** | dashboard from the bottom edge | `Super` `Space` |
 | **System** | network, bluetooth, sound, display, drives, workspaces, power, battery, input, idle, firewall, default apps, about | `Super` `I` |
 | **Prefs** | the rice's look: home, deck, bar, look, style, windows | System → customize the rice; esc comes back |
-| **Overview** | workspaces as live tiles | `Super` `Tab` |
-| **Shot** | screenshots, editor, recording | `Print` |
+| **Overview** | workspaces and special workspaces as live tiles | `Super` `Tab` |
+| **Shot** | screenshots, editor, recording with sound, region or full screen | `Print` · record or stop: `Ctrl` `Alt` `R` |
 | **Clip** | clipboard history | `Super` `V` |
 | **Charms** | emoji, kaomoji, symbols | `Super` `.` |
 | **Walls** | wallpapers as dots | `Super` `Shift` `W` |
@@ -323,6 +331,10 @@ An update keeps your settings, and it only asks for a password if a new package 
 
 **An app is missing from System → Apps.** The list only shows apps whose `.desktop` file says they are that kind of app (`Categories=`) and can open that type (`MimeType=`). Your current default always stays listed, even if it isn't that kind. An app that declares no categories at all is listed too.
 
+**The shell disappeared.** It restarts by itself within a second or two and sends a notification. If it crashes more than 3 times in a minute it stops trying and says so. Then run `rice restart`, and send the newest folder in `~/.cache/quickshell/crashes` with an issue.
+
+**Screen recordings have no sound.** Pick **system**, **mic** or **both** in the screenshot tool's record mode or in quick settings → record. Every record key uses that choice.
+
 **A panel or widget looks empty.** The VPN panel needs Clash Verge and the audio bars widget needs cava. Both are extras in the installer.
 
 ### Sleep on NVIDIA laptops
@@ -378,6 +390,7 @@ Fonts: Doto, Space Grotesk, Space Mono, JetBrains Mono Nerd Font.
 | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) | The GIF tile, hiding parts of home, automatic game mode and its options, the output list on the volume slider, bar auto-hide, the wallpaper beat, tmux and Firefox theming, and the live level meter idea |
 | [@SenulMapa](https://github.com/SenulMapa/glyph-rice) | Hiding the password's length, the plain cover on other screens, and the fix for rotated screens |
 | [@Dimashyt](https://github.com/Dimashyt/glyph-rice) | GPU load on Intel integrated graphics |
+| [@malievo](https://github.com/malievo) | The smooth notification list height when clearing |
 
 **Ideas and bug reports that led to changes here**
 
