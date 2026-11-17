@@ -162,7 +162,7 @@ PanelWindow {
                                 width: parent.width
                                 kind: root.pick
                                 onTouched: root.pin()
-                                // потолок — экран минус остальная панель (уведомления сожмутся до нуля): шесть сетей не выталкивают шапку за экран
+                                // the ceiling is the screen minus the rest of the panel (notifications shrink to nothing): six networks don't push the header off screen
                                 max: stage.height - 28 - 44 - 16 - pills.height
                                     - col.children.filter(c => c.visible && c !== nets && c !== notes).reduce((s, c) => s + c.height + col.spacing, 0)
                             }
@@ -187,7 +187,7 @@ PanelWindow {
                         }
                         Rectangle {
                             id: anc
-                            visible: Sys.ancModes.length > 0 // Ear (open), Ear (stick) — без шумодава
+                            visible: Sys.ancModes.length > 0 // Ear (open), Ear (stick): no noise cancelling
                             width: parent.width
                             height: 54
                             radius: Theme.corner(27)
