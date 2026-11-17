@@ -35,16 +35,20 @@ Scope {
     Connections {
         target: Sys
         function onBriChanged() { root.level("bri", Sys.bri); }
+        // the keyboard layout (EN → AR): always the island — an edge can't spell it; it outranks volume and progress for 1.5 s (#27)
+        function onKbdChanged() { if (root.armed && Theme.state.edges && Sys.kbd) { root.kbdShown = true; kbdT.restart(); } }
     }
     Timer { id: sideT; interval: 3000; onTriggered: root.volShown = false }
+    property bool kbdShown: false
+    Timer { id: kbdT; interval: 1500; onTriggered: root.kbdShown = false }
 
     // ---- where the lights glow: at the edges (by default) or as a pill in the island at the top — Theme.state.glyphLights. A bar on the right takes
     // the right edge, then volume/brightness are always in the island. Volume outranks progress: it's for 3 s, progress can wait ----
     readonly property bool volIsland: Theme.state.glyphLights === 1 || Theme.barRight
     readonly property bool progIsland: Theme.state.glyphLights === 1
-    readonly property bool liveVol: root.volShown && root.volIsland
-    readonly property bool liveProg: root.busy && root.progIsland && !root.liveVol
-    readonly property bool live: Theme.state.edges && (root.liveVol || root.liveProg)
+    readonly property bool liveVol: root.volShown && root.volIsland && !root.kbdShown
+    readonly property bool liveProg: root.busy && root.progIsland && !root.liveVol && !root.kbdShown
+    readonly property bool live: Theme.state.edges && (root.kbdShown || root.liveVol || root.liveProg)
     property real lt: live ? 1 : 0
     Behavior on lt { NumberAnimation { duration: root.live ? 600 : 400; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
@@ -77,17 +81,18 @@ Scope {
                     opacity: Math.max(0, (root.lt - 0.6) / 0.4)
                     Icon {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: root.liveVol ? (root.kind === "bri" ? "\u{F00E0}" : Sys.muted ? "\u{F075F}" : "\u{F057E}") : root.job ? "\u{F018D}" : "\u{F01DA}"
+                        text: root.kbdShown ? "\u{F030C}" : root.liveVol ? (root.kind === "bri" ? "\u{F00E0}" : Sys.muted ? "\u{F075F}" : "\u{F057E}") : root.job ? "\u{F018D}" : "\u{F01DA}"
                     }
                     Lb {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: root.liveProg && !!text
-                        width: Math.min(implicitWidth, 150)
+                        visible: (root.liveProg || root.kbdShown) && !!text
+                        width: Math.min(implicitWidth, root.kbdShown ? 260 : 150)
                         elide: Text.ElideRight
-                        text: root.job?.label ?? root.task?.summary ?? ""
+                        text: root.kbdShown ? Sys.kbd : root.job?.label ?? root.task?.summary ?? ""
                         color: Theme.fg
                     }
                     Lit {
+                        visible: !root.kbdShown
                         anchors.verticalCenter: parent.verticalCenter
                         width: 160
                         height: 5
@@ -99,7 +104,8 @@ Scope {
                     Num {
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: 26
-                        text: root.liveVol ? Math.round(root.value * 100)
+                        text: root.kbdShown ? Sys.layout.toUpperCase()
+                            : root.liveVol ? Math.round(root.value * 100)
                             : root.job && root.job.f < 0 ? root.dur(root.now - root.job.t0)
                             : Math.round(root.progress * 100) + "%"
                     }
