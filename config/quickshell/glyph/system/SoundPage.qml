@@ -69,16 +69,29 @@ Page {
             width: 480
             spacing: 4
             Lb { x: 8; bottomPadding: 6; text: `output · ${root.outs.length}` }
-            Repeater {
-                model: root.outs
-                Line {
-                    required property var modelData
-                    icon: "\u{F04C3}"
-                    title: root.label(modelData)
-                    on: modelData === root.sink
-                    picked: on
-                    sub: on ? "in use" : ""
-                    onHit: Pipewire.preferredDefaultAudioSink = modelData
+            // four devices, then it scrolls: a dock or a few HDMI outputs pushed the rest off the page (as Nebelung-cloud/glyph-rice d630dd8)
+            Flickable {
+                width: parent.width
+                height: Math.min(contentHeight, 4 * 64 + 3 * 4)
+                contentHeight: outsList.height
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                Column {
+                    id: outsList
+                    width: parent.width
+                    spacing: 4
+                    Repeater {
+                        model: root.outs
+                        Line {
+                            required property var modelData
+                            icon: "\u{F04C3}"
+                            title: root.label(modelData)
+                            on: modelData === root.sink
+                            picked: on
+                            sub: on ? "in use" : ""
+                            onHit: Pipewire.preferredDefaultAudioSink = modelData
+                        }
+                    }
                 }
             }
             Item { width: 1; height: 10 }
@@ -102,16 +115,29 @@ Page {
             }
 
             Lb { x: 8; topPadding: 30; bottomPadding: 6; text: `input · ${root.ins.length}` }
-            Repeater {
-                model: root.ins
-                Line {
-                    required property var modelData
-                    icon: "\u{F036C}"
-                    title: root.label(modelData)
-                    on: modelData === root.src
-                    picked: on
-                    sub: on ? "in use" : ""
-                    onHit: Pipewire.preferredDefaultAudioSource = modelData
+            // four devices, then it scrolls: a dock or a few HDMI outputs pushed the rest off the page (as Nebelung-cloud/glyph-rice d630dd8)
+            Flickable {
+                width: parent.width
+                height: Math.min(contentHeight, 4 * 64 + 3 * 4)
+                contentHeight: insList.height
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                Column {
+                    id: insList
+                    width: parent.width
+                    spacing: 4
+                    Repeater {
+                        model: root.ins
+                        Line {
+                            required property var modelData
+                            icon: "\u{F036C}"
+                            title: root.label(modelData)
+                            on: modelData === root.src
+                            picked: on
+                            sub: on ? "in use" : ""
+                            onHit: Pipewire.preferredDefaultAudioSource = modelData
+                        }
+                    }
                 }
             }
             Item { width: 1; height: 10 }
@@ -127,33 +153,41 @@ Page {
             }
         }
 
-        Column {
+        Flickable {
             width: 420
-            spacing: 10
-            Lb { x: 8; bottomPadding: 6; text: root.apps.length ? `apps · ${root.apps.length}` : "apps · nothing playing" }
-            Repeater {
-                model: root.apps
-                Column {
-                    id: app
-                    required property var modelData
-                    width: parent.width
-                    spacing: 6
-                    Text {
-                        x: 8
-                        width: parent.width - 16
-                        elide: Text.ElideRight
-                        textFormat: Text.PlainText
-                        text: app.modelData.properties["application.name"] || root.label(app.modelData)
-                        font { family: Theme.ui; pixelSize: 15; weight: Font.DemiBold }
-                        color: Theme.fg
-                    }
-                    Level {
+            height: Math.min(contentHeight, 640)
+            contentHeight: appList.height
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            Column {
+                id: appList
+                width: 420
+                spacing: 10
+                Lb { x: 8; bottomPadding: 6; text: root.apps.length ? `apps · ${root.apps.length}` : "apps · nothing playing" }
+                Repeater {
+                    model: root.apps
+                    Column {
+                        id: app
+                        required property var modelData
                         width: parent.width
-                        icon: app.modelData.audio.muted ? "\u{F075F}" : "\u{F057E}"
-                        muted: app.modelData.audio.muted
-                        value: app.modelData.audio.volume
-                        onMoved: v => root.setVol(app.modelData, v)
-                        onIconHit: app.modelData.audio.muted = !app.modelData.audio.muted
+                        spacing: 6
+                        Text {
+                            x: 8
+                            width: parent.width - 16
+                            elide: Text.ElideRight
+                            textFormat: Text.PlainText
+                            text: app.modelData.properties["application.name"] || root.label(app.modelData)
+                            font { family: Theme.ui; pixelSize: 15; weight: Font.DemiBold }
+                            color: Theme.fg
+                        }
+                        Level {
+                            width: parent.width
+                            icon: app.modelData.audio.muted ? "\u{F075F}" : "\u{F057E}"
+                            muted: app.modelData.audio.muted
+                            value: app.modelData.audio.volume
+                            onMoved: v => root.setVol(app.modelData, v)
+                            onIconHit: app.modelData.audio.muted = !app.modelData.audio.muted
+                        }
                     }
                 }
             }
