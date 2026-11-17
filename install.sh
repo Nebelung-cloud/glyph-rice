@@ -182,6 +182,7 @@ extras_packages() { # id → packages; "aur:" goes through yay
         brightness) echo "ddcutil" ;;
         firefox-theme) echo "aur:python-pywalfox" ;;
         tmux) echo "tmux" ;;
+        ghostty) echo "ghostty" ;;
     esac
 }
 file_manager_packages() {
@@ -296,7 +297,8 @@ customize() {
         "cava|Cava|the audio bars widget and the wallpaper beat, both off until you turn them on|$(tick_state cava)" \
         "brightness|External brightness|ddcutil: the brightness slider for external monitors, experimental|$(tick_state brightness)" \
         "firefox-theme|Firefox theming|python-pywalfox: Firefox follows your colors, needs its add-on too|$(tick_state firefox-theme)" \
-        "tmux|tmux|with colors that follow your theme|$(tick_state tmux)"
+        "tmux|tmux|with colors that follow your theme|$(tick_state tmux)" \
+        "ghostty|Ghostty|a second terminal with colors, font and padding that follow your theme; kitty stays the default|$(tick_state ghostty)"
     EXTRAS=("${TICKED[@]}")
 }
 
@@ -463,6 +465,13 @@ default_apps() {
     # Super+E and Super+W open your default apps; System → default apps changes them later
     set_file_manager
     if [ "$BROWSER" != keep ]; then run xdg-mime default "$(browser_desktop "$BROWSER")" x-scheme-handler/http x-scheme-handler/https text/html application/xhtml+xml; fi
+    case " ${EXTRAS[*]:-} " in *" ghostty "*)
+        local gconf="$HOME/.config/ghostty/config"
+        if grep -qs 'glyph.conf' "$gconf"; then :
+        elif [ "$DRY" = 1 ]; then note "would add config-file to $gconf"
+        else run mkdir -p "$(dirname "$gconf")"
+            printf '%s\n' '# glyph: colors, font and padding written by the shell; loaded last, so they win' 'config-file = ?glyph.conf' >>"$gconf"; fi ;;
+    esac
     case " ${EXTRAS[*]:-} " in *" tmux "*)
         local conf="$HOME/.config/tmux/tmux.conf"
         grep -qs 'tmux/theme.conf' "$conf" && return 0

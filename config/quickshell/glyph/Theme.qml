@@ -338,6 +338,17 @@ Singleton {
         ].concat(pal.ansi.map((c, i) => ["color" + i, c])).map(([k, v]) => `${k} ${typeof v === "string" ? v : v.toString().slice(0, 7).toUpperCase()}`).join("\n") + "\n");
         Quickshell.execDetached(["pkill", "-USR1", "-x", "kitty"]);
 
+        // ghostty, if it's installed: its config loads ?glyph.conf last (the installer adds the line), so these win; USR2 reloads it (#30)
+        const hx = v => v.toString().slice(0, 7).toUpperCase();
+        const ghostty = "# glyph: written by Theme.apply(), don't edit by hand\n" + [
+            ["font-family", "Space Mono"], ["window-padding-x", "30"], ["window-padding-y", "26"],
+            ["cursor-style", "block"], ["cursor-style-blink", "false"],
+            ["foreground", hx(fg)], ["background", hx(s1)], ["cursor-color", hx(fg)], ["cursor-text", hx(s1)],
+            ["selection-foreground", hx(fg)], ["selection-background", hx(s3)]
+        ].concat(pal.ansi.map((c, i) => ["palette", `${i}=${hx(c)}`])).map(([k, v]) => `${k} = ${v}`).join("\n") + "\n";
+        Quickshell.execDetached(["sh", "-c", 'command -v ghostty >/dev/null || exit 0; d=$HOME/.config/ghostty; mkdir -p "$d" '
+            + '&& printf "%s" "$1" > "$d/glyph.conf" && pkill -USR2 -x ghostty', "sh", ghostty]);
+
         // tmux, if it's installed: tmux.conf sources this file (the installer can add that line); running servers re-read it. From Isaqdn03/glyph-rice
         const accent = hex(pal.accent), tmux = `# glyph: written by Theme.apply(), don't edit by hand
 set -g status-style "bg=#${hex(s1)},fg=#${hex(grey)}"

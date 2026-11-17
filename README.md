@@ -57,6 +57,7 @@ Recent changes are in the [changelog](CHANGELOG.md).
 | Bar auto-hide per screen (experimental) | prefs → BAR | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
 | Wallpaper beat, off by default | wall picker | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
 | tmux and Firefox follow the palette | automatic if installed | [@Isaqdn03](https://github.com/Isaqdn03/glyph-rice) |
+| Ghostty follows the palette, font and padding; kitty stays the default | installer extra, or add `config-file = ?glyph.conf` to `~/.config/ghostty/config` | requested in #30 |
 | Hide the password's length, plain cover on other screens | prefs → LOOK | [@SenulMapa](https://github.com/SenulMapa/glyph-rice) |
 | TRAY tab, every Nothing and CMF earbuds model, safer typing of the clipboard, ydotool without the input group, and other fixes from November 2026 | launcher, quick settings, automatic | [@Nebelung-cloud](https://github.com/Nebelung-cloud/glyph-rice) |
 | Smooth notification list height on clear all | quick settings | [@malievo](https://github.com/malievo) |
@@ -360,7 +361,7 @@ They are specific to that hardware, and `pcie_aspm=off` costs some battery life,
 | **Terminal** | `kitty` · `fish` · `starship` · `fastfetch` · `btop` · `eza` · `zoxide` · `direnv` |
 | **Look** | `papirus-icon-theme` · `adw-gtk-theme` · JetBrains Mono Nerd Font · `noto-fonts-emoji` (Emoji 17) · `noto-fonts-cjk` · Bibata · `qtengine` · `darkly` |
 | **Login** | `greetd` and `cage` for the Lock and Dial greeters, or `sddm` 0.21+ (Qt 6 greeter) for the theme |
-| **Optional** | `thunar`, `dolphin` (with `kio-extras`, `ffmpegthumbs`, `kdegraphics-thumbnailers`, `archlinux-xdg-menu`, `kde-cli-tools`) or [Strata](https://github.com/lgse/strata) · `cava` · `ddcutil` · `ufw` · `tmux` · `python-pywalfox` · `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` · `libteam` for team connections |
+| **Optional** | `thunar`, `dolphin` (with `kio-extras`, `ffmpegthumbs`, `kdegraphics-thumbnailers`, `archlinux-xdg-menu`, `kde-cli-tools`) or [Strata](https://github.com/lgse/strata) · `cava` · `ddcutil` · `ufw` · `tmux` · `ghostty` · `python-pywalfox` · `clash-verge-rev` · `nvidia-utils` · `ydotool` · `hyprpicker` · `swappy` · `trash-cli` · `libteam` for team connections |
 
 The VPN panel expects Clash Verge in English.
 NixOS: change the `/usr/lib` agent paths in `hypr/hyprland/execs.lua` and the Papirus path in `quickshell/rice/rice`.
