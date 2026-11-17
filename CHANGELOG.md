@@ -4,6 +4,15 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 ## November 2026
 
+### Terminals
+
+- New: Ghostty follows your theme like kitty does: colors, the 16 terminal colors, font, padding and cursor. Open windows recolor when you change the theme. Pick Ghostty under extras in the installer, or add `config-file = ?glyph.conf` to `~/.config/ghostty/config`. Kitty stays the default terminal. Requested in #30.
+
+### Installer
+
+- Fixed: `install.sh --update` moved starship, fastfetch, btop, cava and the fish progress file into a backup folder and linked them again, though they already pointed at the rice through `~/.config/quickshell/glyph`. Uninstall left those same links behind, pointing at nothing.
+- `install.sh --dry-run` now shows the step that adds the udev rule for typing tools.
+
 ### Screenshots and recording
 
 - Fixed: the shell crashed when you took a screenshot over a full-screen game such as Sober. The game held so much graphics memory that the screenshot overlay couldn't be created, and Quickshell crashed instead of failing. The overlay is now created once at startup, so a shot needs nothing new.

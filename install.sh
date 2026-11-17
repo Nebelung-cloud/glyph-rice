@@ -415,6 +415,8 @@ links() {
         src="$DOTS/$src" dst="$HOME/$dst"
         # gtk and qt files may point at the shell's recolored copies: those are ours too
         case "$(readlink "$dst" 2>/dev/null)" in "$src" | "$STATE"/glyph/*) continue ;; esac
+        # a link through another of ours (~/.config/quickshell/glyph/term/…) already reaches src: nothing to back up
+        if [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ]; then continue; fi
         if [ -e "$dst" ] || [ -L "$dst" ]; then
             run mkdir -p "$BACKUP/$(dirname "${dst#"$HOME"/}")"
             run mv "$dst" "$BACKUP/${dst#"$HOME"/}"
@@ -570,7 +572,8 @@ EOF
 
 uinput_rule() { # ydotool writes to /dev/uinput. Access goes to whoever sits at the machine (uaccess, like steam-devices), not the input
     # group: that one reads /dev/input/event*, so any of your programs could see every key pressed, passwords too. From Nebelung-cloud/glyph-rice
-    echo 'KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"' | run sudo tee /etc/udev/rules.d/70-glyph-uinput.rules >/dev/null
+    # install, not tee: it prints nothing, so no >/dev/null swallows --dry-run's "would run" line
+    echo 'KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"' | run sudo install -m 644 /dev/stdin /etc/udev/rules.d/70-glyph-uinput.rules
     if id -nG "$USER" | grep -qw input; then
         say "Your account is in the input group, which lets any program read every key you press. Glyph no longer needs it."
         say "If nothing else of yours does, leave it with:  sudo gpasswd -d $USER input   (applies after a restart)"
@@ -750,7 +753,8 @@ uninstall() {
         # gtk and qt files may point at the shell's recolored copies
         case "$(readlink "$dst" 2>/dev/null)" in
             "$src" | "$STATE"/glyph/*) run rm "$dst" ;;
-            *) continue ;;
+            # a link through another of ours (~/.config/quickshell/glyph/term/…) would dangle once the rice is gone
+            *) if [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ]; then run rm "$dst"; else continue; fi ;;
         esac
         if [ -n "$first" ] && { [ -e "$first/${dst#"$HOME"/}" ] || [ -L "$first/${dst#"$HOME"/}" ]; }; then
             run mv "$first/${dst#"$HOME"/}" "$dst"
