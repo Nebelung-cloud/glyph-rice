@@ -67,6 +67,8 @@ Type=Fixed
 # (notifications, tray) — the new shell wouldn't get them
 pids() { qs list --all 2>/dev/null | awk -v p="$q/$1/shell.qml" '$1 == "Process" { pid = $3 } $1 == "Config" && $3 == p { print pid }'; }
 stop() {
+    # the keeper first, so it doesn't bring back the shell we're stopping
+    [ -f "$state/keeper" ] && kill "$(cat "$state/keeper")" 2>/dev/null; rm -f "$state/keeper"
     pids=$(pids "$1")
     [ -n "$pids" ] || return 0
     kill $pids 2>/dev/null
@@ -79,11 +81,33 @@ stop() {
     kill -9 $pids 2>/dev/null
 }
 
+# runs the shell and brings it back if it crashes (a GPU out of memory under a game took it down with no way back but a terminal).
+# A clean exit or a stop through rice ends it. More than 3 crashes in a minute: it gives up and says so, rather than looping
+keep() {
+    echo $$ > "$state/keeper"
+    n=0; t0=$(date +%s)
+    while :; do
+        qs -p "$q/$1" >/dev/null 2>&1 && break
+        now=$(date +%s)
+        [ $((now - t0)) -gt 60 ] && { n=0; t0=$now; }
+        n=$((n + 1))
+        if [ $n -gt 3 ]; then
+            notify-send -a rice -u critical "The shell keeps crashing" "Stopped restarting it. Run: rice restart" 2>/dev/null
+            break
+        fi
+        notify-send -a rice "The shell crashed" "It restarted by itself. Reports are in ~/.cache/quickshell/crashes" 2>/dev/null
+        sleep 1
+    done
+    rm -f "$state/keeper"
+}
+run() { setsid -f "$0" keep "$1" >/dev/null 2>&1 < /dev/null; }
+
 case $1 in
     "") echo "$cur" ;;
     list) for f in "$q"/*/rice.json; do basename "$(dirname "$f")"; done ;;
-    start) [ -n "$(pids "$cur")" ] && exit 0; mkdir -p "$state"; term "$cur" login; exec qs -p "$q/$cur" -d ;;
-    restart) term "$cur"; stop "$cur"; hyprctl reload >/dev/null; exec qs -p "$q/$cur" -d ;; # the reload also clears a stuck hypr error bar
+    start) [ -n "$(pids "$cur")" ] && exit 0; mkdir -p "$state"; term "$cur" login; run "$cur" ;;
+    restart) mkdir -p "$state"; term "$cur"; stop "$cur"; hyprctl reload >/dev/null; run "$cur" ;; # the reload also clears a stuck hypr error bar
+    keep) mkdir -p "$state"; keep "$2" ;;
     kill) stop "$cur" ;;
     switch)
         [ -f "$q/$2/rice.json" ] || { echo "rice: no shell \"$2\"" >&2; exit 1; }
@@ -92,7 +116,7 @@ case $1 in
         stop "$cur"
         hyprctl reload >/dev/null # drop the previous shell's look: the new one lays its own on top of the hypr config
         term "$2"
-        exec qs -p "$q/$2" -d ;;
+        run "$2" ;;
     update) exec "$(dirname "$(readlink -f "$0")")/../../../install.sh" --update ;;
     lock) pgrep -f '^qs .*/lock[.]qml' >/dev/null || exec qs -p "$q/$cur/lock.qml" ;;
     *) sed -n '2,9s/^# //p' "$0"; exit 1 ;;
