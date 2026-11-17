@@ -4,6 +4,10 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 ## November 2026
 
+### Keyboard
+
+- New: switching the keyboard layout shows it for a moment in the island at the top: the layout's name and its short code, such as RUSSIAN · RU or ARABIC · AR. It shows there even when volume uses the screen edge, and it turns off with the Glyph lights. Requested in #27.
+
 ### Terminals
 
 - New: Ghostty follows your theme like kitty does: colors, the 16 terminal colors, font, padding and cursor. Open windows recolor when you change the theme. Pick Ghostty under extras in the installer, or add `config-file = ?glyph.conf` to `~/.config/ghostty/config`. Kitty stays the default terminal. Requested in #30.
