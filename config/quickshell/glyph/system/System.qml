@@ -86,34 +86,15 @@ PanelWindow {
         }
 
 
-        Column {
-            x: 150 - 30 * (1 - root.t)
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 14
-            Repeater {
-                model: root.sections
-                Row {
-                    id: word
-                    required property string modelData
-                    required property int index
-                    readonly property bool on: root.sel === index
-                    spacing: 22
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: word.on
-                        width: 22
-                        height: 22
-                        radius: 11
-                        color: Theme.accent
-                    }
-                    Grow { text: word.modelData; on: word.on; big: 80; small: 38; anchors.verticalCenter: parent.verticalCenter }
-                    TapHandler { onTapped: root.go(word.index) }
-                }
-            }
+        Rail {
+            x: 72 - 30 * (1 - root.t)
+            model: root.sections
+            sel: root.sel
+            onPicked: i => root.go(i)
         }
 
         Row {
-            x: 150
+            x: 72
             anchors { bottom: parent.bottom; bottomMargin: 70 }
             spacing: 34
             Lb { text: "↑↓ section" }
@@ -137,8 +118,8 @@ PanelWindow {
 
         // last in the Tab order: Tab goes to the page's own controls first
         Act {
-            x: 150
-            y: 70
+            x: 72
+            y: 40
             icon: "\u{F03D8}"
             text: "customize the rice"
             onHit: {

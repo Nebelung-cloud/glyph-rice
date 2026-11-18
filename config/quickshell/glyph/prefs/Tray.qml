@@ -8,9 +8,10 @@ import qs.components
 Grid {
     id: root
 
-    columns: Math.ceil(ids.length / Math.ceil(ids.length * 100 / 1100))
+    columns: Math.ceil(ids.length / Math.ceil(ids.length * 100 / room))
     rowSpacing: 20
 
+    property real room: 1100 // the width it may take
     property var ids: []
     property var icons: ({})
     property var used: []

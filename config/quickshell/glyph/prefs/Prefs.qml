@@ -22,8 +22,11 @@ PanelWindow {
     readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, ""]
+    readonly property var hints: [moves, moves, "", "", "hover to preview · ↵ or click sets it", rings, ""]
     readonly property var r: Rules.store
+    // the shown page, when it's a rows page (Sheet: has owns())
+    readonly property Item page: [null, null, bar][sel] ?? null
+    readonly property bool paged: !!page
 
     // glyphs for the home widgets, deck sections and the bar tray
     readonly property var icons: ({
@@ -162,50 +165,40 @@ PanelWindow {
         id: stage
         opacity: root.t
         focus: true
+        // the rail has the keys while the stage itself is focused; inside a rows page ↑↓ walk its rows and esc comes back here.
+        // Pages not yet in rows keep ↑↓ for sections
         Keys.onPressed: e => {
-            if (e.key === Qt.Key_Up || e.key === Qt.Key_K) root.go(root.sel - 1);
-            else if (e.key === Qt.Key_Down || e.key === Qt.Key_J) root.go(root.sel + 1);
-            else if (e.key === Qt.Key_Right && stage.activeFocus) stage.nextItemInFocusChain(true)?.forceActiveFocus();
+            const up = e.key === Qt.Key_Up || e.key === Qt.Key_K, down = e.key === Qt.Key_Down || e.key === Qt.Key_J;
+            if ((up || down) && root.paged && !stage.activeFocus) {
+                const next = stage.Window.activeFocusItem?.nextItemInFocusChain(down);
+                if (root.page.owns(next)) next.forceActiveFocus();
+            }
+            else if (up) root.go(root.sel - 1);
+            else if (down) root.go(root.sel + 1);
+            else if ((e.key === Qt.Key_Right || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && stage.activeFocus) stage.nextItemInFocusChain(true)?.forceActiveFocus();
+            else if (e.key === Qt.Key_Escape && root.paged && !stage.activeFocus) stage.forceActiveFocus();
             else if (e.key === Qt.Key_Escape) root.leave();
             else return;
             e.accepted = true;
         }
 
-        // sections: the selected one large with a red dot (while the name is being typed, the red is the caret, the dot turns white)
-        Column {
-            x: 150 - 30 * (1 - root.t)
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 22
-            Repeater {
-                model: root.sections
-                Row {
-                    id: word
-                    required property string modelData
-                    required property int index
-                    readonly property bool on: root.sel === index
-                    spacing: 26
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: word.on
-                        width: 26
-                        height: 26
-                        radius: 13
-                        color: name.activeFocus ? Theme.fg : Theme.accent
-                    }
-                    Grow { text: word.modelData; on: word.on; big: 112; small: 46; anchors.verticalCenter: parent.verticalCenter }
-                    TapHandler { onTapped: root.go(word.index) }
-                }
-            }
+        // sections. The dot: red — the rail has the keys, grey — inside a page, white — the name is being typed (the red is the caret)
+        Rail {
+            x: 72 - 30 * (1 - root.t)
+            model: root.sections
+            sel: root.sel
+            dot: name.activeFocus ? Theme.fg : stage.activeFocus ? Theme.accent : Theme.mute
+            onPicked: i => root.go(i)
         }
 
         Row {
-            x: 150
+            x: 72
             anchors { bottom: parent.bottom; bottomMargin: 70 }
             spacing: 34
-            Lb { text: "↑↓ section" }
-            Lb { text: "tab · ←→ change" }
+            Lb { text: root.paged && !stage.activeFocus ? "↑↓ setting · ←→ change" : "↑↓ section · → enter" }
+            Lb { visible: !root.paged; text: "tab · ←→ change" }
             Lb { visible: !!text; text: root.hints[root.sel] }
-            Lb { text: root.fromSystem ? "esc back" : "esc close"; TapHandler { onTapped: root.leave() } }
+            Lb { text: root.paged && !stage.activeFocus ? "esc sections" : root.fromSystem ? "esc back" : "esc close"; TapHandler { onTapped: root.leave() } }
         }
 
         // ---- HOME: home at a 168/220 scale — the same kinds, order and layout. Click — select, another click or ↵ — the next kind,
@@ -498,12 +491,12 @@ PanelWindow {
             }
         }
 
-        // ---- BAR: the edge — screens in miniature, a click picks. The tray — like in the bar: at the side a column (labels beside it), on top
-        // a row (labels under the icon), in order; drag along the bar. The tray below — what exists ----
-        Page {
+        // ---- BAR: rows — where it sits, the window title, auto-hide per screen, the buttons. The buttons' editor lives in the inspector:
+        // like in the bar, at the side a column (labels beside it), on top a row (labels under the icon); drag along it ----
+        Sheet {
             id: bar
-            k: 2
-            caption: `bar · ${Theme.state.bar.length} of ${Theme.bars.length} in the tray · ${Theme.state.barAt} edge`
+            on: root.sel === 2
+            caption: "bar"
             readonly property bool onTop: Theme.state.barAt === "top"
             readonly property real step: onTop ? 104 : 68 // a slot along the bar
             property int cur: 0
@@ -512,12 +505,109 @@ PanelWindow {
             property real d: 0
             readonly property real at: Math.max(10, Math.min(10 + (Theme.state.bar.length - 1) * step, 10 + from * step + d))
             readonly property int to: Math.round((at - 10) / step)
+            readonly property var edgeNames: ["left", "right", "top"]
+            readonly property Component mini: Component { Mini { width: 600; height: 375 } }
 
-            Grid {
-                columns: bar.onTop ? 1 : 2
-                columnSpacing: 200
-                rowSpacing: 40
+            Lb { topPadding: 8; bottomPadding: 4; text: "place" }
+            Opt {
+                title: "Edge"
+                hint: "Which side of the screen the bar sits on."
+                about: "Left and right give a slim column, top gives a row across the screen. Windows always make room for it."
+                value: Theme.state.barAt
+                preview: Component {
+                    Row {
+                        id: edges
+                        spacing: 20
+                        Repeater {
+                            model: ["left", "right", "top"]
+                            Column {
+                                id: ed
+                                required property string modelData
+                                readonly property bool on: modelData === Theme.state.barAt
+                                spacing: 10
+                                Rectangle {
+                                    width: 200
+                                    height: 125
+                                    radius: Theme.corner(18)
+                                    color: Theme.bg
+                                    border { width: ed.on ? 2 : 1; color: ed.on ? Theme.fg : Theme.s3 }
+                                    Behavior on border.color { ColorAnimation { duration: Theme.t } }
+                                    Rectangle {
+                                        x: ed.modelData === "right" ? parent.width - 26 : 10
+                                        y: 10
+                                        width: ed.modelData === "top" ? parent.width - 20 : 16
+                                        height: ed.modelData === "top" ? 16 : parent.height - 20
+                                        radius: Theme.corner(8)
+                                        color: ed.on ? Theme.fg : Theme.s3
+                                        Behavior on color { ColorAnimation { duration: Theme.t } }
+                                    }
+                                    TapHandler { onTapped: Theme.state.barAt = ed.modelData }
+                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                }
+                                Lb { anchors.horizontalCenter: parent.horizontalCenter; text: ed.modelData; px: 10; color: ed.on ? Theme.fg : Theme.grey }
+                            }
+                        }
+                    }
+                }
+                Pick {
+                    height: 44
+                    opts: bar.edgeNames
+                    cur: bar.edgeNames.indexOf(Theme.state.barAt)
+                    onPicked: i => Theme.state.barAt = bar.edgeNames[i]
+                }
+            }
+            Opt {
+                title: "Window title"
+                hint: `Names the app you are in, ${bar.onTop ? "left of" : "above"} the clock.`
+                about: "The title of the focused window, written along the bar. Turn it off for a quieter bar."
+                value: Theme.state.barTitle ? "on" : "off"
+                preview: bar.mini
+                Switch { on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
+            }
 
+            Lb { visible: !bar.onTop; topPadding: 40; bottomPadding: 4; text: "auto-hide · experimental" }
+            Repeater {
+                model: bar.onTop ? [] : Quickshell.screens
+                Opt {
+                    id: hideRow
+                    required property var modelData
+                    readonly property bool hides: Theme.state.barHide.includes(modelData.name)
+                    title: Quickshell.screens.length > 1 ? `Hide on ${modelData.name}` : "Hide the bar"
+                    hint: "Slides away when not in use. Push the mouse to the edge to bring it back."
+                    about: "The bar tucks out of sight so windows get the whole screen. Push the pointer against its edge, or open a panel from the bar, and it comes back. Still experimental."
+                    value: hides ? "on" : "off"
+                    preview: bar.mini
+                    Switch {
+                        on: hideRow.hides
+                        onFlip: {
+                            const n = hideRow.modelData.name, a = Theme.state.barHide.filter(x => x !== n);
+                            if (!on) a.push(n);
+                            Theme.state.barHide = a;
+                        }
+                    }
+                }
+            }
+            Opt {
+                visible: !bar.onTop && Theme.state.barHide.length > 0
+                title: "Only over windows"
+                hint: "Keeps the bar on an empty desktop."
+                about: "Hiding only starts once the workspace has a window on it. With nothing open, the bar stays where it is."
+                value: Theme.state.barHideBusy ? "on" : "off"
+                preview: bar.mini
+                Switch { on: Theme.state.barHideBusy; onFlip: Theme.state.barHideBusy = !Theme.state.barHideBusy }
+            }
+
+            Lb { topPadding: 40; bottomPadding: 4; text: "buttons" }
+            Opt {
+                title: "Buttons in the bar"
+                hint: "What sits in the bar, and in what order. Edit it on the right."
+                about: "Click a circle to add or remove it. Drag along the bar, or Shift ←→, to reorder. ↵ swaps the selected one for another, Del drops it."
+                value: `${Theme.state.bar.length}/${Theme.bars.length}`
+                preview: Component {
+                    Grid {
+                        columns: bar.onTop ? 1 : 2
+                        columnSpacing: 120
+                        rowSpacing: 40
                 Rectangle {
                     id: col
                     readonly property int n: Math.max(1, Theme.state.bar.length)
@@ -606,79 +696,15 @@ PanelWindow {
                         }
                     }
                 }
-
-                Column {
-                    spacing: 14
-                    Lb { text: "edge" }
-                    // screens with a pill at their edge; ←→ — another one
-                    Row {
-                        id: edges
-                        spacing: 20
-                        activeFocusOnTab: true
-                        Keys.onPressed: e => {
-                            if (e.key !== Qt.Key_Left && e.key !== Qt.Key_Right && e.key !== Qt.Key_Space && e.key !== Qt.Key_Return) return;
-                            const all = ["left", "right", "top"], back = e.key === Qt.Key_Left ? 2 : 1;
-                            Theme.state.barAt = all[(all.indexOf(Theme.state.barAt) + back) % 3];
-                            e.accepted = true;
-                        }
-                        Repeater {
-                            model: ["left", "right", "top"]
-                            Column {
-                                id: ed
-                                required property string modelData
-                                readonly property bool on: modelData === Theme.state.barAt
-                                spacing: 10
-                                Rectangle {
-                                    width: 200
-                                    height: 125
-                                    radius: Theme.corner(18)
-                                    color: Theme.bg
-                                    border { width: ed.on && edges.activeFocus ? 2 : 1; color: ed.on ? Theme.fg : Theme.s3 }
-                                    Behavior on border.color { ColorAnimation { duration: Theme.t } }
-                                    Rectangle {
-                                        x: ed.modelData === "right" ? parent.width - 26 : 10
-                                        y: 10
-                                        width: ed.modelData === "top" ? parent.width - 20 : 16
-                                        height: ed.modelData === "top" ? 16 : parent.height - 20
-                                        radius: Theme.corner(8)
-                                        color: ed.on ? Theme.fg : Theme.s3
-                                        Behavior on color { ColorAnimation { duration: Theme.t } }
-                                    }
-                                    TapHandler { onTapped: Theme.state.barAt = ed.modelData }
-                                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                                }
-                                Lb { anchors.horizontalCenter: parent.horizontalCenter; text: ed.modelData; px: 10; color: ed.on ? Theme.fg : Theme.grey }
-                            }
+                        Tray {
+                            room: bar.onTop ? 740 : 500
+                            ids: Theme.bars
+                            icons: root.icons
+                            used: Theme.state.bar
+                            onToggled: key => bar.cur = root.flip("bar", key, bar.cur)
                         }
                     }
-                    Item { width: 1; height: 12 }
-                    Toggle { span: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
-                    Lb { topPadding: 6; text: bar.onTop ? "left of the clock" : "above the clock"; px: 10 }
-                    Item { width: 1; height: 6 }
-                    Repeater {
-                        model: bar.onTop ? [] : Quickshell.screens
-                        Toggle {
-                            required property var modelData
-                            span: 200
-                            text: `hide · ${modelData.name}`
-                            on: Theme.state.barHide.includes(modelData.name)
-                            onFlip: {
-                                const a = Theme.state.barHide.filter(n => n !== modelData.name);
-                                if (!on) a.push(modelData.name);
-                                Theme.state.barHide = a;
-                            }
-                        }
-                    }
-                    Toggle { visible: !bar.onTop && Theme.state.barHide.length > 0; span: 200; text: "only over windows"; on: Theme.state.barHideBusy; onFlip: Theme.state.barHideBusy = !Theme.state.barHideBusy }
-                    Lb { visible: !bar.onTop; topPadding: 6; text: "auto-hide · experimental"; px: 10 }
                 }
-            }
-
-            Tray {
-                ids: Theme.bars
-                icons: root.icons
-                used: Theme.state.bar
-                onToggled: key => bar.cur = root.flip("bar", key, bar.cur)
             }
         }
 

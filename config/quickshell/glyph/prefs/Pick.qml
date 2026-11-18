@@ -30,8 +30,8 @@ Rectangle {
     Lb {
         id: head
         anchors.verticalCenter: parent.verticalCenter
-        leftPadding: 28
-        rightPadding: 14
+        leftPadding: root.label ? 28 : 0 // no label — it sits outside, in the row (Opt)
+        rightPadding: root.label ? 14 : 0
         text: root.label
         color: root.activeFocus ? Theme.fg : Theme.grey
     }
