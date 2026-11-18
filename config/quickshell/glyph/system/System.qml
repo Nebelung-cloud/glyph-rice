@@ -25,6 +25,8 @@ PanelWindow {
     readonly property var sections: ["NETWORK", "BLUETOOTH", "SOUND", "DISPLAY", "DRIVES", "WORKSPACES", "POWER"]
         .concat(UPower.displayDevice?.isLaptopBattery ? ["BATTERY"] : [], ["INPUT", "IDLE"], hasUfw ? ["FIREWALL"] : [], ["APPS", "ABOUT"])
     readonly property string cur: sections[sel] ?? ""
+    // the shown page when it's a rows page (Sheet: has walk()); the others keep ↑↓ for sections and Tab for their objects
+    readonly property Item page: pages[cur]?.walk ? pages[cur] : null
     readonly property var pages: ({ NETWORK: net, BLUETOOTH: bt, SOUND: sound, DISPLAY: disp, DRIVES: drv, WORKSPACES: wsp, POWER: power, BATTERY: battery, INPUT: input, IDLE: idle, FIREWALL: fw, APPS: apps, ABOUT: about })
 
     property bool shown: false
@@ -75,11 +77,16 @@ PanelWindow {
         id: stage
         opacity: root.t
         focus: true
-        // esc and ↑↓ reach here if the focused object didn't eat them
+        // esc and ↑↓ reach here if the focused object didn't eat them. Like Prefs: the rail has the keys while the stage is focused;
+        // inside a rows page ↑↓ walk its rows, esc leaves an editor, then the page, then backs out
         Keys.onPressed: e => {
-            if (e.key === Qt.Key_Up) root.go(root.sel - 1);
-            else if (e.key === Qt.Key_Down) root.go(root.sel + 1);
-            else if (e.key === Qt.Key_Right && stage.activeFocus) stage.nextItemInFocusChain(true)?.forceActiveFocus();
+            const up = e.key === Qt.Key_Up, down = e.key === Qt.Key_Down, inside = !!root.page && !stage.activeFocus;
+            if ((up || down) && inside) root.page.walk(stage.Window.activeFocusItem, down)?.forceActiveFocus();
+            else if (up) root.go(root.sel - 1);
+            else if (down) root.go(root.sel + 1);
+            else if ((e.key === Qt.Key_Right || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && stage.activeFocus) stage.nextItemInFocusChain(true)?.forceActiveFocus();
+            else if (e.key === Qt.Key_Escape && inside && root.page.editing && root.page.hot) root.page.hot.forceActiveFocus();
+            else if (e.key === Qt.Key_Escape && inside && !root.page.back()) stage.forceActiveFocus();
             else if (e.key === Qt.Key_Escape) root.back();
             else return;
             e.accepted = true;
@@ -97,9 +104,10 @@ PanelWindow {
             x: 72
             anchors { bottom: parent.bottom; bottomMargin: 70 }
             spacing: 34
-            Lb { text: "↑↓ section" }
-            Lb { text: "tab · ↵ pick" }
-            Lb { text: "esc back"; TapHandler { onTapped: root.back() } }
+            readonly property bool inside: !!root.page && !stage.activeFocus
+            Lb { text: parent.inside && root.page.editing ? "↑↓ part · ←→ pick" : parent.inside ? "↑↓ setting · ←→ change" : root.page ? "↑↓ section · → enter" : "↑↓ section" }
+            Lb { visible: !root.page; text: "tab · ↵ pick" }
+            Lb { text: parent.inside && root.page.editing ? "esc rows" : parent.inside ? "esc sections" : "esc back"; TapHandler { onTapped: root.back() } }
         }
 
         NetPage { id: net; on: root.cur === "NETWORK"; live: root.shown && on }

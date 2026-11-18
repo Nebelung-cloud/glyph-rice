@@ -31,6 +31,23 @@ Item {
         for (; it; it = it.parent) if (it === ins) return true;
         return false;
     }
+    // ↑↓ from the focused item: the next row's first control (or the row itself). A row's own controls (swatches) are walked with
+    // ←→, so they're skipped; going up lands on the row's first. Inside an editor ↑↓ stay in it; rows never fall into the inspector.
+    // null — nowhere to go
+    function walk(cur, down) {
+        const rowOf = it => { for (; it; it = it.parent) if (it.about !== undefined) return it; return null; };
+        const ok = n => owns(n) && n !== cur;
+        if (inEditor(cur)) {
+            const n = cur.nextItemInFocusChain(down);
+            return ok(n) && inEditor(n) ? n : null;
+        }
+        const row = rowOf(cur);
+        let next = cur?.nextItemInFocusChain(down);
+        while (next && next !== cur && (row && rowOf(next) === row || inEditor(next))) next = next.nextItemInFocusChain(down);
+        const q = down ? null : rowOf(next);
+        for (let p = next?.nextItemInFocusChain(false); q && p && p !== next && rowOf(p) === q; p = next.nextItemInFocusChain(false)) next = p;
+        return ok(next) && !inEditor(next) ? next : null;
+    }
     function edit() {
         const it = ins.item, f = it?.activeFocusOnTab ? it : it?.nextItemInFocusChain(true);
         if (!inEditor(f)) return false;

@@ -158,20 +158,7 @@ PanelWindow {
         Keys.onPressed: e => {
             const up = e.key === Qt.Key_Up || e.key === Qt.Key_K, down = e.key === Qt.Key_Down || e.key === Qt.Key_J;
             if ((up || down) && root.paged && !stage.activeFocus) {
-                // row to row: a row's own controls (swatches) are walked with ←→, so skip past them; going up, land on the row's first
-                const rowOf = it => { for (; it; it = it.parent) if (it.about !== undefined) return it; return null; };
-                const cur = stage.Window.activeFocusItem, row = rowOf(cur);
-                if (root.page.inEditor(cur)) { // inside an editor: stay in it
-                    const n = cur.nextItemInFocusChain(down);
-                    if (root.page.inEditor(n)) n.forceActiveFocus();
-                    e.accepted = true;
-                    return;
-                }
-                let next = cur?.nextItemInFocusChain(down);
-                while (next && row && next !== cur && rowOf(next) === row) next = next.nextItemInFocusChain(down);
-                const q = up ? rowOf(next) : null;
-                for (let p = next?.nextItemInFocusChain(false); q && p && p !== next && rowOf(p) === q; p = next.nextItemInFocusChain(false)) next = p;
-                if (root.page.owns(next)) next.forceActiveFocus();
+                root.page.walk(stage.Window.activeFocusItem, down)?.forceActiveFocus();
             }
             else if (up) root.go(root.sel - 1);
             else if (down) root.go(root.sel + 1);
