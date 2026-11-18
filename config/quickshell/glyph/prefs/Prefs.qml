@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -49,10 +50,13 @@ PanelWindow {
     property real t: shown && mapped ? 1 : 0
     Behavior on t { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
     function open() {
+        Hyprland.refreshToplevels(); // the minis place windows from hyprctl geometry
         shown = true;
         stage.forceActiveFocus();
     }
     function close() { shown = false; }
+    Timer { id: reflow; interval: 400; onTriggered: Hyprland.refreshToplevels() } // windows make room for the moved bar, then re-read
+    Connections { target: Theme.state; function onBarAtChanged() { reflow.restart(); } }
     // opened from System — esc goes back there instead of out to the desktop
     property bool fromSystem: false
     signal backRequested
@@ -506,7 +510,7 @@ PanelWindow {
             readonly property real at: Math.max(10, Math.min(10 + (Theme.state.bar.length - 1) * step, 10 + from * step + d))
             readonly property int to: Math.round((at - 10) / step)
             readonly property var edgeNames: ["left", "right", "top"]
-            readonly property Component mini: Component { Mini { width: 600; height: 375 } }
+            readonly property Component mini: Component { Mini { width: 640; apps: true } }
 
             Lb { topPadding: 8; bottomPadding: 4; text: "place" }
             Opt {
@@ -525,22 +529,11 @@ PanelWindow {
                                 required property string modelData
                                 readonly property bool on: modelData === Theme.state.barAt
                                 spacing: 10
-                                Rectangle {
+                                Mini {
                                     width: 200
-                                    height: 125
-                                    radius: Theme.corner(18)
-                                    color: Theme.bg
+                                    at: ed.modelData
+                                    apps: true
                                     border { width: ed.on ? 2 : 1; color: ed.on ? Theme.fg : Theme.s3 }
-                                    Behavior on border.color { ColorAnimation { duration: Theme.t } }
-                                    Rectangle {
-                                        x: ed.modelData === "right" ? parent.width - 26 : 10
-                                        y: 10
-                                        width: ed.modelData === "top" ? parent.width - 20 : 16
-                                        height: ed.modelData === "top" ? 16 : parent.height - 20
-                                        radius: Theme.corner(8)
-                                        color: ed.on ? Theme.fg : Theme.s3
-                                        Behavior on color { ColorAnimation { duration: Theme.t } }
-                                    }
                                     TapHandler { onTapped: Theme.state.barAt = ed.modelData }
                                     HoverHandler { cursorShape: Qt.PointingHandCursor }
                                 }
@@ -1090,12 +1083,17 @@ PanelWindow {
         Lb { text: parent.caption }
     }
 
-    // a miniature 16:10 screen: the wallpaper (the dot grid, if on) and the bar; k — the screen's logical px in layout px
+    // a miniature of this screen in its real shape: the wallpaper as set, (apps) snapshots of the open windows where they sit, and the
+    // bar drawn at `at`, so it follows the setting live. Windows are captured one by one, not the whole screen: that would catch this
+    // panel. k — the screen's logical px in layout px
     component Mini: Rectangle {
+        id: mini
+        property string at: Theme.state.barAt
+        property bool apps: false
         readonly property real k: width / ((Rules.mon.w || 2880) / Rules.scale)
         width: 760
-        height: 475
-        radius: Theme.corner(24)
+        height: width * (Rules.mon.h || 1080) / (Rules.mon.w || 1920)
+        radius: 6
         color: Theme.bg
         border { width: 1; color: Theme.s3 }
         Image {
@@ -1104,17 +1102,45 @@ PanelWindow {
             fillMode: Image.Tile
             source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="1" fill="#${Theme.hex(Theme.s2)}"/></svg>`)
         }
+        Wall { anchors { fill: parent; margins: 1 } path: Theme.wallSrc(Theme.state.wall); animate: false }
+        Repeater {
+            model: mini.apps && root.shown ? Hyprland.focusedMonitor?.activeWorkspace?.toplevels.values ?? [] : []
+            Rectangle {
+                required property var modelData
+                readonly property var o: modelData.lastIpcObject ?? {}
+                readonly property var m: Hyprland.focusedMonitor?.lastIpcObject ?? {}
+                x: ((o.at?.[0] ?? 0) - (m.x ?? 0)) * mini.k
+                y: ((o.at?.[1] ?? 0) - (m.y ?? 0)) * mini.k
+                width: (o.size?.[0] ?? 0) * mini.k
+                height: (o.size?.[1] ?? 0) * mini.k
+                radius: Theme.state.rounding * mini.k
+                color: Theme.s2
+                clip: true
+                ScreencopyView {
+                    anchors.fill: parent
+                    captureSource: parent.modelData.wayland
+                    live: false // one snapshot per opening: four minis streaming every window is a lot of copying for a preview
+                    constraintSize: Qt.size(parent.width * 2, parent.height * 2)
+                }
+            }
+        }
         // the bar at its edge: the 14 gap and 64 thickness are layout px, on screen they're Theme.s logical
         Rectangle {
             readonly property real u: Theme.s * parent.k
-            readonly property bool onTop: Theme.state.barAt === "top"
-            x: Theme.barRight ? parent.width - 78 * u : 14 * u
+            readonly property bool onTop: mini.at === "top"
+            x: mini.at === "right" ? parent.width - 78 * u : 14 * u
             y: 14 * u
             width: onTop ? parent.width - 28 * u : 64 * u
             height: onTop ? 64 * u : parent.height - 28 * u
             radius: Theme.corner(Math.min(width, height) / 2)
-            color: Theme.s1
-            border { width: 1; color: Theme.s2 }
+            color: Theme.s1 // like the real bar; the glowing edge makes it read over wallpaper and windows
+            border { width: 1; color: Theme.fg }
+            Rectangle {
+                anchors { fill: parent; margins: -2 }
+                radius: parent.radius + 2
+                color: "transparent"
+                border { width: 2; color: Theme.glow }
+            }
         }
     }
 
