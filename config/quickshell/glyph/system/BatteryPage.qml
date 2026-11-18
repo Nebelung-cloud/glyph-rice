@@ -8,7 +8,7 @@ import "../prefs"
 // battery: the charge as a ring, how much is left, health (now versus new), cycles, and how to charge — whatever the kernel offers:
 // charge_types (fast · standard · long life), a stop/start threshold in percent (thinkpad, asus, dell…) or the old
 // conservation_mode on ideapad. Only root can write there — it asks for a password (pkexec), unless udev opened the file
-Page {
+Sheet {
     id: root
     property bool live
     readonly property var bat: UPower.displayDevice
@@ -73,68 +73,86 @@ true`]
         : "not charging"
     readonly property real health: has && +sys.energy_full_design ? bat.energyCapacity / (+sys.energy_full_design / 1e6) : bat?.healthPercentage / 100 || 0
 
-    Lb { visible: !root.has; text: "no battery on this machine" }
-
-    Row {
-        visible: root.has
-        spacing: 60
+    readonly property Component ring: Component {
         Item {
-            width: 300
-            height: 300
-            Ring { anchors.fill: parent; n: 48; dot: 9; f: (root.bat?.percentage ?? 0) }
+            width: 260
+            height: 260
+            Ring { anchors.fill: parent; n: 48; dot: 8; f: (root.bat?.percentage ?? 0) }
             Column {
                 anchors.centerIn: parent
-                spacing: 8
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    Num { id: pct; text: Math.round((root.bat?.percentage ?? 0) * 100); font.pixelSize: 96 }
-                    Num { anchors.baseline: pct.baseline; text: "%"; font.pixelSize: 40; color: Theme.mute }
+                    Num { id: pct; text: Math.round((root.bat?.percentage ?? 0) * 100); font.pixelSize: 84 }
+                    Num { anchors.baseline: pct.baseline; text: "%"; font.pixelSize: 34; color: Theme.mute }
                 }
-                Lb { anchors.horizontalCenter: parent.horizontalCenter; text: root.state }
             }
         }
-        Column {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 14
-            Lb { text: "health" }
-            Row {
-                spacing: 8
-                Num { id: hp; text: Math.round(root.health * 100); font.pixelSize: 72 }
-                Num { anchors.baseline: hp.baseline; text: "%"; font.pixelSize: 32; color: Theme.mute }
-            }
-            Lb { text: `${(root.bat?.energyCapacity ?? 0).toFixed(1)} of ${(+(root.sys.energy_full_design ?? 0) / 1e6).toFixed(1)} wh${root.sys.cycle_count ? ` · ${root.sys.cycle_count} cycles` : ""}` }
-            Lb { visible: Math.abs(root.bat?.changeRate ?? 0) > 0.1; text: `${UPower.onBattery ? "using" : "charging at"} ${Math.abs(root.bat?.changeRate ?? 0).toFixed(1)} w` }
-            Lb { text: [root.sys.manufacturer, root.sys.model_name].filter(Boolean).join(" · ") }
-        }
+    }
+    readonly property string why: "Plugged in most of the time? Stopping the charge early keeps the battery healthy for longer. Changing it may ask for your password."
+
+    Lb { visible: !root.has; topPadding: 8; text: "no battery on this machine" }
+    Lb { visible: root.has; topPadding: 8; bottomPadding: 4; text: "now" }
+    Opt {
+        visible: root.has
+        title: "Charge"
+        hint: root.state
+        about: "How full the battery is. While charging, the time is how long until it's full; on battery, roughly how long it will last at the current use."
+        value: `${Math.round((root.bat?.percentage ?? 0) * 100)} %`
+        preview: root.ring
+    }
+    Opt {
+        visible: root.has
+        title: "Health"
+        hint: `${(root.bat?.energyCapacity ?? 0).toFixed(1)} of ${(+(root.sys.energy_full_design ?? 0) / 1e6).toFixed(1)} Wh${root.sys.cycle_count ? ` · ${root.sys.cycle_count} cycles` : ""}`
+        about: "How much the battery holds now, compared with when it was new. Every battery slowly loses capacity with charge cycles and heat. " + [root.sys.manufacturer, root.sys.model_name].filter(Boolean).join(" ")
+        value: `${Math.round(root.health * 100)} %`
+    }
+    Opt {
+        visible: root.has && Math.abs(root.bat?.changeRate ?? 0) > 0.1
+        title: UPower.onBattery ? "Using" : "Charging at"
+        hint: UPower.onBattery ? "How much power the laptop draws right now." : "How fast the battery is filling."
+        about: "In watts. Bright screens, games and builds draw more; idling draws less."
+        value: `${Math.abs(root.bat?.changeRate ?? 0).toFixed(1)} W`
     }
 
     // ---- how to charge: what this laptop has ----
-    Column {
-        visible: root.has
-        spacing: 14
-        Pick {
-            visible: root.types.length > 1
-            label: "charging"
-            opts: root.types.map(t => root.typeNames[t] ?? t.toLowerCase())
-            cur: root.types.indexOf(root.type)
-            onPicked: i => root.put("charge_types", root.types[i])
-        }
-        Row {
-            visible: !root.types.length && root.sys.charge_control_end_threshold !== undefined
-            spacing: 40
-            Dial { label: "stop at · %"; from: 50; to: 100; step: 5; value: +(root.sys.charge_control_end_threshold ?? 100); onMoved: v => root.put("charge_control_end_threshold", v) }
-            Dial { visible: root.sys.charge_control_start_threshold !== undefined; label: "start at · %"; from: 0; to: 95; step: 5; value: +(root.sys.charge_control_start_threshold ?? 0); onMoved: v => root.put("charge_control_start_threshold", v) }
-        }
-        Toggle {
-            visible: !root.types.length && root.sys.charge_control_end_threshold === undefined && root.sys.conservation !== undefined
-            text: "conservation · stops early"
-            on: root.sys.conservation === "1"
-            onFlip: root.put("conservation", on ? 0 : 1)
-        }
-        Lb {
-            visible: root.types.includes("Long_Life") || root.sys.charge_control_end_threshold !== undefined || root.sys.conservation !== undefined
-            text: "plugged in most of the time? stopping early keeps the battery healthy for longer"
-        }
-        Lb { visible: !!root.msg; text: root.msg; color: root.msg.startsWith("asking") ? Theme.fg : Theme.red }
+    Lb {
+        visible: root.has && (root.types.length > 1 || root.sys.charge_control_end_threshold !== undefined || root.sys.conservation !== undefined)
+        topPadding: 40
+        bottomPadding: 4
+        text: "charging"
     }
+    Opt {
+        visible: root.has && root.types.length > 1
+        title: "Charging"
+        hint: "Fast, standard, or easier on the battery."
+        about: "Fast fills quickest, long life charges gently and stops early. " + root.why
+        value: root.typeNames[root.type] ?? root.type.toLowerCase()
+        Pick { opts: root.types.map(t => root.typeNames[t] ?? t.toLowerCase()); cur: root.types.indexOf(root.type); onPicked: i => root.put("charge_types", root.types[i]) }
+    }
+    Opt {
+        visible: root.has && !root.types.length && root.sys.charge_control_end_threshold !== undefined
+        title: "Stop charging at"
+        hint: "The battery stops filling at this level."
+        about: "100 % charges fully. 80 % is a common choice for a laptop that's mostly plugged in. " + root.why
+        value: `${stop.v} %`
+        Dial { id: stop; size: 72; from: 50; to: 100; step: 5; value: +(root.sys.charge_control_end_threshold ?? 100); onMoved: v => root.put("charge_control_end_threshold", v) }
+    }
+    Opt {
+        visible: root.has && !root.types.length && root.sys.charge_control_start_threshold !== undefined
+        title: "Start charging at"
+        hint: "Charging only resumes below this level."
+        about: "Stops the battery topping up by a few percent over and over while plugged in."
+        value: `${start.v} %`
+        Dial { id: start; size: 72; from: 0; to: 95; step: 5; value: +(root.sys.charge_control_start_threshold ?? 0); onMoved: v => root.put("charge_control_start_threshold", v) }
+    }
+    Opt {
+        visible: root.has && !root.types.length && root.sys.charge_control_end_threshold === undefined && root.sys.conservation !== undefined
+        title: "Conservation"
+        hint: "Stop charging early, around 60 to 80 %."
+        about: root.why
+        value: root.sys.conservation === "1" ? "on" : "off"
+        Switch { on: root.sys.conservation === "1"; onFlip: root.put("conservation", on ? 0 : 1) }
+    }
+    Lb { visible: !!root.msg; topPadding: 16; text: root.msg; color: root.msg.startsWith("asking") ? Theme.fg : Theme.red }
 }

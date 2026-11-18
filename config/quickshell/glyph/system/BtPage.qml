@@ -6,7 +6,7 @@ import "../prefs"
 
 // bluetooth: on the left paired and unknown devices nearby (scans while the section is open), on the right the selected one — battery, name (can be changed),
 // trust, block, connect/disconnect, pair, forget
-Page {
+Sheet {
     id: root
     // trust only once pairing succeeded: a cancelled pairing would leave a stranger's device trusted, free to connect in (as quick/Picker)
     property var pend: null
@@ -26,15 +26,6 @@ Page {
     // nameless ones (just an address) — airwave noise
     readonly property var near: all.filter(d => !d.paired && d.deviceName)
 
-    property string cur: "" // the selected one's address
-    readonly property var dev: all.find(d => d.address === cur) ?? null
-    onDevChanged: rename.text = dev?.name ?? ""
-    function back() {
-        if (!cur) return false;
-        cur = "";
-        return true;
-    }
-
     function icon(i) {
         return /audio|head/.test(i) ? "\u{F02CB}" : /mouse/.test(i) ? "\u{F037D}" : /keyboard/.test(i) ? "\u{F030C}" : /phone/.test(i) ? "\u{F03F2}" : "\u{F00AF}";
     }
@@ -44,91 +35,84 @@ Page {
     }
     function busy(d) { return d.pairing || d.state === BluetoothDeviceState.Connecting || d.state === BluetoothDeviceState.Disconnecting; }
 
-    Row {
-        spacing: 20
-        Toggle { text: "bluetooth"; on: root.btOn; onFlip: if (root.bt) root.bt.enabled = !root.bt.enabled }
-        Toggle { visible: root.btOn; text: "visible to others"; on: root.bt?.discoverable ?? false; onFlip: root.bt.discoverable = !root.bt.discoverable }
-    }
-
-    Row {
-        spacing: 50
-
-        Flickable {
-            width: 420
-            height: Math.min(contentHeight, 640)
-            contentHeight: lists.height
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            Column {
-                id: lists
-                width: parent.width
-                spacing: 4
-                Lb { x: 8; bottomPadding: 6; text: !root.bt ? "no adapter" : !root.btOn ? "bluetooth off" : `paired · ${root.paired.length}` }
-                Repeater {
-                    model: root.paired
-                    Line {
-                        required property var modelData
-                        icon: root.icon(modelData.icon)
-                        title: modelData.name || modelData.address
-                        sub: root.status(modelData)
-                        on: modelData.connected
-                        busy: root.busy(modelData)
-                        picked: root.cur === modelData.address
-                        onHit: root.cur = modelData.address
-                    }
-                }
-                Lb { x: 8; topPadding: 22; bottomPadding: 6; visible: root.btOn; text: root.near.length ? `nearby · ${root.near.length}` : "searching…" }
-                Repeater {
-                    model: root.near
-                    Line {
-                        required property var modelData
-                        icon: root.icon(modelData.icon)
-                        title: modelData.name || modelData.address
-                        sub: root.status(modelData)
-                        busy: root.busy(modelData)
-                        picked: root.cur === modelData.address
-                        onHit: root.cur = modelData.address
-                    }
-                }
-            }
-        }
-
+    // the inspector for one device: status, battery, actions; paired ones also get a name, trust and block. → on the row enters it
+    // stable row lists (Keep): discovery changes the device list all the time
+    Keep { id: pairedK; src: root.paired.map(d => d.address) }
+    Keep { id: nearK; src: root.near.map(d => d.address) }
+    readonly property var dev: hot?.d ?? null
+    readonly property Component card: Component {
         Column {
+            id: card
+            readonly property var d: root.dev
             width: 480
             spacing: 16
-            Lb { visible: !root.dev; text: "pick a device to see its details" }
-
-            Column {
-                visible: !!root.dev
-                width: parent.width
-                spacing: 6
-                Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: root.dev ? root.dev.name || root.dev.address : ""; font { family: Theme.ui; pixelSize: 32; weight: Font.DemiBold } color: Theme.fg }
-                Lb { text: root.dev ? `${root.status(root.dev)} · ${root.dev.address}` : "" }
-            }
+            Lb { text: card.d ? `${root.status(card.d)} · ${card.d.address}` : "" }
             Row {
-                visible: !!root.dev?.batteryAvailable
+                visible: !!card.d?.batteryAvailable
                 spacing: 10
-                Num { id: batN; text: Math.round((root.dev?.battery ?? 0) * 100); font.pixelSize: 96 }
-                Num { anchors.baseline: batN.baseline; text: "%"; font.pixelSize: 40; color: Theme.mute }
+                Num { id: batN; text: Math.round((card.d?.battery ?? 0) * 100); font.pixelSize: 72 }
+                Num { anchors.baseline: batN.baseline; text: "%"; font.pixelSize: 32; color: Theme.mute }
             }
             Flow {
-                visible: !!root.dev
                 width: parent.width
                 spacing: 14
-                Act { visible: !!root.dev && root.dev.paired && !root.dev.connected; icon: "\u{F00B1}"; text: "connect"; onHit: root.dev.connect() }
-                Act { visible: !!root.dev?.connected; icon: "\u{F00B3}"; text: "disconnect"; onHit: root.dev.disconnect() }
-                Act { visible: !!root.dev && !root.dev.paired && !root.dev.pairing; icon: "\u{F00B1}"; text: "pair"; onHit: { root.pend = root.dev; root.dev.pair(); } }
-                Act { visible: !!root.dev?.pairing; icon: "\u{F0156}"; text: "cancel"; onHit: root.dev.cancelPair() }
-                Act { visible: !!root.dev?.paired; icon: "\u{F0A7A}"; text: "forget"; onHit: { root.dev.forget(); root.cur = ""; } }
+                Act { visible: !!card.d && card.d.paired && !card.d.connected; icon: "\u{F00B1}"; text: "connect"; onHit: card.d.connect() }
+                Act { visible: !!card.d?.connected; icon: "\u{F00B3}"; text: "disconnect"; onHit: card.d.disconnect() }
+                Act { visible: !!card.d && !card.d.paired && !card.d.pairing; icon: "\u{F00B1}"; text: "pair"; onHit: { root.pend = card.d; card.d.pair(); } }
+                Act { visible: !!card.d?.pairing; icon: "\u{F0156}"; text: "cancel"; onHit: card.d.cancelPair() }
+                Act { visible: !!card.d?.paired; icon: "\u{F0A7A}"; text: "forget"; onHit: card.d.forget() }
             }
             Column {
-                visible: !!root.dev?.paired
+                visible: !!card.d?.paired
                 spacing: 12
-                Lb { topPadding: 14; text: "settings" }
-                Field { id: rename; label: "name"; hint: "↵ to rename"; onAccepted: if (root.dev && text.trim()) root.dev.name = text.trim() }
-                Toggle { text: "trusted · auto-connect"; on: root.dev?.trusted ?? false; onFlip: root.dev.trusted = !root.dev.trusted }
-                Toggle { text: "blocked"; on: root.dev?.blocked ?? false; onFlip: root.dev.blocked = !root.dev.blocked }
+                Field { label: "name"; hint: "↵ to rename"; text: card.d?.name ?? ""; onAccepted: if (card.d && text.trim()) card.d.name = text.trim() }
+                Toggle { text: "trusted · connects on its own"; on: card.d?.trusted ?? false; onFlip: card.d.trusted = !card.d.trusted }
+                Toggle { text: "blocked · never connects"; on: card.d?.blocked ?? false; onFlip: card.d.blocked = !card.d.blocked }
             }
+        }
+    }
+
+    Lb { topPadding: 8; bottomPadding: 4; text: "bluetooth" }
+    Opt {
+        title: "Bluetooth"
+        hint: !root.bt ? "No Bluetooth adapter found." : "Wireless headphones, mice, keyboards, phones."
+        about: "Turning it off disconnects every device and saves a little battery."
+        value: root.btOn ? "on" : "off"
+        Switch { on: root.btOn; onFlip: if (root.bt) root.bt.enabled = !root.bt.enabled }
+    }
+    Opt {
+        visible: root.btOn
+        title: "Visible to others"
+        hint: "Let phones and computers find this one."
+        about: "Only needed when another device pairs with this computer. Devices you pair from here don't need it."
+        value: root.bt?.discoverable ? "on" : "off"
+        Switch { on: root.bt?.discoverable ?? false; onFlip: root.bt.discoverable = !root.bt.discoverable }
+    }
+
+    Lb { visible: root.btOn; topPadding: 40; bottomPadding: 4; text: `paired · ${pairedK.out.length} · → for actions` }
+    Repeater {
+        model: pairedK.out
+        Opt {
+            required property string modelData
+            readonly property var d: root.all.find(x => x.address === modelData) ?? null
+            title: d ? d.name || d.address : ""
+            hint: d ? root.status(d) : ""
+            about: "A device you paired before. It reconnects when trusted and in range."
+            value: d?.connected ? "connected" : "paired"
+            preview: root.card
+        }
+    }
+    Lb { visible: root.btOn; topPadding: 40; bottomPadding: 4; text: nearK.out.length ? `nearby · ${nearK.out.length} · → to pair` : "nearby · searching…" }
+    Repeater {
+        model: nearK.out
+        Opt {
+            required property string modelData
+            readonly property var d: root.all.find(x => x.address === modelData) ?? null
+            title: d ? d.name || d.address : ""
+            hint: d ? root.status(d) : ""
+            about: "A device in range that isn't paired. Put it in pairing mode, then pair it here."
+            value: "new"
+            preview: root.card
         }
     }
 }

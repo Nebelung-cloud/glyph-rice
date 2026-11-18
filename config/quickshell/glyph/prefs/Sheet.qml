@@ -23,6 +23,16 @@ Item {
         else if (y + row.height > scroll + room) clampTo(y + row.height - room);
     }
     onOnChanged: scroll = 0
+    // rows reveal themselves (Opt); anything else focused in the list — a form's fields (Network) — is scrolled to here
+    Connections {
+        target: root.Window.window
+        function onActiveFocusItemChanged() {
+            const it = root.Window.activeFocusItem;
+            if (!root.on || !root.owns(it) || root.inEditor(it)) return;
+            for (let p = it; p && p !== root; p = p.parent) if (p.about !== undefined) return;
+            root.reveal(it);
+        }
+    }
     function back() { return false; }
     // a row with no control of its own keeps its editor in the inspector (BAR's buttons, HOME's grid): → or ↵ moves into it, ↑↓ stay
     // inside, esc goes back to the row. While editing, hovering other rows doesn't swap the editor away

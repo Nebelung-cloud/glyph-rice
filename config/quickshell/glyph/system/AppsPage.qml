@@ -10,7 +10,7 @@ import "../prefs"
 // that say they can open it (MimeType=). Being able to open a type isn't enough: browsers claim images and video, code editors claim web pages.
 // One click sets it, at once, for the row's types the app handles. Hidden apps (NoDisplay) and apps of another kind are listed only if they're
 // already the choice; an app with no Categories= at all gets the benefit of the doubt
-Page {
+Sheet {
     id: root
     property bool live
     signal done // a terminal opened: System gets out of the way
@@ -35,7 +35,8 @@ Page {
         ["pdf", "application/pdf", "Viewer WebBrowser WordProcessor"],
         ["archives", "application/zip application/x-tar application/x-7z-compressed application/vnd.rar application/x-compressed-tar", "Archiving Compression"]
     ]
-    property int sel: 0
+    // the kind whose row the inspector shows
+    readonly property int sel: Math.max(0, kinds.findIndex(k => k[0] === hot?.modelData?.[0]))
     property var desktop: [] // [{ file, name, hidden, types, kinds }]
     property var current: [] // per row, the file set now
     onLiveChanged: if (live) {
@@ -101,51 +102,7 @@ done`]
         Quickshell.execDetached(["xdg-mime", "default", file].concat(handled.length ? handled : types));
     }
 
-    Row {
-        spacing: 40
-
-        Column {
-            width: 460
-            spacing: 6
-            Repeater {
-                id: rows
-                model: root.kinds
-                Rectangle {
-                    id: row
-                    required property var modelData
-                    required property int index
-                    readonly property bool on: root.sel === index
-                    width: parent.width
-                    height: 62
-                    radius: Theme.corner(31)
-                    color: on ? Theme.fg : hov.hovered ? Theme.s3 : Theme.s2
-                    border { width: activeFocus && !on ? 1 : 0; color: Theme.fg }
-                    activeFocusOnTab: true
-                    onActiveFocusChanged: if (activeFocus) root.sel = index
-                    Keys.onPressed: e => {
-                        const to = e.key === Qt.Key_Up ? index - 1 : e.key === Qt.Key_Down ? index + 1 : -1;
-                        if (to >= 0 && to < root.kinds.length) rows.itemAt(to).forceActiveFocus();
-                        else if (e.key === Qt.Key_Right || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) list.forceActiveFocus();
-                        else return; // past the ends ↑↓ go on to the next section
-                        e.accepted = true;
-                    }
-                    Lb { x: 28; anchors.verticalCenter: parent.verticalCenter; text: row.modelData[0]; color: row.on ? Theme.ink : Theme.grey }
-                    Text {
-                        anchors { right: parent.right; rightMargin: 28; verticalCenter: parent.verticalCenter }
-                        width: 230
-                        horizontalAlignment: Text.AlignRight
-                        elide: Text.ElideRight
-                        textFormat: Text.PlainText
-                        text: root.nameOf(row.index)
-                        font { family: Theme.ui; pixelSize: 16 }
-                        color: row.on ? Theme.ink : Theme.fg
-                    }
-                    HoverHandler { id: hov; cursorShape: Qt.PointingHandCursor }
-                    TapHandler { onTapped: root.sel = row.index }
-                }
-            }
-        }
-
+    readonly property Component picker: Component {
         Column {
             width: 500
             spacing: 10
@@ -153,18 +110,18 @@ done`]
             ListView {
                 id: list
                 width: parent.width
-                height: root.sel === 1 ? 490 : 570
+                height: Math.min(contentHeight, root.sel === 1 ? 420 : 500)
                 clip: true
                 spacing: 6
                 model: root.apps
                 boundsBehavior: Flickable.StopAtBounds
                 activeFocusOnTab: true
                 Keys.onPressed: e => {
-                    if (e.key === Qt.Key_Left) rows.itemAt(root.sel).forceActiveFocus();
+                    if (e.key === Qt.Key_Left) root.hot?.forceActiveFocus();
                     else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) { if (currentItem) root.set(currentItem.modelData.file); }
-                    else if (e.key !== Qt.Key_Up && e.key !== Qt.Key_Down) return;
                     else if (e.key === Qt.Key_Up) decrementCurrentIndex();
-                    else incrementCurrentIndex();
+                    else if (e.key === Qt.Key_Down) incrementCurrentIndex();
+                    else return;
                     e.accepted = true;
                 }
                 delegate: Rectangle {
@@ -176,6 +133,7 @@ done`]
                     height: 58
                     radius: Theme.corner(29)
                     color: pick.hovered || list.activeFocus && list.currentIndex === index ? Theme.s3 : Theme.s2
+                    border { width: list.activeFocus && list.currentIndex === index ? 1 : 0; color: Theme.fg }
                     Text {
                         anchors { left: parent.left; leftMargin: 28; right: mark.left; rightMargin: 16; verticalCenter: parent.verticalCenter }
                         elide: Text.ElideRight
@@ -191,6 +149,20 @@ done`]
             }
             // the row for files: Thunar, Dolphin and Strata can be installed from here
             Act { visible: root.sel === 1; icon: "\u{F0415}"; text: "install or switch file manager"; onHit: root.moreFileManagers() }
+        }
+    }
+
+    Lb { topPadding: 8; bottomPadding: 4; text: "default apps · → to choose" }
+    Repeater {
+        model: root.kinds
+        Opt {
+            required property var modelData
+            required property int index
+            title: modelData[0] === "pdf" ? "PDF" : modelData[0][0].toUpperCase() + modelData[0].slice(1)
+            hint: root.nameOf(index)
+            about: `What opens ${modelData[0] === "files" ? "folders" : modelData[0] === "web browser" ? "links" : modelData[0] + " files"} when you click ${modelData[0] === "web browser" || modelData[0] === "email" ? "them" : "them in another app"}. Only apps that say they can open it are listed.`
+            value: root.nameOf(index).length <= 14 ? root.nameOf(index) : ""
+            preview: root.picker
         }
     }
 }

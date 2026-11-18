@@ -7,22 +7,25 @@ import "../prefs"
 // display, formerly the DISPLAY section in Prefs: brightness as a big ring (live, from sysfs), the screen as dots — with scale the dots get larger
 // and sparser, scale, hertz, vrr, night light. Below — other screens: which side of this one each sits on (the mouse crosses over at
 // that edge), mirror or off; with none connected — where a new one goes. Everything — Rules (rules.json), Rules.monitor() applies it
-Page {
+Sheet {
     id: root
     caption: `display · ${Rules.mon.name.toLowerCase()} · ${Rules.hz} hz`
-    spacing: 20
 
-    Row {
-        spacing: 50
+    // ---- other screens. The one being arranged: picked, or the first connected; none — «any new screen» (newSide) ----
+    property string pickName: ""
+    readonly property var others: Rules.screens.filter(x => x.name !== Rules.mon.name)
+    readonly property var target: others.find(x => x.name === pickName) ?? others[0] ?? null
+    readonly property string choice: target ? (Rules.store.screens[target.name] ?? Rules.store.newSide) : Rules.store.newSide
+    readonly property bool extend: ["left", "right", "up", "down"].includes(choice)
+    readonly property var sides: ["left", "right", "up", "down"]
+    function choose(x) {
+        if (target) Rules.setScreen(target.name, x);
+        else Rules.setNewSide(x);
+    }
+
+    // the screen as dots: with scale the dots get larger and sparser
+    readonly property Component dots: Component {
         Column {
-            visible: Sys.hasBri
-            spacing: 18
-            Dial { anchors.horizontalCenter: parent.horizontalCenter; size: 220; n: 60; live: true; label: "brightness"; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
-            // the brightness key step: divisions per scale (Backlight.steps)
-            Pick { anchors.horizontalCenter: parent.horizontalCenter; label: "step"; opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
-        }
-        Column {
-            anchors.verticalCenter: parent.verticalCenter
             spacing: 18
             Rectangle {
                 width: 340
@@ -37,42 +40,11 @@ Page {
                     source: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${p}" height="${p}"><circle cx="${p / 2}" cy="${p / 2}" r="${p * 0.2}" fill="#${Theme.hex(Theme.mute)}"/></svg>`)
                 }
             }
-            Row {
-                spacing: 12
-                Num { id: resW; text: Math.round(Rules.mon.w / Rules.scale); font.pixelSize: 52 }
-                Num { anchors.baseline: resW.baseline; text: "×"; font.pixelSize: 30; color: Theme.mute }
-                Num { anchors.baseline: resW.baseline; text: Math.round(Rules.mon.h / Rules.scale); font.pixelSize: 52 }
-            }
-            Lb { text: `logical pixels · native ${Rules.mon.w}×${Rules.mon.h}` }
+            Lb { text: `${Math.round(Rules.mon.w / Rules.scale)} × ${Math.round(Rules.mon.h / Rules.scale)} logical · native ${Rules.mon.w} × ${Rules.mon.h}` }
         }
     }
-    Pick { label: "scale"; opts: Rules.scales; cur: Rules.scaleIdx; onPicked: i => Rules.setScale(i) }
-    Row {
-        spacing: 24
-        Pick { label: "hz"; opts: Rules.rates.map(String); cur: Rules.rates.indexOf(Rules.refreshHz); onPicked: i => { Rules.store.refresh = Rules.rates[i]; Rules.monitor(); } }
-        // vrr: the screen adapts its rate to the game — no stutter or tearing. fullscreen — only for a fullscreen window
-        Pick { label: "vrr"; opts: ["off", "on", "fullscreen"]; cur: Rules.store.vrr; onPicked: i => { Rules.store.vrr = i; Rules.monitor(); } }
-    }
-    Row {
-        spacing: 40
-        Toggle { anchors.verticalCenter: parent.verticalCenter; text: "night light"; on: Sys.night; onFlip: Sys.toggleNight() }
-        Dial { size: 110; label: "warmth · k"; from: 2500; to: 6500; step: 100; value: Rules.store.warmth; onMoved: v => { Rules.store.warmth = v; if (Rules.store.night) Rules.night(); } }
-    }
-
-    // ---- other screens. The one being arranged: picked, or the first connected; none — «any new screen» (newSide) ----
-    property string pickName: ""
-    readonly property var others: Rules.screens.filter(x => x.name !== Rules.mon.name)
-    readonly property var target: others.find(x => x.name === pickName) ?? others[0] ?? null
-    readonly property string choice: target ? (Rules.store.screens[target.name] ?? Rules.store.newSide) : Rules.store.newSide
-    readonly property bool extend: ["left", "right", "up", "down"].includes(choice)
-    function choose(x) {
-        if (target) Rules.setScreen(target.name, x);
-        else Rules.setNewSide(x);
-    }
-
-    Row {
-        spacing: 40
-        // the layout: this screen in the middle, a slot on each side; the lit slot — where the other screen sits
+    // the layout: this screen in the middle, a slot on each side; the lit slot — where the other screen sits. A click picks it
+    readonly property Component layout: Component {
         Item {
             width: 380
             height: 210
@@ -106,25 +78,97 @@ Page {
                 }
             }
         }
-        Column {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 12
-            Lb { text: "other screens" }
-            Lb {
-                width: 480
-                wrapMode: Text.Wrap
-                text: !root.target ? "none connected · a new screen goes on the side you pick, the mouse crosses over at that edge"
-                    : `${root.target.name}${root.target.desc ? " · " + root.target.desc : ""} · the mouse crosses over at the lit edge`
-                color: Theme.fg
-            }
-            Choose { visible: root.others.length > 1; label: "screen"; names: root.others.map(x => x.name); cur: root.others.indexOf(root.target); onPicked: i => root.pickName = root.others[i].name }
-            Pick {
-                visible: !!root.target
-                label: "use as"
-                opts: ["extend", "mirror", "off"]
-                cur: root.choice === "mirror" ? 1 : root.choice === "off" ? 2 : 0
-                onPicked: i => root.choose(i === 1 ? "mirror" : i === 2 ? "off" : root.extend ? root.choice : Rules.store.newSide)
-            }
+    }
+
+    Lb { topPadding: 8; bottomPadding: 4; text: "this screen" }
+    Opt {
+        visible: Sys.hasBri
+        title: "Brightness"
+        hint: "How bright the screen is."
+        about: "Changes as you turn the dial. The brightness keys change it too."
+        value: `${bri.v} %`
+        Dial { id: bri; size: 72; n: 30; live: true; value: Math.round(Sys.bri * 100); onMoved: v => Sys.setBri(v / 100) }
+    }
+    // the brightness key step: divisions per scale (Backlight.steps)
+    Opt {
+        visible: Sys.hasBri
+        title: "Brightness key step"
+        hint: "How much one press of a brightness key changes."
+        about: "Smaller steps give finer control, bigger steps get from dark to bright in fewer presses."
+        value: ["2.5 %", "5 %", "10 %"][[40, 20, 10].indexOf(Theme.state.briSteps)] ?? ""
+        Pick { opts: ["2.5%", "5%", "10%"]; cur: [40, 20, 10].indexOf(Theme.state.briSteps); onPicked: i => Theme.state.briSteps = [40, 20, 10][i] }
+    }
+    Opt {
+        wide: true
+        title: "Scale"
+        hint: "How big everything looks."
+        about: "Larger scale makes text and windows bigger but fits less on screen. Auto picks one from the screen's size and resolution."
+        value: Rules.scales[Rules.scaleIdx] === "auto" ? "auto" : `${Rules.scales[Rules.scaleIdx]} ×`
+        preview: root.dots
+        Pick { opts: Rules.scales; cur: Rules.scaleIdx; onPicked: i => Rules.setScale(i) }
+    }
+    Opt {
+        wide: Rules.rates.length > 3
+        title: "Refresh rate"
+        hint: "How many times a second the picture updates."
+        about: "Higher feels smoother, especially scrolling and games, and uses a bit more battery. Ultra power mode drops to the lowest while it's on."
+        value: `${Rules.refreshHz} Hz`
+        Pick { opts: Rules.rates.map(String); cur: Rules.rates.indexOf(Rules.refreshHz); onPicked: i => { Rules.store.refresh = Rules.rates[i]; Rules.monitor(); } }
+    }
+    // vrr: the screen adapts its rate to the game — no stutter or tearing. fullscreen — only for a fullscreen window
+    Opt {
+        title: "Variable refresh"
+        hint: "Match the screen to the game's frame rate."
+        about: "Stops stutter and tearing when a game can't keep up with the refresh rate. Fullscreen turns it on only for a fullscreen window, which avoids flicker on the desktop."
+        value: ["off", "on", "fullscreen"][Rules.store.vrr] ?? ""
+        Pick { opts: ["off", "on", "fullscreen"]; cur: Rules.store.vrr; onPicked: i => { Rules.store.vrr = i; Rules.monitor(); } }
+    }
+
+    Lb { topPadding: 40; bottomPadding: 4; text: "night light" }
+    Opt {
+        title: "Night light"
+        hint: "Warmer colors, easier on the eyes at night."
+        about: "Cuts blue light by tinting the screen orange. The warmth below sets how strong it is."
+        value: Sys.night ? "on" : "off"
+        Switch { on: Sys.night; onFlip: Sys.toggleNight() }
+    }
+    Opt {
+        title: "Warmth"
+        hint: "How orange the night light is."
+        about: "In kelvin: lower is warmer and more orange, 6500 is neutral daylight."
+        value: `${warm.v} K`
+        Dial { id: warm; size: 72; from: 2500; to: 6500; step: 100; value: Rules.store.warmth; onMoved: v => { Rules.store.warmth = v; if (Rules.store.night) Rules.night(); } }
+    }
+
+    Lb { topPadding: 40; bottomPadding: 4; text: "other screens" }
+    Opt {
+        visible: root.others.length > 1
+        title: "Screen"
+        hint: "Which connected screen to arrange."
+        about: root.target?.desc ?? ""
+        value: root.target?.name ?? ""
+        Choose { names: root.others.map(x => x.name); cur: root.others.indexOf(root.target); onPicked: i => root.pickName = root.others[i].name }
+    }
+    Opt {
+        visible: !!root.target
+        title: "Use as"
+        hint: root.target ? `${root.target.name}${root.target.desc ? " · " + root.target.desc : ""}` : ""
+        about: "Extend gives you more desktop. Mirror shows the same picture on both. Off ignores the screen."
+        value: root.extend ? "extend" : root.choice
+        preview: root.layout
+        Pick {
+            opts: ["extend", "mirror", "off"]
+            cur: root.choice === "mirror" ? 1 : root.choice === "off" ? 2 : 0
+            onPicked: i => root.choose(i === 1 ? "mirror" : i === 2 ? "off" : root.extend ? root.choice : Rules.store.newSide)
         }
+    }
+    Opt {
+        visible: root.extend || !root.target
+        title: root.target ? "Side" : "New screens go"
+        hint: root.target ? "Where it sits next to this one." : "None connected. Pick where a new one will sit."
+        about: "The mouse crosses between the screens at that edge. Click a slot on the right, or pick it here."
+        value: ["left", "right", "above", "below"][root.sides.indexOf(root.choice)] ?? ""
+        preview: root.layout
+        Pick { opts: ["left", "right", "above", "below"]; cur: root.sides.indexOf(root.choice); onPicked: i => root.choose(root.sides[i]) }
     }
 }

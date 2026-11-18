@@ -2,10 +2,11 @@ import QtQuick
 import Quickshell.Services.Pipewire
 import qs
 import qs.components
+import "../prefs"
 
 // sound: where to output and where to listen from (a click — the default device), volume and balance, on the right — the volume of each
 // app that's playing
-Page {
+Sheet {
     id: root
     property bool live
     caption: `sound · ${Pipewire.defaultAudioSink?.description ?? "no output"}`
@@ -62,134 +63,113 @@ Page {
         sink.audio.volumes = [v * (b > 0 ? 1 - b : 1), v * (b < 0 ? 1 + b : 1)];
     }
 
-    Row {
-        spacing: 50
+    // stable row lists (Keep): every stream that starts or stops, even a notification sound, makes new arrays
+    Keep { id: outK; src: root.outs.map(n => n.id) }
+    Keep { id: inK; src: root.ins.map(n => n.id) }
+    Keep { id: appK; src: root.apps.map(n => n.id) }
+    function node(id) { return nodes.find(n => n.id === id) ?? null; }
+    readonly property Component outLevel: Component { Meter { node: root.sink } }
+    readonly property Component inLevel: Component { Meter { node: root.src } }
 
-        Column {
-            width: 480
-            spacing: 4
-            Lb { x: 8; bottomPadding: 6; text: `output · ${root.outs.length}` }
-            // four devices, then it scrolls: a dock or a few HDMI outputs pushed the rest off the page (as Nebelung-cloud/glyph-rice d630dd8)
-            Flickable {
-                width: parent.width
-                height: Math.min(contentHeight, 4 * 64 + 3 * 4)
-                contentHeight: outsList.height
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                Column {
-                    id: outsList
-                    width: parent.width
-                    spacing: 4
-                    Repeater {
-                        model: root.outs
-                        Line {
-                            required property var modelData
-                            icon: "\u{F04C3}"
-                            title: root.label(modelData)
-                            on: modelData === root.sink
-                            picked: on
-                            sub: on ? "in use" : ""
-                            onHit: Pipewire.preferredDefaultAudioSink = modelData
-                        }
-                    }
-                }
-            }
-            Item { width: 1; height: 10 }
-            Meter { node: root.sink }
-            Item { width: 1; height: 6 }
-            Level {
-                visible: !!root.sink?.audio
-                icon: root.sink?.audio?.muted ? "\u{F075F}" : "\u{F057E}"
-                muted: root.sink?.audio?.muted ?? false
-                value: root.sink?.audio?.volume ?? 0
-                onMoved: v => root.setVol(root.sink, v)
-                onIconHit: root.sink.audio.muted = !root.sink.audio.muted
-            }
-            Item { width: 1; height: 6 }
-            Level {
-                visible: root.vols.length === 2
-                icon: "\u{F0A1F}"
-                value: (root.bal + 1) / 2
-                fmt: v => { const b = Math.round((v * 2 - 1) * 100); return b < 0 ? `L ${-b}` : b > 0 ? `R ${b}` : "C"; }
-                onMoved: v => root.setBal(v)
-            }
-
-            Lb { x: 8; topPadding: 30; bottomPadding: 6; text: `input · ${root.ins.length}` }
-            // four devices, then it scrolls: a dock or a few HDMI outputs pushed the rest off the page (as Nebelung-cloud/glyph-rice d630dd8)
-            Flickable {
-                width: parent.width
-                height: Math.min(contentHeight, 4 * 64 + 3 * 4)
-                contentHeight: insList.height
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                Column {
-                    id: insList
-                    width: parent.width
-                    spacing: 4
-                    Repeater {
-                        model: root.ins
-                        Line {
-                            required property var modelData
-                            icon: "\u{F036C}"
-                            title: root.label(modelData)
-                            on: modelData === root.src
-                            picked: on
-                            sub: on ? "in use" : ""
-                            onHit: Pipewire.preferredDefaultAudioSource = modelData
-                        }
-                    }
-                }
-            }
-            Item { width: 1; height: 10 }
-            Meter { node: root.src }
-            Item { width: 1; height: 6 }
-            Level {
-                visible: !!root.src?.audio
-                icon: root.src?.audio?.muted ? "\u{F036D}" : "\u{F036C}"
-                muted: root.src?.audio?.muted ?? false
-                value: root.src?.audio?.volume ?? 0
-                onMoved: v => root.setVol(root.src, v)
-                onIconHit: root.src.audio.muted = !root.src.audio.muted
-            }
+    Lb { topPadding: 8; bottomPadding: 4; text: `output · ${outK.out.length}` }
+    Repeater {
+        model: outK.out
+        Opt {
+            id: outRow
+            required property int modelData
+            readonly property var n: root.node(modelData)
+            readonly property bool on: !!n && n === root.sink
+            title: n ? root.label(n) : ""
+            hint: on ? "Playing everything now." : "Speakers, headphones or a screen."
+            about: "Where sound plays. Plugging in headphones may switch on its own; pick here to choose by hand."
+            value: on ? "in use" : "—"
+            preview: root.outLevel
+            Act { icon: "\u{F04C3}"; text: outRow.on ? "in use" : "use"; onHit: Pipewire.preferredDefaultAudioSink = outRow.n }
         }
+    }
+    Opt {
+        visible: !!root.sink?.audio
+        wide: true
+        title: "Volume"
+        hint: "How loud the output is. The icon mutes."
+        about: "The level dots on the right show what's playing right now; the red ones mean it's close to distorting."
+        value: root.sink?.audio?.muted ? "muted" : `${Math.round((root.sink?.audio?.volume ?? 0) * 100)} %`
+        preview: root.outLevel
+        Level {
+            icon: root.sink?.audio?.muted ? "\u{F075F}" : "\u{F057E}"
+            muted: root.sink?.audio?.muted ?? false
+            value: root.sink?.audio?.volume ?? 0
+            onMoved: v => root.setVol(root.sink, v)
+            onIconHit: root.sink.audio.muted = !root.sink.audio.muted
+        }
+    }
+    Opt {
+        visible: root.vols.length === 2
+        wide: true
+        title: "Balance"
+        hint: "Shift the sound left or right."
+        about: "C is centred. Useful when one ear or one speaker needs more."
+        value: { const b = Math.round(root.bal * 100); return b < 0 ? `L ${-b}` : b > 0 ? `R ${b}` : "C"; }
+        Level {
+            icon: "\u{F0A1F}"
+            value: (root.bal + 1) / 2
+            fmt: v => { const b = Math.round((v * 2 - 1) * 100); return b < 0 ? `L ${-b}` : b > 0 ? `R ${b}` : "C"; }
+            onMoved: v => root.setBal(v)
+        }
+    }
 
-        Flickable {
-            width: 420
-            height: Math.min(contentHeight, 640)
-            contentHeight: appList.height
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            Column {
-                id: appList
-                width: 420
-                spacing: 10
-                Lb { x: 8; bottomPadding: 6; text: root.apps.length ? `apps · ${root.apps.length}` : "apps · nothing playing" }
-                Repeater {
-                    model: root.apps
-                    Column {
-                        id: app
-                        required property var modelData
-                        width: parent.width
-                        spacing: 6
-                        Text {
-                            x: 8
-                            width: parent.width - 16
-                            elide: Text.ElideRight
-                            textFormat: Text.PlainText
-                            text: app.modelData.properties["application.name"] || root.label(app.modelData)
-                            font { family: Theme.ui; pixelSize: 15; weight: Font.DemiBold }
-                            color: Theme.fg
-                        }
-                        Level {
-                            width: parent.width
-                            icon: app.modelData.audio.muted ? "\u{F075F}" : "\u{F057E}"
-                            muted: app.modelData.audio.muted
-                            value: app.modelData.audio.volume
-                            onMoved: v => root.setVol(app.modelData, v)
-                            onIconHit: app.modelData.audio.muted = !app.modelData.audio.muted
-                        }
-                    }
-                }
+    Lb { topPadding: 40; bottomPadding: 4; text: `input · ${inK.out.length}` }
+    Repeater {
+        model: inK.out
+        Opt {
+            id: inRow
+            required property int modelData
+            readonly property var n: root.node(modelData)
+            readonly property bool on: !!n && n === root.src
+            title: n ? root.label(n) : ""
+            hint: on ? "Apps hear this one." : "A microphone."
+            about: "Which microphone calls and recordings use. Speak and watch the level on the right."
+            value: on ? "in use" : "—"
+            preview: root.inLevel
+            Act { icon: "\u{F036C}"; text: inRow.on ? "in use" : "use"; onHit: Pipewire.preferredDefaultAudioSource = inRow.n }
+        }
+    }
+    Opt {
+        visible: !!root.src?.audio
+        wide: true
+        title: "Microphone volume"
+        hint: "How loud you sound to others. The icon mutes."
+        about: "Speak normally: the level should reach the middle, not the red dots at the end."
+        value: root.src?.audio?.muted ? "muted" : `${Math.round((root.src?.audio?.volume ?? 0) * 100)} %`
+        preview: root.inLevel
+        Level {
+            icon: root.src?.audio?.muted ? "\u{F036D}" : "\u{F036C}"
+            muted: root.src?.audio?.muted ?? false
+            value: root.src?.audio?.volume ?? 0
+            onMoved: v => root.setVol(root.src, v)
+            onIconHit: root.src.audio.muted = !root.src.audio.muted
+        }
+    }
+
+    Lb { topPadding: 40; bottomPadding: 4; text: appK.out.length ? `apps · ${appK.out.length}` : "apps · nothing playing" }
+    Repeater {
+        model: appK.out
+        Opt {
+            id: app
+            required property int modelData
+            readonly property var n: root.node(modelData)
+            visible: !!n?.audio
+            wide: true
+            title: n ? n.properties["application.name"] || root.label(n) : ""
+            hint: "This app's own volume, on top of the output's."
+            about: "Turn one app down without touching the rest, like music under a call."
+            value: n?.audio?.muted ? "muted" : `${Math.round((n?.audio?.volume ?? 0) * 100)} %`
+            Level {
+                icon: app.n?.audio?.muted ? "\u{F075F}" : "\u{F057E}"
+                muted: app.n?.audio?.muted ?? false
+                value: app.n?.audio?.volume ?? 0
+                onMoved: v => root.setVol(app.n, v)
+                onIconHit: app.n.audio.muted = !app.n.audio.muted
             }
         }
     }

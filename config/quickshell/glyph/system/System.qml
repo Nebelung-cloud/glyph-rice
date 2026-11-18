@@ -86,7 +86,7 @@ PanelWindow {
             else if (down) root.go(root.sel + 1);
             else if ((e.key === Qt.Key_Right || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && stage.activeFocus) stage.nextItemInFocusChain(true)?.forceActiveFocus();
             else if (e.key === Qt.Key_Escape && inside && root.page.editing && root.page.hot) root.page.hot.forceActiveFocus();
-            else if (e.key === Qt.Key_Escape && inside && !root.page.back()) stage.forceActiveFocus();
+            else if (e.key === Qt.Key_Escape && inside) { if (!root.page.back()) stage.forceActiveFocus(); } // true: the page closed something of its own
             else if (e.key === Qt.Key_Escape) root.back();
             else return;
             e.accepted = true;

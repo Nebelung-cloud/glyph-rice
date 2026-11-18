@@ -39,7 +39,6 @@ Rectangle {
         selectedTextColor: Theme.ink
         clip: true
         onAccepted: root.accepted()
-        Keys.onPressed: e => { if (e.key === Qt.Key_Up || e.key === Qt.Key_Down) e.accepted = true; }
         Lb { anchors.verticalCenter: parent.verticalCenter; visible: !input.text; text: root.hint; color: Theme.mute }
     }
     TapHandler { onTapped: input.forceActiveFocus() }

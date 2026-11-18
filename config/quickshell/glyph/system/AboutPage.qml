@@ -8,7 +8,7 @@ import "../prefs"
 
 // about the system: model, system, kernel, processor, graphics (and the nvidia driver version), memory, disk, bios, hyprland, quickshell.
 // Updates: checkupdates (pacman-contrib) and AUR via yay/paru — a count and a list; «update» opens kitty with the upgrade
-Page {
+Sheet {
     id: root
     property bool live
     caption: `about · ${info.host ?? ""}`
@@ -48,7 +48,7 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
         }
     }
     // the AUR package manager: yay (install.sh installs it), otherwise paru, otherwise only pacman
-    readonly property var rows: [
+    readonly property var specs: [
         ["device", info.model], ["system", info.os], ["kernel", info.kernel], ["processor", info.cpu ? `${info.cpu} · ${info.cores} threads` : ""],
         ["graphics", (info.gpu ?? []).join("  ·  ") + (info.nvidia ? `  ·  nvidia ${info.nvidia}` : "")],
         ["memory", info.mem ? `${info.mem} gb` : ""], ["storage", info.disk], ["bios", info.bios],
@@ -113,75 +113,76 @@ echo "qs=$(qs --version 2>/dev/null | head -n1 | sed -E 's/^[Qq]uickshell ([^ ]+
         done();
     }
 
-    Grid {
-        columns: 2
-        columnSpacing: 30
-        rowSpacing: 12
-        Repeater {
-            model: [].concat(...root.rows)
-            Text {
-                required property string modelData
-                required property int index
-                width: index % 2 ? 760 : implicitWidth
-                wrapMode: Text.Wrap
-                textFormat: Text.PlainText
-                text: modelData
-                font { family: index % 2 ? Theme.ui : Theme.mono; pixelSize: index % 2 ? 17 : 11; capitalization: index % 2 ? Font.MixedCase : Font.AllUppercase; letterSpacing: index % 2 ? 0 : 1.5 }
-                color: index % 2 ? Theme.fg : Theme.grey
+    readonly property var what: ({
+        device: "The computer's maker and model.", system: "The Linux distribution this runs on.",
+        kernel: "The core of the system that talks to the hardware. Updates bring new drivers and fixes.",
+        processor: "The CPU. Threads are how many tasks it can run at once.", graphics: "The graphics chips that draw the screen and run games.",
+        memory: "RAM: room for open apps. More lets you keep more open at once.", storage: "Space used on the system drive, of its total.",
+        bios: "The firmware that starts the computer, and its date. Updates come from the maker.",
+        hyprland: "The compositor: it draws windows and handles input.", quickshell: "What this whole shell is built with.",
+        "login screen": "What you see before logging in."
+    })
+    readonly property Component list: Component {
+        Flow {
+            width: 520
+            spacing: 18
+            Repeater {
+                model: root.updates.slice(0, 60)
+                Lb { required property string modelData; text: modelData.split(" ")[0].replace(/^aur:/, "aur · "); px: 10 }
             }
+            Lb { visible: root.updates.length > 60; text: `+ ${root.updates.length - 60} more`; px: 10 }
         }
     }
 
-    Row {
-        spacing: 20
-        Column {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-            Lb { text: "updates" }
-            Row {
-                spacing: 12
-                Num { id: un; text: root.checking && !root.checked ? "…" : root.updates.length; font.pixelSize: 64 }
-                Lb { anchors.baseline: un.baseline; text: root.checking ? "checking…" : root.checked ? `checked ${root.checked}${root.updates.some(u => u.startsWith("aur:")) ? " · incl. aur" : ""}` : "" }
-            }
-        }
-        Act { anchors.verticalCenter: parent.verticalCenter; icon: "\u{F0450}"; text: "check"; onHit: if (!root.checking) root.check() }
-        Act { anchors.verticalCenter: parent.verticalCenter; visible: root.updates.length > 0 || root.riceNew > 0; icon: "\u{F06B0}"; text: "update everything"; onHit: root.update() }
-    }
-    Row {
-        spacing: 20
-        Column {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
-            Lb { text: "the rice" }
-            Lb { color: Theme.fg; text: root.riceNew < 0 ? "couldn't check for updates" : root.riceNew === 0 ? "up to date" : `${root.riceNew} new ${root.riceNew === 1 ? "change" : "changes"}` }
+    Lb { topPadding: 8; bottomPadding: 4; text: "this computer" }
+    Repeater {
+        model: root.specs
+        Opt {
+            required property var modelData
+            title: modelData[0] === "bios" ? "BIOS" : modelData[0][0].toUpperCase() + modelData[0].slice(1)
+            hint: modelData[1]
+            about: `${root.what[modelData[0]] ?? ""} ${modelData[1]}`
+            value: modelData[1].length <= 14 ? modelData[1] : ""
         }
     }
-    Row {
-        spacing: 20
-        Act {
-            icon: "\u{F030C}"
-            text: "keyboard shortcuts"
-            onHit: {
-                Theme.state.welcomed = false; // the first-run card
-                root.done();
-            }
-        }
-        Act { icon: "\u{F0341}"; text: "change login screen"; onHit: root.changeLogin() }
+
+    Lb { topPadding: 40; bottomPadding: 4; text: "updates" }
+    Opt {
+        title: "System updates"
+        hint: root.checking ? "Checking…" : root.checked ? `Checked at ${root.checked}${root.updates.some(u => u.startsWith("aur:")) ? ", AUR included" : ""}.` : "Not checked yet."
+        about: "Packages with a newer version. Updating often keeps you safe and avoids one huge update later."
+        value: root.checking && !root.checked ? "…" : `${root.updates.length}`
+        preview: root.list
+        Act { icon: "\u{F0450}"; text: "check"; onHit: if (!root.checking) root.check() }
     }
-    Flickable {
-        visible: root.updates.length > 0
-        width: 950
-        height: Math.min(contentHeight, 150)
-        contentHeight: ul.height
-        clip: true
-        Flow {
-            id: ul
-            width: parent.width
-            spacing: 18
-            Repeater {
-                model: root.updates
-                Lb { required property string modelData; text: modelData.split(" ")[0].replace(/^aur:/, "aur · "); px: 10 }
-            }
-        }
+    Opt {
+        title: "The rice"
+        hint: root.riceNew < 0 ? "Couldn't check for updates." : root.riceNew === 0 ? "Up to date." : `${root.riceNew} new ${root.riceNew === 1 ? "change" : "changes"} on GitHub.`
+        about: "This shell's own updates, pulled from its git repository. They come with the update below."
+        value: root.riceNew < 0 ? "?" : `${root.riceNew}`
+    }
+    Opt {
+        visible: root.updates.length > 0 || root.riceNew > 0
+        title: "Update everything"
+        hint: "Opens a terminal that installs it all."
+        about: "Asks for your password in the terminal. This panel closes so you can see it. Restart after a kernel update."
+        value: `${root.updates.length + Math.max(0, root.riceNew)}`
+        Act { icon: "\u{F06B0}"; text: "update"; onHit: root.update() }
+    }
+
+    Lb { topPadding: 40; bottomPadding: 4; text: "more" }
+    Opt {
+        title: "Keyboard shortcuts"
+        hint: "Show the welcome card with every shortcut."
+        about: "The card from the first start. This panel closes to show it."
+        value: ""
+        Act { icon: "\u{F030C}"; text: "show"; onHit: { Theme.state.welcomed = false; root.done(); } }
+    }
+    Opt {
+        title: "Login screen"
+        hint: root.login ? `Now: ${root.login}.` : "What you see before logging in."
+        about: "Opens a terminal with a menu to switch it. It asks for your password."
+        value: root.login
+        Act { icon: "\u{F0341}"; text: "change"; onHit: root.changeLogin() }
     }
 }

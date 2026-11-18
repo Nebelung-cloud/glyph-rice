@@ -30,7 +30,7 @@ Column {
     property bool ready: false
     readonly property var shown: Conn.visible(type, v)
 
-    width: 950
+    width: 950 // Network sets its own
     spacing: 18
 
     Component.onCompleted: {
@@ -161,23 +161,17 @@ Column {
         Lb { anchors.verticalCenter: parent.verticalCenter; text: `${Conn.typeName(root.type)}${root.extra["connection.port-type"] || root.v["connection.port-type"] ? " · port" : ""} · ${root.uuid ? "edit" : "new"}` }
     }
 
-    Flickable {
+    // no scroll box of its own: it sits in Network's rows, which scroll
+    Flow {
+        id: flow
         width: parent.width
-        height: Math.min(contentHeight, 620)
-        contentHeight: flow.height
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-        Flow {
-            id: flow
-            width: parent.width
-            spacing: 14
-            Repeater {
-                model: root.ready ? root.shown : []
-                Loader {
-                    required property var modelData
-                    readonly property var f: modelData
-                    sourceComponent: f.group ? head : f.kind === "pick" ? choose : f.kind === "flag" ? flag : f.kind === "peers" ? peersC : f.kind === "ports" ? portsC : field
-                }
+        spacing: 14
+        Repeater {
+            model: root.ready ? root.shown : []
+            Loader {
+                required property var modelData
+                readonly property var f: modelData
+                sourceComponent: f.group ? head : f.kind === "pick" ? choose : f.kind === "flag" ? flag : f.kind === "peers" ? peersC : f.kind === "ports" ? portsC : field
             }
         }
     }
@@ -190,7 +184,7 @@ Column {
     }
     Lb { width: parent.width; wrapMode: Text.Wrap; visible: !!root.msg; text: root.msg; color: root.busy ? Theme.fg : Theme.red }
 
-    Component { id: head; Lb { readonly property var f: parent?.f ?? ({}); width: 950; topPadding: 16; text: f.group ?? ""; color: Theme.fg } }
+    Component { id: head; Lb { readonly property var f: parent?.f ?? ({}); width: root.width; topPadding: 16; text: f.group ?? ""; color: Theme.fg } }
     Component {
         id: choose
         Choose {
@@ -228,7 +222,7 @@ Column {
     Component {
         id: peersC
         Column {
-            width: 950
+            width: root.width
             spacing: 14
             Repeater {
                 model: root.peerList
@@ -236,9 +230,9 @@ Column {
                     id: peer
                     required property var modelData
                     required property int index
-                    width: 950
+                    width: root.width
                     spacing: 14
-                    Lb { width: 950; topPadding: 6; text: `peer ${peer.index + 1}` }
+                    Lb { width: root.width; topPadding: 6; text: `peer ${peer.index + 1}` }
                     Field { width: 466; label: "public key"; text: peer.modelData.key; onTextChanged: { peer.modelData.key = text; root.syncPeers(); } }
                     Field { width: 466; label: "endpoint"; hint: "1.2.3.4:51820"; text: peer.modelData.endpoint; onTextChanged: { peer.modelData.endpoint = text; root.syncPeers(); } }
                     Field { width: 466; label: "allowed ips"; hint: "0.0.0.0/0, ::/0"; text: peer.modelData.ips; onTextChanged: { peer.modelData.ips = text; root.syncPeers(); } }
@@ -261,7 +255,7 @@ Column {
     Component {
         id: portsC
         Column {
-            width: 950
+            width: root.width
             spacing: 4
             Lb { visible: !root.uuid; text: "save first, then add ports" }
             Repeater {
@@ -277,7 +271,7 @@ Column {
             }
             Flow {
                 visible: !!root.uuid
-                width: 950
+                width: root.width
                 topPadding: 10
                 spacing: 14
                 Act { icon: "\u{F0415}"; text: "add port"; onHit: root.open({ type: "802-3-ethernet", extra: { "connection.controller": root.me, "connection.port-type": root.type } }) }

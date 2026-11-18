@@ -8,9 +8,9 @@ import "../prefs"
 import "conn.js" as Conn
 
 // network instead of nmtui. On the left: networks in range, saved ones out of range, other connections (wired, vpn), «+ wi-fi», «+ ethernet».
-// On the right the selected one: address, gateway, dns, mac, connect/disconnect/forget and «settings» — full editing, like in nmtui (Edit).
-// At the top — wi-fi and the computer's name. Live state — Quickshell.Networking, profiles and editing — nmcli
-Page {
+// On the right the selected one: address, gateway, dns, mac, connect/disconnect/forget and «settings» — full form, like in nmtui (Edit).
+// At the top — wi-fi and the computer's name. Live state — Quickshell.Networking, profiles and form — nmcli
+Sheet {
     id: root
     property bool live // the window is open and the section is selected: scan, read nmcli
     caption: `network · ${!wifiOn ? "wi-fi off" : connectivity}`
@@ -54,36 +54,35 @@ Page {
     readonly property bool any: !!selSsid || !!selUuid
     readonly property bool active: net ? net.connected : prof?.active ?? false
     readonly property string sec: net ? scanSec(net) : ""
-    // without a profile a password is enough (or nothing); the rest (enterprise, wep, leap) — straight to editing
+    // without a profile a password is enough (or nothing); the rest (enterprise, wep, leap) — straight to form
     readonly property bool quick: !!net && ["none", "owe", "wpa-psk", "sae"].includes(sec)
     property bool askPw: false
     property string msg: ""
     onSelSsidChanged: { askPw = false; msg = ""; pw.text = ""; }
     onSelUuidChanged: { askPw = false; msg = ""; }
 
-    // editing (Edit) over the lists. A new one: an empty uuid, the type, ssid and security from the scan
-    property bool editing: false
+    // form (Edit) over the lists. A new one: an empty uuid, the type, ssid and security from the scan
+    property bool form: false
     property var draft: ({})
-    function edit(d) {
+    function openForm(d) {
         draft = d;
-        adding = false;
-        editing = true;
+        form = true;
     }
     // from one edit to another (a port): Edit reads everything on creation — recreate it
     function reopen(d) {
-        editing = false;
+        form = false;
         draft = d;
-        Qt.callLater(() => editing = true);
+        Qt.callLater(() => form = true);
     }
+    // esc closes the form and goes back to the row it came from
     function back() {
-        if (editing) {
-            editing = false;
-            return true;
-        }
-        if (!any) return false;
-        selSsid = selUuid = "";
+        if (!form) return false;
+        form = false;
+        Qt.callLater(() => hot?.forceActiveFocus());
         return true;
     }
+    // the selection follows the row the inspector shows; other rows (the password, the name) keep it
+    onHotChanged: if (hot?.ssid !== undefined) pickNet(hot.ssid); else if (hot?.uuid !== undefined) pickProf(hot.uuid)
 
     function scanSec(n) {
         const T = WifiSecurityType;
@@ -102,7 +101,6 @@ Page {
     function kind(t) { return Conn.typeName(t); }
 
     // ---- add: any nmtui type; vpn and wireguard — also by importing a file (.ovpn, .conf) ----
-    property bool adding: false
     property var vpnTypes: []
     Process {
         running: root.live
@@ -113,7 +111,6 @@ Page {
     function importFile(path) {
         path = path.trim().replace(/^~/, Quickshell.env("HOME"));
         if (!path) return;
-        adding = false;
         nm(["connection", "import", "type", vpnTypes[importAt], "file", path]);
     }
 
@@ -131,7 +128,7 @@ Page {
     property var info: []
     Process {
         id: dev
-        running: root.live && root.active && !!root.uuid && !root.editing
+        running: root.live && root.active && !!root.uuid && !root.form
         command: ["sh", "-c", "d=$(nmcli -g GENERAL.DEVICES connection show \"$1\"); nmcli -t -f GENERAL.HWADDR,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS,IP6.ADDRESS device show \"${d%%,*}\"", "sh", root.uuid]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -168,7 +165,7 @@ Page {
     function connect() {
         msg = "";
         if (uuid) return net ? net.connect() : nm(["connection", "up", uuid]);
-        if (!quick) return edit({ type: "802-11-wireless", ssid: net.name, sec: sec });
+        if (!quick) return openForm({ type: "802-11-wireless", ssid: net.name, sec: sec });
         if (sec === "none" || sec === "owe") return net.connect();
         if (!pw.text) {
             askPw = true;
@@ -208,17 +205,82 @@ Page {
         setHost.running = true;
     }
 
-    Row {
-        spacing: 20
-        Toggle { text: "wi-fi"; on: Networking.wifiEnabled; onFlip: Networking.wifiEnabled = !Networking.wifiEnabled }
-        Toggle { visible: root.wwanHw; text: "mobile data"; on: root.wwanOn; onFlip: { root.wwanOn = !root.wwanOn; root.nm(["radio", "wwan", root.wwanOn ? "on" : "off"]); } }
-        Field { id: hostField; width: 420; label: "hostname"; hint: "↵ to rename"; onAccepted: root.rename(text) }
+    // stable row lists (Keep): scanning re-sorts the networks every few seconds. Strength isn't in the order, it's in the hint
+    Keep { id: netK; src: root.nets.slice().sort((a, b) => b.connected - a.connected || b.known - a.known || a.name.localeCompare(b.name)).map(n => n.name) }
+    Keep { id: awayK; src: root.away.map(p => p.uuid) }
+    Keep { id: otherK; src: root.others.map(p => p.uuid) }
+
+    // ---- the inspector for the selected connection: what it has now and what you can do. → on its row enters it ----
+    readonly property Component card: Component {
+        Column {
+            width: 480
+            spacing: 16
+            Lb {
+                width: parent.width
+                elide: Text.ElideRight
+                text: root.net ? root.status(root.net) + (root.uuid ? "" : root.quick ? " · new" : " · needs setup")
+                    : root.prof ? `${root.kind(root.prof.type)} · ${root.prof.active ? "connected" : root.prof.ssid ? "out of range" : "off"}` : ""
+            }
+            Grid {
+                visible: root.active && root.info.length > 0
+                columns: 2
+                columnSpacing: 24
+                rowSpacing: 8
+                Repeater {
+                    model: [].concat(...root.info) // label, value, label…
+                    Text {
+                        required property string modelData
+                        required property int index
+                        width: index % 2 ? 380 : implicitWidth
+                        wrapMode: Text.WrapAnywhere
+                        text: modelData
+                        font { family: Theme.mono; pixelSize: index % 2 ? 15 : 11; capitalization: index % 2 ? Font.MixedCase : Font.AllUppercase; letterSpacing: index % 2 ? 0 : 1.5 }
+                        color: index % 2 ? Theme.fg : Theme.grey
+                    }
+                }
+            }
+            Flow {
+                width: parent.width
+                spacing: 14
+                Act { visible: !root.active && (!!root.net || !!root.uuid); icon: "\u{F0337}"; text: !root.uuid && !root.quick ? "set up" : "connect"; onHit: root.connect() }
+                Act { visible: root.active; icon: "\u{F0338}"; text: "disconnect"; onHit: root.disconnect() }
+                Act { visible: !!root.uuid; icon: "\u{F0493}"; text: "settings"; onHit: root.openForm({ uuid: root.uuid }) }
+                Act { visible: !root.uuid && root.quick; icon: "\u{F0493}"; text: "more options"; onHit: root.openForm({ type: "802-11-wireless", ssid: root.net.name, sec: root.sec }) }
+                Act { visible: !!root.uuid; icon: "\u{F0A7A}"; text: "forget"; onHit: root.forget() }
+            }
+            Lb { width: parent.width; wrapMode: Text.Wrap; visible: !!root.msg; text: root.msg; color: Theme.red }
+        }
+    }
+    // ---- adding: any nmtui type (wi-fi here — a hidden or manually set one), or importing a vpn file ----
+    readonly property Component adder: Component {
+        Column {
+            width: 480
+            spacing: 16
+            Flow {
+                width: parent.width
+                spacing: 10
+                Repeater {
+                    model: Conn.types.filter(t => t !== "vpn")
+                    Act {
+                        required property string modelData
+                        icon: "\u{F0415}"
+                        text: modelData === "802-11-wireless" ? "wi-fi · hidden" : Conn.typeName(modelData)
+                        onHit: root.openForm({ type: modelData, ssid: "", sec: "wpa-psk" })
+                    }
+                }
+            }
+            Lb { topPadding: 8; text: "or import a file" }
+            Pick { opts: root.vpnTypes; cur: root.importAt; onPicked: i => root.importAt = i }
+            Field { width: 466; label: "file"; hint: root.vpnTypes[root.importAt] === "wireguard" ? "~/wg0.conf · ↵" : "~/client.ovpn · ↵"; onAccepted: root.importFile(text) }
+        }
     }
 
     Loader {
-        active: root.editing
+        active: root.form
         visible: active
+        onLoaded: item.nextItemInFocusChain(true)?.forceActiveFocus()
         sourceComponent: Edit {
+            width: 620
             uuid: root.draft.uuid ?? ""
             type: root.draft.type ?? "802-11-wireless"
             ssid: root.draft.ssid ?? ""
@@ -226,160 +288,105 @@ Page {
             extra: root.draft.extra ?? ({})
             onOpen: d => root.reopen(d)
             onDone: u => {
-                root.editing = false;
+                root.form = false;
                 root.refresh();
                 if (u) root.pickProf(u);
+                Qt.callLater(() => root.hot?.forceActiveFocus());
             }
         }
     }
 
-    Row {
-        visible: !root.editing
-        spacing: 50
+    Lb { visible: !root.form; topPadding: 8; bottomPadding: 4; text: "network" }
+    Opt {
+        visible: !root.form
+        title: "Wi-Fi"
+        hint: "Wireless networks."
+        about: "Off disconnects from Wi-Fi and stops scanning. Wired connections keep working."
+        value: root.wifiOn ? "on" : "off"
+        Switch { on: Networking.wifiEnabled; onFlip: Networking.wifiEnabled = !Networking.wifiEnabled }
+    }
+    Opt {
+        visible: !root.form && root.wwanHw
+        title: "Mobile data"
+        hint: "The built-in modem with a SIM card."
+        about: "Uses your mobile plan when there's no Wi-Fi. Data may cost money."
+        value: root.wwanOn ? "on" : "off"
+        Switch { on: root.wwanOn; onFlip: { root.wwanOn = !root.wwanOn; root.nm(["radio", "wwan", root.wwanOn ? "on" : "off"]); } }
+    }
+    Opt {
+        visible: !root.form
+        wide: true
+        title: "Computer name"
+        hint: "How this computer shows up on the network."
+        about: "Other devices see this name, for example when sharing files. Letters, digits and dashes. Renaming asks for your password."
+        value: root.host.length <= 14 ? root.host : ""
+        Field { id: hostField; width: 466; label: "hostname"; hint: "↵ to rename"; onAccepted: root.rename(text) }
+    }
+    Lb { visible: !root.form && !!root.msg; width: 620; topPadding: 8; wrapMode: Text.Wrap; text: root.msg; color: Theme.red }
 
-        Flickable {
-            width: 420
-            height: Math.min(contentHeight, 640)
-            contentHeight: lists.height
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            Column {
-                id: lists
-                width: parent.width
-                spacing: 4
-                Lb { x: 8; bottomPadding: 6; text: !root.wifiOn ? "wi-fi off" : root.nets.length ? `in range · ${root.nets.length}` : "scanning…" }
-                Repeater {
-                    model: root.nets
-                    Line {
-                        required property var modelData
-                        icon: root.bars(modelData)
-                        title: modelData.name
-                        sub: root.status(modelData)
-                        on: modelData.connected
-                        busy: modelData.stateChanging
-                        picked: root.selSsid === modelData.name
-                        onHit: root.pickNet(modelData.name)
-                    }
-                }
-                Lb { x: 8; topPadding: 22; bottomPadding: 6; visible: root.away.length > 0; text: `saved · away · ${root.away.length}` }
-                Repeater {
-                    model: root.away
-                    Line {
-                        required property var modelData
-                        icon: "\u{F05AA}"
-                        title: modelData.name
-                        sub: modelData.name === modelData.ssid ? "out of range" : `${modelData.ssid} · out of range`
-                        picked: root.selUuid === modelData.uuid
-                        onHit: root.pickProf(modelData.uuid)
-                    }
-                }
-                Lb { x: 8; topPadding: 22; bottomPadding: 6; visible: root.others.length > 0; text: `other connections · ${root.others.length}` }
-                Repeater {
-                    model: root.others
-                    Line {
-                        required property var modelData
-                        icon: modelData.type === "802-3-ethernet" ? "\u{F0200}" : /vpn|wireguard/.test(modelData.type) ? "\u{F0582}" : "\u{F0318}"
-                        title: modelData.name
-                        sub: `${root.kind(modelData.type)} · ${modelData.active ? "connected" : "off"}`
-                        on: modelData.active
-                        picked: root.selUuid === modelData.uuid
-                        onHit: root.pickProf(modelData.uuid)
-                    }
-                }
-                Act { icon: root.adding ? "\u{F0156}" : "\u{F0415}"; text: root.adding ? "close" : "add connection"; onHit: root.adding = !root.adding }
-                // nmtui types; wi-fi here — a hidden or manually set network
-                Flow {
-                    visible: root.adding
-                    width: parent.width
-                    topPadding: 10
-                    spacing: 10
-                    Repeater {
-                        model: Conn.types.filter(t => t !== "vpn")
-                        Act {
-                            required property string modelData
-                            icon: "\u{F0415}"
-                            text: modelData === "802-11-wireless" ? "wi-fi · hidden" : Conn.typeName(modelData)
-                            onHit: root.edit({ type: modelData, ssid: "", sec: "wpa-psk" })
-                        }
-                    }
-                }
-                Column {
-                    visible: root.adding
-                    topPadding: 16
-                    spacing: 10
-                    Pick { label: "import"; opts: root.vpnTypes; cur: root.importAt; onPicked: i => root.importAt = i }
-                    Field { width: 420; label: "file"; hint: root.vpnTypes[root.importAt] === "wireguard" ? "~/wg0.conf · ↵" : "~/client.ovpn · ↵"; onAccepted: root.importFile(text) }
-                }
+    Column {
+        visible: !root.form
+        width: parent.width
+        // a password, when the picked network needs one: the card's «connect» brings you here
+        Opt {
+            visible: root.askPw
+            wide: true
+            title: "Password"
+            hint: `For ${root.selSsid}.`
+            about: "The Wi-Fi password, often on a sticker on the router. ↵ connects."
+            value: ""
+            Field { id: pw; width: 466; label: "password"; secret: true; hint: "type it, then ↵"; onAccepted: if (text) root.connect() }
+        }
+        Lb { topPadding: 40; bottomPadding: 4; text: !root.wifiOn ? "wi-fi off" : netK.out.length ? `in range · ${netK.out.length} · → to connect` : "scanning…" }
+        Repeater {
+            model: netK.out
+            Opt {
+                required property string modelData
+                readonly property string ssid: modelData
+                readonly property var n: root.nets.find(x => x.name === modelData) ?? null
+                title: modelData
+                hint: n ? root.status(n) : ""
+                about: n?.connected ? "The network you're on. → for its address, settings, or to disconnect."
+                    : n?.known ? "A network you've used before. → to connect." : "A network in range. → to connect; it asks for the password if there is one."
+                value: n ? `${Math.round(n.signalStrength * 100)} %` : ""
+                preview: root.card
             }
         }
-
-        // ---- the selected one ----
-        Flickable {
-            width: 480
-            height: Math.min(contentHeight, 700)
-            contentHeight: det.height
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            Column {
-                id: det
-                width: parent.width
-                spacing: 16
-
-                Lb { visible: !root.any; text: "pick a connection to see its details" }
-
-                Column {
-                    visible: root.any
-                    width: parent.width
-                    spacing: 6
-                    Text { width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; text: root.net?.name ?? root.prof?.name ?? ""; font { family: Theme.ui; pixelSize: 32; weight: Font.DemiBold } color: Theme.fg }
-                    Lb {
-                        width: parent.width
-                        elide: Text.ElideRight
-                        text: root.net ? root.status(root.net) + (root.uuid ? "" : root.quick ? " · new" : " · needs setup")
-                            : root.prof ? `${root.kind(root.prof.type)} · ${root.prof.active ? "connected" : root.prof.ssid ? "out of range" : "off"}` : ""
-                    }
-                }
-
-                Grid {
-                    visible: root.active && root.info.length > 0
-                    columns: 2
-                    columnSpacing: 24
-                    rowSpacing: 8
-                    Repeater {
-                        model: [].concat(...root.info) // label, value, label…
-                        Text {
-                            required property string modelData
-                            required property int index
-                            width: index % 2 ? 380 : implicitWidth
-                            wrapMode: Text.WrapAnywhere
-                            text: modelData
-                            font { family: Theme.mono; pixelSize: index % 2 ? 15 : 11; capitalization: index % 2 ? Font.MixedCase : Font.AllUppercase; letterSpacing: index % 2 ? 0 : 1.5 }
-                            color: index % 2 ? Theme.fg : Theme.grey
-                        }
-                    }
-                }
-
-                Field {
-                    id: pw
-                    visible: root.askPw
-                    label: "password"
-                    secret: true
-                    hint: "type it, then ↵"
-                    onAccepted: if (text) root.connect()
-                }
-
-                Flow {
-                    visible: root.any
-                    width: parent.width
-                    spacing: 14
-                    Act { visible: !root.active && (!!root.net || !!root.uuid); icon: "\u{F0337}"; text: !root.uuid && !root.quick ? "set up" : "connect"; onHit: root.connect() }
-                    Act { visible: root.active; icon: "\u{F0338}"; text: "disconnect"; onHit: root.disconnect() }
-                    Act { visible: !!root.uuid; icon: "\u{F0493}"; text: "settings"; onHit: root.edit({ uuid: root.uuid }) }
-                    Act { visible: !root.uuid && root.quick; icon: "\u{F0493}"; text: "more options"; onHit: root.edit({ type: "802-11-wireless", ssid: root.net.name, sec: root.sec }) }
-                    Act { visible: !!root.uuid; icon: "\u{F0A7A}"; text: "forget"; onHit: root.forget() }
-                }
-                Lb { width: parent.width; wrapMode: Text.Wrap; visible: !!root.msg; text: root.msg; color: Theme.red }
+        Lb { visible: awayK.out.length > 0; topPadding: 40; bottomPadding: 4; text: `saved · away · ${awayK.out.length}` }
+        Repeater {
+            model: awayK.out
+            Opt {
+                required property string modelData
+                readonly property string uuid: modelData
+                readonly property var p: root.profiles.find(x => x.uuid === modelData) ?? null
+                title: p?.name ?? ""
+                hint: !p ? "" : p.name === p.ssid ? "Out of range." : `${p.ssid} · out of range.`
+                about: "A saved Wi-Fi network that isn't around. It connects by itself when it is. → to change or forget it."
+                value: "away"
+                preview: root.card
             }
+        }
+        Lb { visible: otherK.out.length > 0; topPadding: 40; bottomPadding: 4; text: `other connections · ${otherK.out.length}` }
+        Repeater {
+            model: otherK.out
+            Opt {
+                required property string modelData
+                readonly property string uuid: modelData
+                readonly property var p: root.profiles.find(x => x.uuid === modelData) ?? null
+                title: p?.name ?? ""
+                hint: p ? `${root.kind(p.type)} · ${p.active ? "connected" : "off"}` : ""
+                about: "A wired, VPN or other saved connection. → to connect, change or forget it."
+                value: p?.active ? "on" : "off"
+                preview: root.card
+            }
+        }
+        Lb { topPadding: 40; bottomPadding: 4; text: "add" }
+        Opt {
+            title: "Add a connection"
+            hint: "Wired, VPN, hidden Wi-Fi, or import a file."
+            about: "Pick a type to fill in its settings, or import a WireGuard or OpenVPN file. → to choose."
+            value: ""
+            preview: root.adder
         }
     }
 }
