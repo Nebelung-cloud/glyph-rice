@@ -12,6 +12,7 @@ FocusScope {
     property string about
     property string value
     property Component preview
+    property bool wide: false // the control under the words, full width (a row of swatches)
     default property alias control: slot.data
     property Item host: null // the Sheet: the nearest ancestor with `hot`
 
@@ -23,7 +24,7 @@ FocusScope {
     }
 
     width: parent?.width ?? 620
-    height: Math.max(words.height, slot.height) + 36
+    height: (wide ? words.height + 16 + slot.height : Math.max(words.height, slot.height)) + 36
     activeFocusOnTab: !slot.children.length
 
     // the focused row: a white bar at its left
@@ -39,7 +40,7 @@ FocusScope {
     Column {
         id: words
         y: 18
-        width: parent.width - slot.width - 40
+        width: root.wide ? parent.width : parent.width - slot.width - 40
         spacing: 6
         Text {
             text: root.title
@@ -60,7 +61,8 @@ FocusScope {
     }
     Item {
         id: slot
-        anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+        x: root.wide ? 0 : parent.width - width
+        y: root.wide ? words.y + words.height + 16 : (parent.height - height) / 2
         width: childrenRect.width
         height: childrenRect.height
     }

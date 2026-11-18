@@ -22,10 +22,10 @@ PanelWindow {
     signal wallRequested // wallpapers — their own screen (wall/Walls), shell.qml opens it
     readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
-    readonly property var hints: [moves, moves, "", "", "hover to preview · ↵ or click sets it", "", ""]
+    readonly property var hints: [moves, moves, "", "", "", "", ""]
     readonly property var r: Rules.store
     // the shown page, when it's a rows page (Sheet: has owns())
-    readonly property Item page: [null, null, bar, look, null, win, shl][sel] ?? null
+    readonly property Item page: [null, null, bar, look, tint, win, shl][sel] ?? null
     readonly property bool paged: !!page
 
     // glyphs for the home widgets, deck sections and the bar tray
@@ -173,7 +173,13 @@ PanelWindow {
         Keys.onPressed: e => {
             const up = e.key === Qt.Key_Up || e.key === Qt.Key_K, down = e.key === Qt.Key_Down || e.key === Qt.Key_J;
             if ((up || down) && root.paged && !stage.activeFocus) {
-                const next = stage.Window.activeFocusItem?.nextItemInFocusChain(down);
+                // row to row: a row's own controls (swatches) are walked with ←→, so skip past them; going up, land on the row's first
+                const rowOf = it => { for (; it; it = it.parent) if (it.about !== undefined) return it; return null; };
+                const cur = stage.Window.activeFocusItem, row = rowOf(cur);
+                let next = cur?.nextItemInFocusChain(down);
+                while (next && row && next !== cur && rowOf(next) === row) next = next.nextItemInFocusChain(down);
+                const q = up ? rowOf(next) : null;
+                for (let p = next?.nextItemInFocusChain(false); q && p && p !== next && rowOf(p) === q; p = next.nextItemInFocusChain(false)) next = p;
                 if (root.page.owns(next)) next.forceActiveFocus();
             }
             else if (up) root.go(root.sel - 1);
@@ -918,126 +924,141 @@ PanelWindow {
             }
         }
 
-        // ---- STYLE: where color comes from and where it lands. On top — a desktop in the palette of the swatch under the cursor or focused (none —
-        // in the current one): bar, quick settings, kitty, player, the Glyph bar; beside it — the roles as callouts, like on a
-        // blueprint: which color goes where. Under it where color comes from and the theme; then what the source has: the wallpaper in dots (click — the picker), its tones
-        // and variants (the ring — how much color) or palettes by group. The same choice as style in the launcher (Theme.styles).
+        // ---- STYLE: where color comes from and the theme as rows; what the source has (tones, variants, palettes) as rows of swatches
+        // under their title. The inspector shows a desktop in the palette of the focused or hovered swatch (none — the current one): bar,
+        // quick settings, kitty, player, the Glyph bar, with the roles as callouts. The same choice as style in the launcher (Theme.styles).
         // Swatches by index: a new Theme.styles on every pick doesn't recreate the circles, and focus stays where it was ----
-        Page {
+        Sheet {
             id: tint
-            k: 4
-            property Item hot: null // the swatch under the cursor or focused
-            readonly property var p: hot?.item.pal ?? Theme.pal
+            on: root.sel === 4
+            property Item sw: null // the swatch under the cursor or focused
+            readonly property var p: sw?.item.pal ?? Theme.pal
             readonly property string src: Theme.state.paint === "scheme" ? (Theme.pal.group === "more" ? "" : Theme.pal.group + " ") + Theme.pal.name
                 : Theme.state.paint === "wall" && Theme.tones.length ? `wallpaper · ${Theme.pal.name}` : "nothing"
-            caption: `style · ${src} · ${Theme.light ? "light" : "dark"}` + (hot && !hot.item.now ? `   →   ${hot.item.name} · ↵ sets it` : "")
+            caption: `style · ${src} · ${Theme.light ? "light" : "dark"}` + (sw && !sw.item.now ? `   →   ${sw.item.name} · ↵ sets it` : "")
             function block(h) { return Theme.styles.find(b => b.head === h)?.items ?? []; }
-            function peek(sw) {
-                if (sw.peek) hot = sw;
-                else if (hot === sw) hot = null;
+            function peek(s) {
+                if (s.peek) sw = s;
+                else if (sw === s) sw = null;
+            }
+            // the mock is laid out 1040 wide (desk + callouts); scaled into the inspector
+            readonly property Component desk: Component {
+                Item {
+                    width: 740
+                    height: 388 * 740 / 1040
+                    Desk { p: tint.p; scale: 740 / 1040; transformOrigin: Item.TopLeft }
+                }
             }
 
-            Desk { p: tint.p }
-
-            Row {
-                spacing: 24
+            Lb { topPadding: 8; bottomPadding: 4; text: "color" }
+            Opt {
+                title: "Colors from"
+                hint: "Where the shell gets its colors."
+                about: "Nothing keeps the plain look: black, white dots and one red. Wallpaper takes the colors from your picture. Palette lets you pick a ready-made color scheme."
+                value: ["nothing", "wallpaper", "palette"][Math.max(0, ["", "wall", "scheme"].indexOf(Theme.state.paint))]
+                preview: tint.desk
                 Pick {
-                    label: "from"
                     opts: ["nothing", "wall", "palette"]
                     cur: ["", "wall", "scheme"].indexOf(Theme.state.paint)
                     onPicked: i => Theme.state.paint = ["", "wall", "scheme"][i]
                 }
-                Pick { label: "theme"; opts: ["dark", "light"]; cur: Theme.light ? 1 : 0; onPicked: i => Theme.setLight(i === 1) }
-                Toggle { opacity: Theme.light ? 0.4 : 1; text: "extra dark"; on: Theme.state.extraDark; onFlip: if (!Theme.light) Theme.state.extraDark = !Theme.state.extraDark }
+            }
+            Opt {
+                title: "Theme"
+                hint: "Dark or light background."
+                about: "Light swaps black for white across the shell, the terminal and apps that follow it."
+                value: Theme.light ? "light" : "dark"
+                preview: tint.desk
+                Pick { opts: ["dark", "light"]; cur: Theme.light ? 1 : 0; onPicked: i => Theme.setLight(i === 1) }
+            }
+            Opt {
+                visible: !Theme.light
+                title: "Extra dark"
+                hint: "Pure black instead of dark grey."
+                about: "Panels and the background go fully black. Looks best on OLED screens, where black pixels are switched off."
+                value: Theme.state.extraDark ? "on" : "off"
+                preview: tint.desk
+                Switch { on: Theme.state.extraDark; onFlip: Theme.state.extraDark = !Theme.state.extraDark }
             }
 
-            // what the source has. One height for all: Page is centered, and the layout shouldn't jump when the source changes. ponytail: 300 — by
-            // eye, palettes in two rows; if it grows — the Item grows with it
-            Item {
-                width: 1040
-                height: Math.max(300, own.height)
-                Column {
-                    id: own
-                    spacing: 28
-                    Lb { visible: !Theme.state.paint; text: "black · white dots · one red — nothing to pick"; color: Theme.mute }
-                    Row {
-                        visible: Theme.state.paint === "wall"
-                        spacing: 34
-                        // the wallpaper in dots; click — the picker
-                        Rectangle {
-                            width: 168
-                            height: 105
-                            radius: Theme.corner(14)
-                            color: "transparent"
-                            border { width: Theme.state.wall ? 0 : 1; color: Theme.s3 }
-                            Image {
-                                anchors.fill: parent
-                                source: visible ? Theme.url(Theme.wallSrc(Theme.state.wall)) : "" // not visible — no texture
-                                fillMode: Image.PreserveAspectCrop
-                                sourceSize: Qt.size(336, 210)
-                                asynchronous: true
-                                layer.enabled: true
-                                layer.effect: Dm { step: 4 }
-                            }
-                            Lb { visible: !Theme.state.wall; anchors.centerIn: parent; px: 10; text: "no wallpaper" }
-                            TapHandler {
-                                onTapped: {
-                                    root.close();
-                                    root.wallRequested();
-                                }
-                            }
-                            HoverHandler { cursorShape: Qt.PointingHandCursor }
-                        }
-                        Column {
-                            spacing: 6
-                            Lb { text: Theme.tones.length ? "tones · from the wallpaper" : "no color in it · click it for another" }
-                            Row {
-                                Repeater {
-                                    model: tint.block("tones").length
-                                    Swatch { id: tw; item: tint.block("tones")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(tw) }
-                                }
-                            }
-                        }
+            Lb { visible: Theme.state.paint === "wall"; topPadding: 40; bottomPadding: 4; text: "from the wallpaper" }
+            Opt {
+                visible: Theme.state.paint === "wall"
+                title: "Wallpaper"
+                hint: "The picture the colors come from."
+                about: "Opens the wallpaper picker. This panel closes while you choose."
+                preview: Component { Mini { width: 640 } }
+                Act {
+                    icon: "\u{F02E9}"
+                    text: "choose"
+                    onHit: {
+                        root.close();
+                        root.wallRequested();
                     }
-                    Pick {
-                        visible: Theme.state.paint === "wall" && Theme.tones.length > 0
-                        readonly property var amounts: [50, 75, 100, 125, 150, 200]
-                        label: "saturation · %"
-                        opts: amounts.map(String)
-                        cur: amounts.reduce((b, v, i) => Math.abs(v - Theme.state.paintSat) < Math.abs(amounts[b] - Theme.state.paintSat) ? i : b, 0) // an older value snaps to the nearest
-                        onPicked: i => Theme.state.paintSat = amounts[i]
+                }
+            }
+            Opt {
+                visible: Theme.state.paint === "wall"
+                wide: Theme.tones.length > 0
+                activeFocusOnTab: !Theme.tones.length
+                title: "Tone"
+                hint: Theme.tones.length ? "The main colors found in your wallpaper. Pick one." : "This wallpaper has no strong color. Choose another one above."
+                about: "Each circle is a color taken from the picture. The one you pick becomes the accent, and the greys lean towards it."
+                value: tint.block("tones").find(t => t.now)?.name ?? "none" // pal.name is the variant's
+                preview: tint.desk
+                Flow {
+                    width: 620
+                    Repeater {
+                        model: tint.block("tones").length
+                        Swatch { id: tw; item: tint.block("tones")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(tw) }
                     }
-                    Column {
-                        visible: Theme.state.paint === "wall" && Theme.tones.length > 0
-                        spacing: 6
-                        Lb { text: "variant · how much color, like material you" }
-                        Row {
-                            Repeater {
-                                model: tint.block("variant").length
-                                Swatch { id: vw; item: tint.block("variant")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(vw) }
-                            }
-                        }
+                }
+            }
+            Opt {
+                visible: Theme.state.paint === "wall" && Theme.tones.length > 0
+                title: "Saturation"
+                hint: "How strong the wallpaper's colors come out."
+                about: "100 % uses the colors as found. Lower is calmer and greyer, higher is more vivid."
+                value: `${sat.v} %`
+                preview: tint.desk
+                Dial { id: sat; size: 72; from: 50; to: 200; step: 25; n: 24; value: Theme.state.paintSat; onMoved: v => Theme.state.paintSat = v }
+            }
+            Opt {
+                visible: Theme.state.paint === "wall" && Theme.tones.length > 0
+                wide: true
+                title: "Variant"
+                hint: "How much color spreads beyond the accent."
+                about: "Like Material You: the ring around each circle shows how much color it uses. The first ones stay nearly grey, the last ones tint everything."
+                value: tint.block("variant").find(v => v.now)?.name ?? ""
+                preview: tint.desk
+                Flow {
+                    width: 620
+                    Repeater {
+                        model: tint.block("variant").length
+                        Swatch { id: vw; item: tint.block("variant")[index] ?? ({ name: "" }); onPeekChanged: tint.peek(vw) }
                     }
-                    // palettes by group — the blocks between source and theme
+                }
+            }
+
+            // palettes by group: the blocks between source and theme
+            Lb { visible: Theme.state.paint === "scheme"; topPadding: 40; bottomPadding: 4; text: "palettes" }
+            Repeater {
+                model: Theme.state.paint === "scheme" ? Theme.styles.length - 2 : 0
+                Opt {
+                    id: sb
+                    required property int index
+                    readonly property var block: Theme.styles[index + 1] ?? ({ head: "", items: [] })
+                    wide: true
+                    title: sb.block.head === "more" ? "More" : sb.block.head.charAt(0).toUpperCase() + sb.block.head.slice(1)
+                    hint: sb.block.head === "more" ? "Other well-known color schemes." : `The ${sb.block.head} family of color schemes.`
+                    about: "Hover or focus a circle to see it on the desktop. Click or ↵ sets it. Some palettes are light and switch the theme with them."
+                    value: sb.block.items.find(v => v.now)?.name ?? ""
+                    preview: tint.desk
                     Flow {
-                        visible: Theme.state.paint === "scheme"
-                        width: 1040
-                        spacing: 40
+                        width: 620
                         Repeater {
-                            model: Theme.state.paint === "scheme" ? Theme.styles.length - 2 : 0
-                            Column {
-                                id: sb
-                                required property int index
-                                readonly property var block: Theme.styles[index + 1] ?? ({ head: "", items: [] })
-                                spacing: 6
-                                Lb { text: sb.block.head }
-                                Row {
-                                    Repeater {
-                                        model: sb.block.items.length
-                                        Swatch { id: pw; item: sb.block.items[index] ?? ({ name: "" }); onPeekChanged: tint.peek(pw) }
-                                    }
-                                }
-                            }
+                            model: sb.block.items.length
+                            Swatch { id: pw; item: sb.block.items[index] ?? ({ name: "" }); onPeekChanged: tint.peek(pw) }
                         }
                     }
                 }
