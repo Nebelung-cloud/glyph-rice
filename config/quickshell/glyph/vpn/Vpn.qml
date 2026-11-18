@@ -99,19 +99,32 @@ PanelWindow {
     // к wlan0), но его проверка — простой http, и подменная точка доступа скажет «портал» когда угодно. Поэтому туннель (и kill
     // switch) сами не снимаем: уведомление, клик — выключаем и открываем портал; сеть пустила (Full) — включаем обратно.
     // Туннель, поднятый уже за порталом (verge стартует позже шелла), — спрашиваем так же; включённый руками после этого — не трогаем.
-    // Туннеля нет — защищать нечего, страница входа открывается сразу. Всё это раз на сеть: seen сбрасывают None и Full
+    // Без активной защиты страница входа открывается сразу. Повторить запрос можно из списка Wi-Fi в Quick.
     // Туннель снят из-за портала — вернуть, когда сеть пустит. Флаг в glyph.json: verge помнит, что его выключили, и после
     // перезагрузки посреди портала туннель так и остался бы выключенным. Вернуть — когда меню verge пришло (live и flip() настоящие)
     readonly property bool portal: Theme.state.vpnPortal
     readonly property bool ready: child(tray, "System Proxy") !== null
     onReadyChanged: wall()
     property bool seen: false
+    property bool opened: false
+    property bool killPortal: false
+    property bool promptValid: false
+    property var wifiNetwork: null
+    onWifiNetworkChanged: {
+        resetPortalPrompt();
+        Qt.callLater(wall);
+    }
+    function resetPortalPrompt() {
+        seen = opened = promptValid = killPortal = false;
+        ask.running = false;
+        gate.stop();
+    }
     function wall() {
         const c = Networking.connectivity;
-        if (c === NetworkConnectivity.None || c === NetworkConnectivity.Full) seen = false;
-        if (c === NetworkConnectivity.Portal && live && connected && !portal && !seen) {
-            seen = true;
-            ask.running = true;
+        if (c === NetworkConnectivity.None || c === NetworkConnectivity.Full) resetPortalPrompt();
+        if (c === NetworkConnectivity.Portal && !portal && !killPortal
+                && ((connected || kill || killApplied) ? !seen : !opened)) {
+            requestSignIn();
         } else if (c === NetworkConnectivity.Full && portal) {
             if (!ready) return verge || Quickshell.execDetached(["clash-verge"]); // спит — разбудить, вернём по ready
             Theme.state.vpnPortal = false;
@@ -120,19 +133,28 @@ PanelWindow {
     }
     Connections {
         target: Networking
-        function onConnectivityChanged() {
-            root.wall();
-            if (Networking.connectivity === NetworkConnectivity.Portal && !root.seen && !root.connected) {
-                root.seen = true;
-                gate.restart();
-            }
+        function onConnectivityChanged() { root.wall(); }
+    }
+    function requestSignIn() {
+        if (Networking.connectivity !== NetworkConnectivity.Portal) return;
+        if (!portal && !killPortal && (connected || kill || killApplied)) {
+            if (ask.running) return;
+            seen = promptValid = true;
+            ask.running = true;
+        } else {
+            opened = true;
+            gate.restart();
         }
     }
     // notify-send ждёт клика и печатает имя действия; закрыли или истекло — пусто, туннель остаётся
     Process {
         id: ask
-        command: ["notify-send", "-a", "vpn", "-A", "default=sign in", "Portal", "this network wants a sign-in page · click to turn the tunnel off and open it"]
-        stdout: StdioCollector { onStreamFinished: if (text.trim() === "default") root.signIn() }
+        command: ["notify-send", "-a", "vpn", "-A", "default=sign in", "Portal", "click to pause VPN protection and open the network sign-in page"]
+        stdout: StdioCollector { onStreamFinished: if (root.promptValid && text.trim() === "default") root.signIn() }
+        onExited: {
+            root.promptValid = false;
+            if (!root.seen) Qt.callLater(root.wall);
+        }
     }
     function signIn() {
         if (Networking.connectivity !== NetworkConnectivity.Portal) return;
@@ -140,9 +162,10 @@ PanelWindow {
             Theme.state.vpnPortal = true;
             flip();
         }
+        if (kill || killApplied) killPortal = true;
         gate.restart(); // когда verge уже снял system proxy
     }
-    Timer { id: gate; interval: 1500; onTriggered: Qt.openUrlExternally("http://neverssl.com") }
+    Timer { id: gate; interval: 1500; onTriggered: if (Networking.connectivity === NetworkConnectivity.Portal) Qt.openUrlExternally("http://neverssl.com") }
     // после входа NM перепроверяет связь с растущим шагом до 5 минут — торопим сами; включили руками — ждать нечего
     Timer { running: root.portal && !root.connected; interval: 5000; repeat: true; onTriggered: Networking.checkConnectivity() }
 
@@ -150,15 +173,22 @@ PanelWindow {
     // ponytail: хелпер и polkit-правило ставятся руками, не install.sh. На портале снят, иначе страница входа не откроется
     readonly property string killer: "/usr/local/bin/glyph-kill"
     property bool killable: false
-    readonly property bool kill: Theme.state.vpnKill && !portal
+    readonly property bool kill: Theme.state.vpnKill && !portal && !killPortal
+    property bool killApplied: false
     // не execDetached: pkexec отказывает процессу, чей родитель — init («dead parents»)
     // команда — здесь, не привязкой: onKillChanged бывает раньше, чем привязка пересчитается, и шло прошлое on/off
-    Process { id: killP }
+    Process {
+        id: killP
+        onExited: code => {
+            const applied = command[2] === "on";
+            if (code === 0) root.killApplied = applied;
+            else Quickshell.execDetached(["notify-send", "-a", "vpn", "Kill switch", "Could not change the firewall"]);
+            if (applied !== root.kill) root.killApply();
+        }
+    }
     function killApply() {
-        if (!killable) return;
-        killP.running = false;
-        killP.command = ["pkexec", killer, kill ? "on" : "off"];
-        killP.running = true;
+        if (!killable || killP.running) return;
+        killP.exec(["pkexec", killer, kill ? "on" : "off"]);
     }
     onKillChanged: killApply()
     onKillableChanged: killApply()
@@ -188,10 +218,10 @@ PanelWindow {
     }
 
     // ---- verge: ядро. Сокет сервиса verge или его собственный, секрет — из конфига verge; $0 — путь API.
-    // Секрет — заголовком из stdin (-K -), не в argv: оттуда его видно в ps всем на машине, а /traffic висит всегда. heredoc, не
+    // Секрет — заголовком из stdin, не в argv: оттуда его видно в ps всем на машине, а /traffic висит всегда. heredoc, не
     // pipe: exec остаётся последним, curl — сам процесс, и остановка Process гасит его, а не оставляет сиротой ----
-    readonly property string core: `d='${home}'; s=/run/clash-verge-service/users/$(id -u)/verge-mihomo.sock; [ -S "$s" ] || s="$d/verge-mihomo.sock"; `
-        + `exec curl -sfN -K - --unix-socket "$s" "http://core$0" <<EOF\nheader = "Authorization: Bearer $(sed -n 's/^secret: *//p' "$d/config.yaml")"\nEOF\n`
+    readonly property string core: `d=$1; s=/run/clash-verge-service/users/$(id -u)/verge-mihomo.sock; [ -S "$s" ] || s="$d/verge-mihomo.sock"; `
+        + `exec curl -sfN -H @- --unix-socket "$s" "http://core$0" <<EOF\nAuthorization: Bearer $(sed -n 's/^secret: *//p' "$d/config.yaml")\nEOF\n`
 
     // скорость раз в секунду, последние 10 минут — копится всегда, чтобы график не начинался с нуля
     property var toll: []
@@ -200,7 +230,7 @@ PanelWindow {
     Process {
         id: traffic
         running: true
-        command: ["sh", "-c", root.core, "/traffic"]
+        command: ["sh", "-c", root.core, "/traffic", root.home]
         stdout: SplitParser {
             onRead: l => {
                 try {
@@ -219,7 +249,7 @@ PanelWindow {
     property int links: 0
     Process {
         id: conns
-        command: ["sh", "-c", root.core, "/connections"]
+        command: ["sh", "-c", root.core, "/connections", root.home]
         stdout: StdioCollector { onStreamFinished: { try { root.links = JSON.parse(text).connections?.length ?? 0; } catch (e) {} } }
     }
     Timer { running: root.visible; interval: 2000; repeat: true; triggeredOnStart: true; onTriggered: conns.running = true }
@@ -228,7 +258,7 @@ PanelWindow {
     property var kinds: ({})
     Process {
         id: kindsP
-        command: ["sh", "-c", root.core, "/proxies"]
+        command: ["sh", "-c", root.core, "/proxies", root.home]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -409,9 +439,9 @@ PanelWindow {
                 width: 44
                 height: 44
                 radius: 22
-                color: root.kill ? Theme.fg : Theme.s2
+                color: root.killApplied ? Theme.fg : Theme.s2
                 Behavior on color { ColorAnimation { duration: Theme.t } }
-                Icon { anchors.centerIn: parent; text: Theme.state.vpnKill ? "\u{F099D}" : "\u{F099E}"; font.pixelSize: 20; color: root.kill ? Theme.ink : Theme.fg }
+                Icon { anchors.centerIn: parent; text: Theme.state.vpnKill ? "\u{F099D}" : "\u{F099E}"; font.pixelSize: 20; color: root.killApplied ? Theme.ink : Theme.fg }
                 MouseArea { anchors.fill: parent; onClicked: Theme.state.vpnKill = !Theme.state.vpnKill } // не TapHandler: кольцо под ним тоже бы щёлкнуло
             }
 

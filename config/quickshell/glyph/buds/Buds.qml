@@ -7,13 +7,16 @@ import qs.components
 
 // подключились наушники Nothing / CMF (Sys.buds) — карточка снизу, как у AirPods: выезжает с пружиной, устройство светится
 // силуэтом из точек Glyph и проявляется в фото, кольца заряда загораются волной. Клик — убрать, сама уходит через 6 с,
-// наведение держит. Фото — buds/<имя-устройства>.png (официальный рендер с nothing.tech), нет файла — иконка
+// наведение держит. Фото — локальный buds/<имя-устройства>.png, нет файла — иконка
 PanelWindow {
     id: root
 
     property string name
-    readonly property string slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") // кириллица, эмодзи — пусто
-    readonly property string art: slug ? Quickshell.shellPath("buds/" + slug + ".png") : ""
+    property string hardwareName
+    property bool useHardwareArt: false
+    function slug(n) { return n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+    readonly property string artSlug: (useHardwareArt ? "" : slug(name)) || slug(hardwareName)
+    readonly property string art: artSlug && (shown || t > 0) ? Quickshell.shellPath("buds/" + artSlug + ".png") : ""
 
     // ход показа: t — карточка, lit — силуэт из точек, pop — устройство встаёт на место, res — точки → фото
     property real t: 0
@@ -31,9 +34,12 @@ PanelWindow {
     }
 
     function show() {
-        name = Sys.buds.name;
         outA.stop();
+        shown = false;
         t = lit = pop = res = 0;
+        name = Sys.buds.name;
+        hardwareName = Sys.buds.deviceName || name;
+        useHardwareArt = false;
         shown = true;
         inA.restart();
     }
@@ -134,6 +140,7 @@ PanelWindow {
                         Image {
                             anchors.fill: parent
                             source: photo.source
+                            sourceSize: photo.sourceSize
                             fillMode: Image.PreserveAspectFit
                             mipmap: true
                             layer.enabled: true
@@ -144,13 +151,15 @@ PanelWindow {
                         id: photo
                         anchors.fill: parent
                         source: root.art
+                        sourceSize: Qt.size(width, height)
+                        onStatusChanged: if (status === Image.Error && root.slug(root.hardwareName) !== root.artSlug) root.useHardwareArt = true
                         fillMode: Image.PreserveAspectFit
                         mipmap: true
                         opacity: root.res
                     }
                     Icon {
                         anchors.centerIn: parent
-                        visible: photo.status === Image.Error
+                        visible: photo.status === Image.Error || photo.status === Image.Null
                         text: "\u{F02CB}"
                         font.pixelSize: 120
                         opacity: root.lit

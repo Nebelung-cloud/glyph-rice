@@ -16,6 +16,7 @@ PanelWindow {
 
     signal powerRequested
     signal settingsRequested
+    signal portalRequested
 
     property bool open: false
     // peeked — открыта наведением на правый край (Hot): клавиатуру не забирает, курсор ушёл с панели — закрывается сама
@@ -148,6 +149,7 @@ PanelWindow {
                                 width: parent.width
                                 kind: root.pick
                                 onTouched: root.pin()
+                                onPortalRequested: root.portalRequested()
                                 // потолок — экран минус остальная панель (уведомления сожмутся до нуля): шесть сетей не выталкивают шапку за экран
                                 max: stage.height - 28 - 44 - 16 - pills.height
                                     - col.children.filter(c => c.visible && c !== nets && c !== notes).reduce((s, c) => s + c.height + col.spacing, 0)
@@ -173,12 +175,12 @@ PanelWindow {
                         }
                         Rectangle {
                             id: anc
-                            visible: Sys.ancModes.length > 0 // Ear (open), Ear (stick) — без шумодава
+                            visible: Sys.ear?.mode !== undefined && Sys.ancModes.length > 0
                             width: parent.width
                             height: 54
                             radius: Theme.corner(27)
                             color: Theme.s2
-                            readonly property real cell: (width - 12) / Sys.ancModes.length
+                            readonly property real cell: (width - 12) / Math.max(1, Sys.ancModes.length)
                             readonly property int at: Sys.ancModes.findIndex(m => m[0] === Sys.ear?.mode)
                             Rectangle {
                                 visible: anc.at >= 0
@@ -329,7 +331,8 @@ PanelWindow {
                     ListView {
                         id: notes
                         width: parent.width
-                        height: Math.min(shown, stage.height - 28 - 44 - y)
+                        height: Math.max(0, Math.min(shown, stage.height - 28 - 44 - y))
+                        visible: shown > 0
                         // плавно — по контенту (clear all, dismiss); потолок сразу: Picker или плеер выше не выталкивают шапку за экран
                         property real shown: contentHeight
                         Behavior on shown { enabled: Rules.moving; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }

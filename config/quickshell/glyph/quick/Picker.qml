@@ -10,6 +10,7 @@ Rectangle {
     id: root
     property string kind // "wifi" | "bt" | "" — закрыт
     signal touched       // любой клик внутри — панель приколота
+    signal portalRequested
 
     readonly property bool open: kind === "wifi" || kind === "bt"
     // что показано: закрыли — остаётся, пока список сжимается (Quick), иначе он пустел бы сразу
@@ -33,8 +34,17 @@ Rectangle {
     property string err
     // kind, не open: привязка open к этому сигналу может быть ещё не пересчитана, и первое открытие показывало bluetooth
     onKindChanged: { if (kind === "wifi" || kind === "bt") shown = kind; ask = null; err = ""; fl.contentY = 0; }
-    // пароль ушёл — фокус обратно на панель, чтобы Esc закрывал её; список — к началу, строка пароля на виду
-    onAskChanged: { fl.contentY = 0; if (!ask && pw.activeFocus) root.forceActiveFocus(); }
+    onAskChanged: {
+        pw.clear();
+        if (ask) Qt.callLater(revealPassword);
+        else {
+            fl.contentY = 0;
+            if (pw.activeFocus) root.forceActiveFocus();
+        }
+    }
+    function revealPassword() {
+        if (ask && visible) fl.contentY = Math.max(0, fl.contentHeight - fl.height);
+    }
 
     Binding { when: root.kind === "wifi" && root.on; target: root.wifi; property: "scannerEnabled"; value: true }
     Binding { when: root.kind === "bt" && root.on; target: root.bt; property: "discovering"; value: true }
@@ -60,18 +70,21 @@ Rectangle {
         touched();
         err = "";
         if (!isWifi) {
-            if (o.pairing) return o.cancelPair();
+            if (o.pairing) {
+                if (pend === o) pend = null;
+                return o.cancelPair();
+            }
             if (!o.paired) { pend = o; return o.pair(); }
             return o.connected ? o.disconnect() : o.connect();
         }
-        if (o.connected) return portal ? Qt.openUrlExternally("http://neverssl.com") : o.disconnect();
+        if (o.connected) return portal ? portalRequested() : o.disconnect();
         if (o.known || o.security === WifiSecurityType.Open || o.security === WifiSecurityType.Owe) return o.connect();
         ask = o;
     }
 
     // потолок задаёт Quick: выше — список листается, а не выталкивает панель за экран
     property real max: Infinity
-    height: Math.min(list.height + 32, max)
+    height: Math.max(0, Math.min(list.height + 32, max))
     radius: Theme.corner(30)
     color: Theme.s2
 
@@ -80,7 +93,7 @@ Rectangle {
         x: 16
         y: 16
         width: parent.width - 32
-        height: parent.height - 32
+        height: Math.max(0, parent.height - 32)
         contentHeight: list.height
         clip: true
         boundsBehavior: Flickable.StopAtBounds

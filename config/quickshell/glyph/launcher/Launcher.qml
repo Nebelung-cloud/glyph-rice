@@ -108,7 +108,7 @@ PanelWindow {
         shown = true;
         input.forceActiveFocus();
     }
-    function close() { shown = false; }
+    function close() { menuOpen = false; shown = false; }
     function toggle() { shown ? close() : open(); }
     function move(dr, dc) {
         if (!flat.length) return;
@@ -329,12 +329,15 @@ PanelWindow {
         Rectangle {
             id: menu
             property real mt: root.menuOpen && root.mode === 2 ? 1 : 0
+            readonly property real below: (root.peek?.y ?? 0) + 14
+            readonly property real above: (root.peek?.top ?? 0) - 14
+            readonly property bool opensAbove: list.height + 20 > stage.height - below - 8 && above - 8 > stage.height - below - 8
             Behavior on mt { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-            visible: mt > 0 && rows.count > 0
+            visible: mt > 0 && height > 20 && (rows.count > 0 || root.sub.length > 0)
             x: Math.max(panel.x + 20, Math.min(panel.x + panel.width - width - 20, (root.peek?.x ?? 0) - width / 2))
-            y: (root.peek?.y ?? 0) + 14 + 12 * (1 - mt)
+            y: opensAbove ? above - height - 12 * (1 - mt) : below + 12 * (1 - mt)
             width: 320
-            height: list.height + 20
+            height: Math.max(0, Math.min(list.height + 20, (opensAbove ? above : stage.height - below) - 8))
             Behavior on x { enabled: menu.visible; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
             Behavior on height { enabled: menu.visible; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
             opacity: root.t * mt
@@ -344,13 +347,22 @@ PanelWindow {
             clip: true
             MouseArea { anchors.fill: parent } // мимо пунктов — не в затемнение, оно закрыло бы лаунчер
             HoverHandler { id: menuHov }
-            QsMenuOpener { id: opener; menu: root.sub.length ? root.sub[root.sub.length - 1] : root.peek?.tray?.menu ?? null }
+            // Корневой opener держит DBusMenu и его пункты живыми, пока второй opener показывает подменю.
+            QsMenuOpener { id: opener; menu: menu.mt > 0 ? root.peek?.tray?.menu ?? null : null }
+            QsMenuOpener { id: subOpener; menu: opener.menu && root.sub.length ? root.sub[root.sub.length - 1] : null }
 
+            Flickable {
+                id: menuList
+                anchors { fill: parent; margins: 10 }
+                clip: true
+                contentHeight: list.height
+                boundsBehavior: Flickable.StopAtBounds
+                flickableDirection: Flickable.VerticalFlick
+            }
             Column {
                 id: list
-                x: 10
-                y: 10
-                width: parent.width - 20
+                parent: menuList.contentItem
+                width: menuList.width
 
                 Item {
                     visible: root.sub.length > 0
@@ -364,7 +376,7 @@ PanelWindow {
                 }
                 Repeater {
                     id: rows
-                    model: opener.children
+                    model: subOpener.menu ? subOpener.children : opener.children
                     Item {
                         id: row
                         required property QsMenuEntry modelData
@@ -437,6 +449,7 @@ PanelWindow {
     property Item hotCell: null // круг под курсором
     property var peek: null // { tray, x, y }: чьё меню и где низ его ячейки; держится, пока карточка гаснет
     property var sub: [] // открытые подменю, на экране — последнее
+    onSubChanged: menuList.contentY = 0
     property bool menuOpen: false
     readonly property bool menuHot: !!hotCell || menuHov.hovered
     onMenuHotChanged: if (!menuHot) menuT.restart()
@@ -444,7 +457,7 @@ PanelWindow {
     function hover(cell) {
         const p = cell.mapToItem(stage, cell.width / 2, cell.height);
         if (!menuOpen || peek?.tray !== cell.modelData.tray) sub = [];
-        peek = { tray: cell.modelData.tray, x: p.x, y: p.y };
+        peek = { tray: cell.modelData.tray, x: p.x, y: p.y, top: cell.mapToItem(stage, 0, 0).y };
         hotCell = cell;
         sel = cell.modelData.k;
         menuOpen = true;

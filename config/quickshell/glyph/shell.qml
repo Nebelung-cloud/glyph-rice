@@ -27,7 +27,12 @@ ShellRoot {
     id: shell
 
     Launcher { id: launcher }
-    Quick { id: quick; onPowerRequested: power.open(); onSettingsRequested: prefs.open() }
+    Quick {
+        id: quick
+        onPowerRequested: power.open()
+        onSettingsRequested: prefs.open()
+        onPortalRequested: vpn.requestSignIn()
+    }
     Power { id: power }
     Prefs { id: prefs; onWallRequested: walls.open() }
     Glyph {}
@@ -37,7 +42,7 @@ ShellRoot {
     Charms { id: charms }
     Deck { id: deck }
     Shot { id: shot }
-    Vpn { id: vpn }
+    Vpn { id: vpn; wifiNetwork: quick.net }
     Walls { id: walls }
 
     Variants {

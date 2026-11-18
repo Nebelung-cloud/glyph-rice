@@ -93,17 +93,18 @@ Singleton {
 
     // ---- наушники Nothing / CMF: шумодав и заряд через ./ear (их RFCOMM-протокол). Спрашиваем при открытии быстрых настроек.
     // ponytail: узнаём по имени, как Gadgetbridge; не Nothing — ear не ответит, ear останется null ----
-    readonly property var buds: Bluetooth.devices.values.find(d => d.connected && /^(nothing|cmf|ear)\b|^(buds|neckband) pro$/i.test(d.name)) ?? null
+    readonly property var buds: Bluetooth.devices.values.find(d => d.connected && /^(nothing|cmf|ear)\b|^(buds|neckband) pro$/i.test(d.deviceName || d.name)) ?? null
     property var ear: null // {mode?, l, r, case?} или {mode?, bat} у полноразмерных и шейных
     readonly property var earBat: ["bat", "l", "r", "case"].filter(k => ear?.[k] !== undefined)
-    onBudsChanged: ear = null
+    onBudsChanged: { ear = null; earNext = null; }
     // сразу после подключения канал ещё не готов — спрашивать раз в 2 с, пока не ответят. ponytail: не Nothing с похожим
     // именем так и будет опрашиваться, пока подключено
     Timer { interval: 2000; repeat: true; running: !!root.buds && !root.ear; onTriggered: root.earRun([]) }
     // режимы по модели — как в BudsLink (deviceConfigs). Кого нет в списке — полный набор: у остальных Ear, CMF, Headphone он такой
     readonly property var ancModes: {
-        const n = buds?.name ?? "";
-        if (/ear \((open|stick)\)$/i.test(n)) return [];
+        const n = buds?.deviceName || buds?.name || "";
+        if (/ear \(open\)$/i.test(n)) return [];
+        if (/ear \(stick\)$/i.test(n)) return [[1, "off"], [4, "on"]];
         if (/^cmf buds( 2a| neo)?$/i.test(n)) return [[5, "off"], [7, "transp"], [4, "on"]];
         if (/ear \(1\)$/i.test(n)) return [[5, "off"], [7, "transp"], [3, "low"], [1, "high"]];
         if (/buds pro$/i.test(n)) return [[5, "off"], [7, "transp"], [3, "low"], [2, "mid"], [1, "high"]];
@@ -119,8 +120,17 @@ Singleton {
     function setAnc(m) { ear = Object.assign({}, ear, { mode: m }); earRun(["mode", m]); }
     Process {
         id: earP
-        stdout: StdioCollector { onStreamFinished: { try { root.ear = JSON.parse(text); } catch (e) { root.ear = null; } } }
-        onExited: if (root.earNext) { command = root.earNext; root.earNext = null; running = true; }
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (earP.command[1] !== root.buds?.address) return;
+                try { root.ear = JSON.parse(text); } catch (e) { root.ear = null; }
+            }
+        }
+        onExited: {
+            const next = root.earNext;
+            root.earNext = null;
+            if (next && next[1] === root.buds?.address) exec(next);
+        }
     }
 
     // ---- Bluetooth сам не переподключает устройства, когда адаптер включили обратно (пилюля, авиарежим, rfkill).
