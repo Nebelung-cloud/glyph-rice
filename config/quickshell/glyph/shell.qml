@@ -57,6 +57,11 @@ ShellRoot {
     Lazy { id: charms; component: Charms {} }
     Lazy { id: walls; component: Walls {} }
     readonly property bool gaming: Game.on // a singleton only lives once something touches it
+    // a panel opened from the bar keeps an auto-hidden bar out; keyboard ones (Super+A, Super+Space) don't. From Nebelung-cloud/glyph-rice#32
+    property bool barMenuHeld: false
+    readonly property bool anyMenu: launcher.shown || quick.open || !!power.item?.visible || !!cal.item?.open
+    onAnyMenuChanged: if (!anyMenu) barMenuHeld = false
+    Binding { target: Sys; property: "barMenu"; value: shell.barMenuHeld && shell.anyMenu }
     function togglePower() { const p = power.get(); p.visible ? p.close() : p.open(); }
 
     Variants {
@@ -69,10 +74,10 @@ ShellRoot {
             Hot { screen: s.modelData; onTriggered: quick.peek() }
             Bar {
                 screen: s.modelData
-                onMarkClicked: launcher.toggle()
-                onTrayClicked: quick.toggle()
-                onPowerClicked: shell.togglePower()
-                onClockClicked: cal.get().toggle()
+                onMarkClicked: { shell.barMenuHeld = true; launcher.toggle(); }
+                onTrayClicked: { shell.barMenuHeld = true; quick.toggle(); }
+                onPowerClicked: { shell.barMenuHeld = true; shell.togglePower(); }
+                onClockClicked: { shell.barMenuHeld = true; cal.get().toggle(); }
             }
         }
     }

@@ -10,6 +10,7 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 ### Bar
 
+- New: auto-hide can hide the bar only while the workspace has windows, so an empty desktop keeps it. Turn on **only over windows** under the hide toggles in Prefs → BAR. A panel opened by clicking the bar (launcher, quick settings, power, calendar) now keeps a hidden bar on screen until it closes. From #32 by malievo.
 - Fixed: with more than one monitor, each bar's workspace dots now show that monitor's own workspace instead of the focused one, and clicking a dot switches workspaces on that monitor. On workspaces 11 and up, the dots and the wheel follow that group of ten. From #21 by malievo.
 
 ### Keyboard

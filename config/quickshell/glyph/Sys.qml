@@ -13,6 +13,8 @@ import qs.settings
 
 // what the bar, quick settings, Glyph and the lock touch: sound, brightness, layout, recording, night light, airplane mode, caffeine, vpn
 Singleton {
+    // a panel opened by a click on the bar (calendar, quick, power, launcher) holds an auto-hidden bar on screen; set in shell.qml
+    property bool barMenu: false
     id: root
 
     // the deck (the bottom panel) is open — SysStats needs detailed polling, like on an empty workspace (Home)

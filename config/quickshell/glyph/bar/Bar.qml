@@ -31,9 +31,11 @@ PanelWindow {
     implicitHeight: Math.ceil(78 * Theme.s) // on top
     // auto-hide, experimental, for OLEDs (burn-in): Theme.state.barHide lists the screens. Hidden: no exclusive zone, input only on a 2 px strip at the
     // edge. Rest there and the pill slides in over the windows; leave it and it slides back out. From Isaqdn03/glyph-rice
+    // barHideBusy: hide only while this monitor's workspace has windows (from malievo, Nebelung-cloud/glyph-rice#32)
     readonly property bool autoHide: vert && Theme.state.barHide.includes(screen?.name ?? "")
+        && (!Theme.state.barHideBusy || Hyprland.toplevels.values.some(t => t.workspace?.id === active))
     property bool hov: false
-    readonly property bool shown: !autoHide || hov || powOpen || pop.visible
+    readonly property bool shown: !autoHide || hov || powOpen || pop.visible || Sys.barMenu
     property real slide: shown ? 1 : 0
     Behavior on slide { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
     exclusionMode: autoHide ? ExclusionMode.Ignore : ExclusionMode.Auto

@@ -247,6 +247,7 @@ Singleton {
             // their hot edge move left, volume/brightness — into the island (the right edge is taken)
             property string barAt: "left"
             property var barHide: []       // screen names where the bar auto-hides (experimental), see bar/Bar.qml
+            property bool barHideBusy: false // … only while the workspace has windows; an empty desktop keeps the bar
             property bool barRight: false  // older setting, moved to barAt by migrate()
             property int glyphLights: 0    // where volume/brightness and progress light up: 0 at the edges, 1 in the island at the top
             // workspaces (System → workspaces, the count — also in the overview): how many per group of ten, whether ±1 wraps,

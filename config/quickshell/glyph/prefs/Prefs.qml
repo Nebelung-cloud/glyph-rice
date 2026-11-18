@@ -669,6 +669,7 @@ PanelWindow {
                             }
                         }
                     }
+                    Toggle { visible: !bar.onTop && Theme.state.barHide.length > 0; width: 200; text: "only over windows"; on: Theme.state.barHideBusy; onFlip: Theme.state.barHideBusy = !Theme.state.barHideBusy }
                     Lb { visible: !bar.onTop; topPadding: 6; text: "auto-hide · experimental"; px: 10 }
                 }
             }
