@@ -17,9 +17,9 @@ FocusScope {
 
     readonly property bool lit: activeFocus || hover.hovered
     onLitChanged: if (lit && host) host.hot = root
+    onActiveFocusChanged: if (activeFocus && host) host.reveal(root)
     Component.onCompleted: {
         for (let p = parent; p; p = p.parent) if (p.hot !== undefined) { host = p; break; }
-        if (host && !host.hot) host.hot = root;
     }
 
     width: parent?.width ?? 620

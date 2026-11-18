@@ -26,7 +26,7 @@ PanelWindow {
     readonly property var hints: [moves, moves, "", "", "hover to preview · ↵ or click sets it", rings, ""]
     readonly property var r: Rules.store
     // the shown page, when it's a rows page (Sheet: has owns())
-    readonly property Item page: [null, null, bar][sel] ?? null
+    readonly property Item page: [null, null, bar, look][sel] ?? null
     readonly property bool paged: !!page
 
     // glyphs for the home widgets, deck sections and the bar tray
@@ -701,123 +701,203 @@ PanelWindow {
             }
         }
 
-        // ---- LOOK: a miniature home follows the toggles; the name — into the pill ----
-        Page {
+        // ---- LOOK: the home screen and the lock. The inspector shows a miniature home that follows every switch ----
+        Sheet {
             id: look
-            k: 3
-            caption: "look · the home screen, live"
+            on: root.sel === 3
+            caption: "look"
             property bool dim: false // the colon went dark
-            Timer { running: look.visible && root.visible && Theme.state.blink; interval: 500; repeat: true; onTriggered: look.dim = !look.dim }
-
-            Row {
-                spacing: 40
-
+            Timer { running: look.on && root.visible && Theme.state.blink; interval: 500; repeat: true; onTriggered: look.dim = !look.dim }
+            // drawn at 760 wide, the size the positions were laid out for, then scaled into the inspector
+            readonly property Component home: Component {
                 Mini {
-                    Orb { visible: Theme.state.orb; x: 400; y: 110; scale: 330 / 1100; transformOrigin: Item.TopLeft }
-                    Row {
-                        x: 60
-                        y: 52
-                        visible: Theme.state.homeClock
-                        Num { id: hrs; text: Theme.hh(clock.date); font.pixelSize: 120 }
-                        Num { text: ":"; font.pixelSize: 120; opacity: Theme.state.blink && look.dim ? 0.2 : 1 }
-                        Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 120 }
-                        Lb { visible: !Theme.state.clock24; anchors.baseline: hrs.baseline; leftPadding: 12; text: clock.date.getHours() < 12 ? "am" : "pm" }
-                    }
-                    Lb { x: 64; y: 172; visible: Theme.state.homeClock; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 11 }
-                    Text {
-                        x: 62
-                        y: 232
-                        visible: Theme.state.homeHello
-                        textFormat: Text.StyledText
-                        text: `${root.hello},<br><font color="${Theme.grey}">${root.who}.</font>`
-                        font { family: Theme.ui; pixelSize: 30; weight: Font.Light }
-                        lineHeight: 1.1
-                        color: Theme.fg
-                    }
-                    // Glyph strips: volume on the right, progress at the bottom
-                    Seg { visible: Theme.state.edges; x: parent.width - 12; y: 140; width: 4; height: 200; n: 12; f: 0.6; vertical: true }
-                    Seg { visible: Theme.state.edges; x: 230; y: parent.height - 10; width: 300; height: 4; n: 24; f: 0.4 }
-                }
-
-                Column {
-                    spacing: 14
-                    Toggle { span: 200; text: "dot grid"; on: Theme.state.grid; onFlip: Theme.state.grid = !Theme.state.grid }
-                    Toggle { span: 200; text: "orb"; on: Theme.state.orb; onFlip: Theme.state.orb = !Theme.state.orb }
-                    Toggle { span: 200; text: "24 hours"; on: Theme.state.clock24; onFlip: Theme.state.clock24 = !Theme.state.clock24 }
-                    Toggle { span: 200; text: "blink"; on: Theme.state.blink; onFlip: Theme.state.blink = !Theme.state.blink }
-                    Toggle { span: 200; text: "edges"; on: Theme.state.edges; onFlip: Theme.state.edges = !Theme.state.edges }
-                    Toggle { span: 200; text: "island lights"; on: Theme.state.glyphLights === 1; onFlip: Theme.state.glyphLights = Theme.state.glyphLights === 1 ? 0 : 1 }
-                    Act {
-                        icon: "\u{F02E9}"
-                        text: "wallpaper"
-                        onHit: {
-                            root.close();
-                            root.wallRequested();
+                    id: hm
+                    width: 640
+                    Item {
+                        width: 760
+                        height: 760 * hm.height / hm.width
+                        scale: hm.width / 760
+                        transformOrigin: Item.TopLeft
+                        Orb { visible: Theme.state.orb; x: 400; y: 110; scale: 330 / 1100; transformOrigin: Item.TopLeft }
+                        Row {
+                            x: 60
+                            y: 52
+                            visible: Theme.state.homeClock
+                            Num { id: hrs; text: Theme.hh(clock.date); font.pixelSize: 120 }
+                            Num { text: ":"; font.pixelSize: 120; opacity: Theme.state.blink && look.dim ? 0.2 : 1 }
+                            Num { text: Qt.formatTime(clock.date, "mm"); font.pixelSize: 120 }
+                            Lb { visible: !Theme.state.clock24; anchors.baseline: hrs.baseline; leftPadding: 12; text: clock.date.getHours() < 12 ? "am" : "pm" }
+                        }
+                        Lb { x: 64; y: 172; visible: Theme.state.homeClock; text: Qt.locale("en_US").toString(clock.date, "dddd · d MMMM"); px: 11 }
+                        Text {
+                            x: 62
+                            y: 232
+                            visible: Theme.state.homeHello
+                            textFormat: Text.StyledText
+                            text: `${root.hello},<br><font color="${Theme.grey}">${root.who}.</font>`
+                            font { family: Theme.ui; pixelSize: 30; weight: Font.Light }
+                            lineHeight: 1.1
+                            color: Theme.fg
+                        }
+                        // Glyph strips: volume on the right, progress at the bottom — or both in the island at the top
+                        Seg { visible: Theme.state.edges && Theme.state.glyphLights !== 1; x: parent.width - 12; y: 140; width: 4; height: 200; n: 12; f: 0.6; vertical: true }
+                        Seg { visible: Theme.state.edges && Theme.state.glyphLights !== 1; x: 230; y: parent.height - 10; width: 300; height: 4; n: 24; f: 0.4 }
+                        Rectangle {
+                            visible: Theme.state.edges && Theme.state.glyphLights === 1
+                            x: 300; y: 10; width: 160; height: 26; radius: 13
+                            color: "black"
+                            border { width: 1; color: Theme.s3 }
+                            Seg { anchors.centerIn: parent; width: 120; height: 4; n: 16; f: 0.5 }
                         }
                     }
                 }
-
             }
+            function flip(k) { Theme.state[k] = !Theme.state[k]; }
 
-            // what home shows, and the lock
-            Row {
-                spacing: 12
-                Lb { width: 110; anchors.verticalCenter: parent.verticalCenter; text: "on home" }
-                Toggle { text: "clock"; on: Theme.state.homeClock; onFlip: Theme.state.homeClock = !Theme.state.homeClock }
-                Toggle { text: "greeting"; on: Theme.state.homeHello; onFlip: Theme.state.homeHello = !Theme.state.homeHello }
-                Toggle { text: "widgets"; on: Theme.state.homeBento; onFlip: Theme.state.homeBento = !Theme.state.homeBento }
-                Toggle {
-                    readonly property bool all: Theme.state.homeClock && Theme.state.homeHello && Theme.state.homeBento
-                    text: "all"
-                    on: all
-                    onFlip: {
-                        const v = !all;
-                        Theme.state.homeClock = v;
-                        Theme.state.homeHello = v;
-                        Theme.state.homeBento = v;
+            Lb { topPadding: 8; bottomPadding: 4; text: "home screen" }
+            Opt {
+                title: "Clock"
+                hint: "The big time and today's date on the desktop."
+                about: "The large dotted clock with the date under it. Turn it off for a bare desktop."
+                value: Theme.state.homeClock ? "on" : "off"
+                preview: look.home
+                Switch { on: Theme.state.homeClock; onFlip: look.flip("homeClock") }
+            }
+            Opt {
+                title: "24-hour time"
+                hint: "Shows 14:05 instead of 2:05 pm."
+                about: "Changes the home and lock clocks. Off adds am or pm next to the time."
+                value: Theme.state.clock24 ? "24h" : "12h"
+                preview: look.home
+                Switch { on: Theme.state.clock24; onFlip: look.flip("clock24") }
+            }
+            Opt {
+                title: "Blinking colon"
+                hint: "The colon in the clock pulses every second."
+                about: "A slow heartbeat on the home and lock clocks. Off keeps the clock still."
+                value: Theme.state.blink ? "on" : "off"
+                preview: look.home
+                Switch { on: Theme.state.blink; onFlip: look.flip("blink") }
+            }
+            Opt {
+                title: "Greeting"
+                hint: "Says hello to you by name, under the clock."
+                about: "A line that changes with the time of day, followed by your name."
+                value: Theme.state.homeHello ? "on" : "off"
+                preview: look.home
+                Switch { on: Theme.state.homeHello; onFlip: look.flip("homeHello") }
+            }
+            Opt {
+                title: "Your name"
+                hint: "What the greeting calls you. Empty uses your login name."
+                about: "Type a name, up to 24 letters. Leave it empty and the greeting uses your login name."
+                value: Theme.state.name || Quickshell.env("USER")
+                preview: look.home
+                Rectangle {
+                    width: 240
+                    height: 52
+                    radius: Theme.corner(26)
+                    color: Theme.s2
+                    border { width: name.activeFocus ? 1 : 0; color: Theme.fg }
+                    TextInput {
+                        id: name
+                        anchors { left: parent.left; leftMargin: 22; right: parent.right; rightMargin: 22; verticalCenter: parent.verticalCenter }
+                        text: Theme.state.name
+                        maximumLength: 24
+                        activeFocusOnTab: true
+                        font { family: Theme.ui; pixelSize: 19 }
+                        color: Theme.fg
+                        selectionColor: Theme.s3
+                        clip: true
+                        onTextEdited: Theme.state.name = text
+                        cursorDelegate: Rectangle {
+                            width: 2
+                            color: name.activeFocus ? Theme.accent : "transparent"
+                            Timer { running: name.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
+                        }
+                        Text { visible: !name.text; text: Quickshell.env("USER"); font: name.font; color: Theme.mute }
                     }
                 }
             }
-            Row {
-                spacing: 12
-                Lb { width: 110; anchors.verticalCenter: parent.verticalCenter; text: "on the lock" }
-                Toggle { text: "atmosphere"; on: Theme.state.atmosphere; onFlip: Theme.state.atmosphere = !Theme.state.atmosphere }
-                Toggle { text: "hide length"; on: Theme.state.lockHideLen; onFlip: Theme.state.lockHideLen = !Theme.state.lockHideLen }
-                Toggle { text: "one screen"; on: Theme.state.lockOneScreen; onFlip: Theme.state.lockOneScreen = !Theme.state.lockOneScreen }
+            Opt {
+                title: "Widgets"
+                hint: "The tiles on the desktop. Choose which ones in HOME."
+                about: "Shows the widget tiles you picked in the HOME section. Off hides them all without losing your choice."
+                value: Theme.state.homeBento ? "on" : "off"
+                preview: look.home
+                Switch { on: Theme.state.homeBento; onFlip: look.flip("homeBento") }
             }
-
-            // the name in the greeting; empty — $USER
-            Rectangle {
-                width: 760
-                height: 72
-                radius: Theme.corner(36)
-                color: Theme.s2
-                border { width: name.activeFocus ? 1 : 0; color: Theme.fg }
-                Lb { id: nameL; x: 30; anchors.verticalCenter: parent.verticalCenter; text: "name"; color: name.activeFocus ? Theme.fg : Theme.grey }
-                TextInput {
-                    id: name
-                    anchors { left: nameL.right; leftMargin: 24; right: parent.right; rightMargin: 30; verticalCenter: parent.verticalCenter }
-                    text: Theme.state.name
-                    maximumLength: 24
-                    activeFocusOnTab: true
-                    font { family: Theme.ui; pixelSize: 24 }
-                    color: Theme.fg
-                    selectionColor: Theme.s3
-                    clip: true
-                    onTextEdited: Theme.state.name = text
-                    cursorDelegate: Rectangle {
-                        width: 2
-                        color: name.activeFocus ? Theme.accent : "transparent"
-                        Timer { running: name.activeFocus; interval: 500; repeat: true; onTriggered: parent.opacity = 1 - parent.opacity }
-                    }
-                    Text { visible: !name.text; text: Quickshell.env("USER"); font: name.font; color: Theme.mute }
-                    Keys.onPressed: e => {
-                        if (e.key === Qt.Key_Up || e.key === Qt.Key_Down) root.go(root.sel + (e.key === Qt.Key_Up ? -1 : 1));
-                        else if (e.key === Qt.Key_Escape || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) stage.forceActiveFocus();
-                        else return;
-                        e.accepted = true;
+            Opt {
+                title: "Dot grid"
+                hint: "A faint grid of dots behind everything."
+                about: "Shows only where the wallpaper leaves the background bare."
+                value: Theme.state.grid ? "on" : "off"
+                preview: look.home
+                Switch { on: Theme.state.grid; onFlip: look.flip("grid") }
+            }
+            Opt {
+                title: "Orb"
+                hint: "A glowing orb at the lower right of the desktop and lock."
+                about: "A decoration only. Like the dot grid, it hides behind a wallpaper that fills the screen."
+                value: Theme.state.orb ? "on" : "off"
+                preview: look.home
+                Switch { on: Theme.state.orb; onFlip: look.flip("orb") }
+            }
+            Opt {
+                title: "Wallpaper"
+                hint: "Pick the picture behind everything."
+                about: "Opens the wallpaper picker. This panel closes while you choose."
+                preview: Component { Mini { width: 640 } }
+                Act {
+                    icon: "\u{F02E9}"
+                    text: "choose"
+                    onHit: {
+                        root.close();
+                        root.wallRequested();
                     }
                 }
+            }
+
+            Lb { topPadding: 40; bottomPadding: 4; text: "lights" }
+            Opt {
+                title: "Edge lights"
+                hint: "Thin strips of light show volume and music progress."
+                about: "Like the lights on the back of a Nothing phone: they glow at the screen edges while something changes, then fade."
+                value: Theme.state.edges ? "on" : "off"
+                preview: look.home
+                Switch { on: Theme.state.edges; onFlip: look.flip("edges") }
+            }
+            Opt {
+                visible: Theme.state.edges
+                title: "Lights in the island"
+                hint: "Moves those lights into a pill at the top of the screen."
+                about: "Volume and progress glow in the island at the top instead of along the edges. With the bar on the right, volume is always up there."
+                value: Theme.state.glyphLights === 1 ? "island" : "edges"
+                preview: look.home
+                Switch { on: Theme.state.glyphLights === 1; onFlip: Theme.state.glyphLights = Theme.state.glyphLights === 1 ? 0 : 1 }
+            }
+
+            Lb { topPadding: 40; bottomPadding: 4; text: "lock screen" }
+            Opt {
+                title: "Atmosphere"
+                hint: "The wallpaper softens and slowly breathes while locked."
+                about: "While locked, the wallpaper sits in a haze, a little closer. It sharpens again as you unlock. Off in lite mode."
+                value: Theme.state.atmosphere ? "on" : "off"
+                Switch { on: Theme.state.atmosphere; onFlip: look.flip("atmosphere") }
+            }
+            Opt {
+                title: "Hide password length"
+                hint: "Three pulsing dots while you type, not one per letter."
+                about: "Someone looking over your shoulder can't count the letters of your password."
+                value: Theme.state.lockHideLen ? "on" : "off"
+                Switch { on: Theme.state.lockHideLen; onFlip: look.flip("lockHideLen") }
+            }
+            Opt {
+                title: "Lock on one screen"
+                hint: "Other screens go dark; the clock and password stay on one."
+                about: "With more than one screen, only the one you were using shows the lock. The rest stay blank."
+                value: Theme.state.lockOneScreen ? "on" : "off"
+                Switch { on: Theme.state.lockOneScreen; onFlip: look.flip("lockOneScreen") }
             }
         }
 
