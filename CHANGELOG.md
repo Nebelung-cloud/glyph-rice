@@ -8,6 +8,10 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 - Fixed: earbuds paired from Quick could connect and drop at once, then show as unpaired again. Pairing now turns the adapter's pairable setting on for the attempt so the bond is kept, a paired device is only connected (never paired again), and after a first pairing Quick waits a moment and connects only if the buds didn't connect by themselves. Paired devices now sit in their own group above nearby ones. From #31 by rawnullbyte.
 
+### Settings
+
+- Fixed: long labels on switches in Prefs, the wallpaper picker and System dialogs ran out of the switch. A switch now widens to fit its label.
+
 ### Bar
 
 - New: auto-hide can hide the bar only while the workspace has windows, so an empty desktop keeps it. Turn on **only over windows** under the hide toggles in Prefs → BAR. A panel opened by clicking the bar (launcher, quick settings, power, calendar) now keeps a hidden bar on screen until it closes. From #32 by malievo.

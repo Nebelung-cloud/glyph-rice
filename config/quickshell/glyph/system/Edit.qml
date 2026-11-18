@@ -205,7 +205,7 @@ Column {
         id: flag
         Toggle {
             readonly property var f: parent?.f ?? ({})
-            width: 466
+            span: 466
             text: f.label ?? ""
             on: root.v[f.k] === "yes"
             onFlip: root.set(f.k, on ? "no" : "yes")

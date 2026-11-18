@@ -255,7 +255,7 @@ magick "\${1##*.}:$1[0]" -resize "$3" -quality 90 "$2/.$b.jpg" 2>/dev/null && mv
             Row {
                 anchors.right: parent.right
                 spacing: 36
-                Toggle { anchors.verticalCenter: parent.verticalCenter; width: 160; text: "glass"; on: root.glass; onFlip: root.glass = !root.glass }
+                Toggle { anchors.verticalCenter: parent.verticalCenter; span: 160; text: "glass"; on: root.glass; onFlip: root.glass = !root.glass }
                 Dial { opacity: root.glass ? 1 : 0.4; size: 120; label: "rib · px"; from: 8; to: 80; step: 2; live: true; value: root.rib; onMoved: v => root.rib = v }
                 Dial { opacity: root.glass ? 1 : 0.4; size: 120; label: "bend · %"; from: 0; to: 100; step: 5; live: true; value: root.bend; onMoved: v => root.bend = v }
             }

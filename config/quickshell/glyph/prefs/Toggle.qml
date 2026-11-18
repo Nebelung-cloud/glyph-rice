@@ -9,9 +9,11 @@ Rectangle {
 
     property bool on
     property string text
+    // the narrowest it gets, to line up a column; a longer label still widens it (callers setting width cut labels off)
+    property real span: 170
     signal flip
 
-    width: Math.max(170, lab.implicitWidth + 96)
+    width: Math.max(span, lab.implicitWidth + 96)
     height: 64
     radius: Theme.corner(32)
     color: Theme.s2

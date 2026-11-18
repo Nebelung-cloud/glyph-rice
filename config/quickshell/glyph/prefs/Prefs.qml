@@ -484,8 +484,8 @@ PanelWindow {
 
                 Column {
                     spacing: 14
-                    Toggle { width: 200; text: "deck · hover"; on: Theme.state.deckHover; onFlip: Theme.state.deckHover = !Theme.state.deckHover }
-                    Toggle { width: 200; text: "quick · hover"; on: Theme.state.quickHover; onFlip: Theme.state.quickHover = !Theme.state.quickHover }
+                    Toggle { span: 200; text: "deck · hover"; on: Theme.state.deckHover; onFlip: Theme.state.deckHover = !Theme.state.deckHover }
+                    Toggle { span: 200; text: "quick · hover"; on: Theme.state.quickHover; onFlip: Theme.state.quickHover = !Theme.state.quickHover }
                     Lb { topPadding: 6; text: "bottom edge · right edge"; px: 10 }
                 }
             }
@@ -652,14 +652,14 @@ PanelWindow {
                         }
                     }
                     Item { width: 1; height: 12 }
-                    Toggle { width: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
+                    Toggle { span: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
                     Lb { topPadding: 6; text: bar.onTop ? "left of the clock" : "above the clock"; px: 10 }
                     Item { width: 1; height: 6 }
                     Repeater {
                         model: bar.onTop ? [] : Quickshell.screens
                         Toggle {
                             required property var modelData
-                            width: 200
+                            span: 200
                             text: `hide · ${modelData.name}`
                             on: Theme.state.barHide.includes(modelData.name)
                             onFlip: {
@@ -669,7 +669,7 @@ PanelWindow {
                             }
                         }
                     }
-                    Toggle { visible: !bar.onTop && Theme.state.barHide.length > 0; width: 200; text: "only over windows"; on: Theme.state.barHideBusy; onFlip: Theme.state.barHideBusy = !Theme.state.barHideBusy }
+                    Toggle { visible: !bar.onTop && Theme.state.barHide.length > 0; span: 200; text: "only over windows"; on: Theme.state.barHideBusy; onFlip: Theme.state.barHideBusy = !Theme.state.barHideBusy }
                     Lb { visible: !bar.onTop; topPadding: 6; text: "auto-hide · experimental"; px: 10 }
                 }
             }
@@ -722,12 +722,12 @@ PanelWindow {
 
                 Column {
                     spacing: 14
-                    Toggle { width: 200; text: "dot grid"; on: Theme.state.grid; onFlip: Theme.state.grid = !Theme.state.grid }
-                    Toggle { width: 200; text: "orb"; on: Theme.state.orb; onFlip: Theme.state.orb = !Theme.state.orb }
-                    Toggle { width: 200; text: "24 hours"; on: Theme.state.clock24; onFlip: Theme.state.clock24 = !Theme.state.clock24 }
-                    Toggle { width: 200; text: "blink"; on: Theme.state.blink; onFlip: Theme.state.blink = !Theme.state.blink }
-                    Toggle { width: 200; text: "edges"; on: Theme.state.edges; onFlip: Theme.state.edges = !Theme.state.edges }
-                    Toggle { width: 200; text: "island lights"; on: Theme.state.glyphLights === 1; onFlip: Theme.state.glyphLights = Theme.state.glyphLights === 1 ? 0 : 1 }
+                    Toggle { span: 200; text: "dot grid"; on: Theme.state.grid; onFlip: Theme.state.grid = !Theme.state.grid }
+                    Toggle { span: 200; text: "orb"; on: Theme.state.orb; onFlip: Theme.state.orb = !Theme.state.orb }
+                    Toggle { span: 200; text: "24 hours"; on: Theme.state.clock24; onFlip: Theme.state.clock24 = !Theme.state.clock24 }
+                    Toggle { span: 200; text: "blink"; on: Theme.state.blink; onFlip: Theme.state.blink = !Theme.state.blink }
+                    Toggle { span: 200; text: "edges"; on: Theme.state.edges; onFlip: Theme.state.edges = !Theme.state.edges }
+                    Toggle { span: 200; text: "island lights"; on: Theme.state.glyphLights === 1; onFlip: Theme.state.glyphLights = Theme.state.glyphLights === 1 ? 0 : 1 }
                     Act {
                         icon: "\u{F02E9}"
                         text: "wallpaper"
@@ -982,9 +982,9 @@ PanelWindow {
                 // ponytail: blur and shadows aren't visible in the layout (flat black) — only toggles
                 Column {
                     spacing: 14
-                    Toggle { width: 200; text: "blur"; on: root.r.blur; onFlip: { root.r.blur = !root.r.blur; Theme.apply(); } }
-                    Toggle { width: 200; text: "shadow"; on: root.r.shadow; onFlip: { root.r.shadow = !root.r.shadow; Theme.apply(); } }
-                    Toggle { width: 200; text: "motion"; on: root.r.motion; onFlip: { root.r.motion = !root.r.motion; Rules.motion(); } }
+                    Toggle { span: 200; text: "blur"; on: root.r.blur; onFlip: { root.r.blur = !root.r.blur; Theme.apply(); } }
+                    Toggle { span: 200; text: "shadow"; on: root.r.shadow; onFlip: { root.r.shadow = !root.r.shadow; Theme.apply(); } }
+                    Toggle { span: 200; text: "motion"; on: root.r.motion; onFlip: { root.r.motion = !root.r.motion; Rules.motion(); } }
                 }
 
             }
@@ -1001,13 +1001,13 @@ PanelWindow {
             // game mode: starts by itself on a fullscreen game (services/Game), and what stays on in it. Off — game mode drops it
             Row {
                 spacing: 12
-                Toggle { width: 220; text: "auto game mode"; on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
+                Toggle { span: 220; text: "auto game mode"; on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
                 Lb { leftPadding: 16; rightPadding: 4; anchors.verticalCenter: parent.verticalCenter; text: "in a game" }
-                Toggle { width: 130; text: "gaps"; on: root.r.gameGaps; onFlip: { root.r.gameGaps = !root.r.gameGaps; Theme.apply(); } }
-                Toggle { width: 130; text: "motion"; on: root.r.gameMotion; onFlip: { root.r.gameMotion = !root.r.gameMotion; Rules.motion(); } }
-                Toggle { width: 130; text: "blur"; on: root.r.gameBlur; onFlip: { root.r.gameBlur = !root.r.gameBlur; Theme.apply(); } }
-                Toggle { width: 130; text: "shadow"; on: root.r.gameShadow; onFlip: { root.r.gameShadow = !root.r.gameShadow; Theme.apply(); } }
-                Toggle { width: 130; text: "quiet"; on: root.r.gameDnd; onFlip: root.r.gameDnd = !root.r.gameDnd }
+                Toggle { span: 130; text: "gaps"; on: root.r.gameGaps; onFlip: { root.r.gameGaps = !root.r.gameGaps; Theme.apply(); } }
+                Toggle { span: 130; text: "motion"; on: root.r.gameMotion; onFlip: { root.r.gameMotion = !root.r.gameMotion; Rules.motion(); } }
+                Toggle { span: 130; text: "blur"; on: root.r.gameBlur; onFlip: { root.r.gameBlur = !root.r.gameBlur; Theme.apply(); } }
+                Toggle { span: 130; text: "shadow"; on: root.r.gameShadow; onFlip: { root.r.gameShadow = !root.r.gameShadow; Theme.apply(); } }
+                Toggle { span: 130; text: "quiet"; on: root.r.gameDnd; onFlip: root.r.gameDnd = !root.r.gameDnd }
             }
         }
 
