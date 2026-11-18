@@ -90,8 +90,9 @@ Column {
             }
         }
     }
-    // the label; in focus — a white chip
+    // the label; in focus — a white chip. No label (a dial inside a settings row): no chip
     Rectangle {
+        visible: !!root.label
         anchors.horizontalCenter: parent.horizontalCenter
         width: lab.implicitWidth + 24
         height: lab.implicitHeight + 12

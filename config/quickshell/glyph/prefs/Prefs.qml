@@ -22,11 +22,10 @@ PanelWindow {
     signal wallRequested // wallpapers — their own screen (wall/Walls), shell.qml opens it
     readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
-    readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, "", "", "hover to preview · ↵ or click sets it", rings, ""]
+    readonly property var hints: [moves, moves, "", "", "hover to preview · ↵ or click sets it", "", ""]
     readonly property var r: Rules.store
     // the shown page, when it's a rows page (Sheet: has owns())
-    readonly property Item page: [null, null, bar, look][sel] ?? null
+    readonly property Item page: [null, null, bar, look, null, win][sel] ?? null
     readonly property bool paged: !!page
 
     // glyphs for the home widgets, deck sections and the bar tray
@@ -1027,16 +1026,17 @@ PanelWindow {
             }
         }
 
-        // ---- WINDOWS: a desktop with two windows from the rings' live values. Window animation — only if motion ----
-        Page {
-            k: 5
-            caption: `windows · hyprland · gaps ${gIn.v} / ${gOut.v} · border ${bord.v} · rounding ${rnd.v} · panels ${pan.v} %`
-
-            Row {
-                spacing: 40
-
+        // ---- WINDOWS: Hyprland's spacing and shape as dials in the rows; the inspector shows a desktop with two windows that follows them live
+        Sheet {
+            id: win
+            on: root.sel === 5
+            caption: "windows"
+            function set(k, v, motion) { root.r[k] = v; if (motion) Rules.motion(); else Theme.apply(); }
+            function flip(k, motion) { win.set(k, !root.r[k], motion); }
+            readonly property Component desk: Component {
                 Mini {
                     id: desk
+                    width: 640
                     Repeater {
                         model: 2
                         Rectangle {
@@ -1057,19 +1057,18 @@ PanelWindow {
                             Behavior on y { enabled: root.r.motion; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                             Behavior on width { enabled: root.r.motion; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                             Behavior on height { enabled: root.r.motion; NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-
                             Column {
-                                x: 20
-                                y: 20
-                                spacing: 9
+                                x: 16
+                                y: 16
+                                spacing: 8
                                 Lb { text: wnd.index ? "zen" : "kitty"; px: 10; color: wnd.index ? Theme.mute : Theme.grey }
                                 Repeater {
                                     model: [0.7, 0.45, 0.85, 0.3, 0.6, 0.5]
                                     Rectangle {
                                         required property real modelData
-                                        width: (wnd.width - 40) * modelData
-                                        height: 5
-                                        radius: 2.5
+                                        width: (wnd.width - 32) * modelData
+                                        height: 4
+                                        radius: 2
                                         color: Theme.s3
                                     }
                                 }
@@ -1077,36 +1076,115 @@ PanelWindow {
                         }
                     }
                 }
-
-                // ponytail: blur and shadows aren't visible in the layout (flat black) — only toggles
-                Column {
-                    spacing: 14
-                    Toggle { span: 200; text: "blur"; on: root.r.blur; onFlip: { root.r.blur = !root.r.blur; Theme.apply(); } }
-                    Toggle { span: 200; text: "shadow"; on: root.r.shadow; onFlip: { root.r.shadow = !root.r.shadow; Theme.apply(); } }
-                    Toggle { span: 200; text: "motion"; on: root.r.motion; onFlip: { root.r.motion = !root.r.motion; Rules.motion(); } }
-                }
-
             }
 
-            Row {
-                spacing: 40
-                Dial { id: gIn; label: "gaps in"; to: 30; value: root.r.gapsIn; onMoved: v => { root.r.gapsIn = v; Theme.apply(); } }
-                Dial { id: gOut; label: "gaps out"; to: 60; value: root.r.gapsOut; onMoved: v => { root.r.gapsOut = v; Theme.apply(); } }
-                Dial { id: bord; label: "border"; to: 6; n: 24; value: root.r.border; onMoved: v => { root.r.border = v; Theme.apply(); } }
-                Dial { id: rnd; label: "rounding"; to: 40; value: Theme.state.rounding; onMoved: v => Theme.state.rounding = v } // shell.qml calls Theme.apply itself
-                Dial { id: pan; label: "panels"; to: 100; step: 5; value: Theme.state.corners; onMoved: v => Theme.state.corners = v } // the shell's corners, %
+            Lb { topPadding: 8; bottomPadding: 4; text: "spacing and shape" }
+            Opt {
+                title: "Gap between windows"
+                hint: "Space between windows that sit side by side."
+                about: "Half of it goes on each side, so two windows end up this far apart twice over. 0 lets them touch."
+                value: `${gIn.v} px`
+                preview: win.desk
+                Dial { id: gIn; size: 72; to: 30; value: root.r.gapsIn; onMoved: v => win.set("gapsIn", v) }
+            }
+            Opt {
+                title: "Gap at the screen edge"
+                hint: "Space between the windows and the edges of the screen."
+                about: "The margin around the whole group of windows. The bar keeps its own room on top of this."
+                value: `${gOut.v} px`
+                preview: win.desk
+                Dial { id: gOut; size: 72; to: 60; value: root.r.gapsOut; onMoved: v => win.set("gapsOut", v) }
+            }
+            Opt {
+                title: "Border"
+                hint: "An outline around each window. The focused one is brighter."
+                about: "Helps you see which window has the keyboard. 0 removes the outline."
+                value: `${bord.v} px`
+                preview: win.desk
+                Dial { id: bord; size: 72; to: 6; n: 24; value: root.r.border; onMoved: v => win.set("border", v) }
+            }
+            Opt {
+                title: "Window corners"
+                hint: "How round the corners of windows are."
+                about: "0 gives sharp square corners. Higher numbers round them more."
+                value: `${rnd.v} px`
+                preview: win.desk
+                Dial { id: rnd; size: 72; to: 40; value: Theme.state.rounding; onMoved: v => Theme.state.rounding = v } // shell.qml calls Theme.apply itself
+            }
+            Opt {
+                title: "Panel corners"
+                hint: "How round the shell's own panels and buttons are."
+                about: "Applies to the bar, this panel and the rest of the shell, not to app windows. 100 % is fully round."
+                value: `${pan.v} %`
+                Dial { id: pan; size: 72; to: 100; step: 5; value: Theme.state.corners; onMoved: v => Theme.state.corners = v } // the shell's corners, %
             }
 
-            // game mode: starts by itself on a fullscreen game (services/Game), and what stays on in it. Off — game mode drops it
-            Row {
-                spacing: 12
-                Toggle { span: 220; text: "auto game mode"; on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
-                Lb { leftPadding: 16; rightPadding: 4; anchors.verticalCenter: parent.verticalCenter; text: "in a game" }
-                Toggle { span: 130; text: "gaps"; on: root.r.gameGaps; onFlip: { root.r.gameGaps = !root.r.gameGaps; Theme.apply(); } }
-                Toggle { span: 130; text: "motion"; on: root.r.gameMotion; onFlip: { root.r.gameMotion = !root.r.gameMotion; Rules.motion(); } }
-                Toggle { span: 130; text: "blur"; on: root.r.gameBlur; onFlip: { root.r.gameBlur = !root.r.gameBlur; Theme.apply(); } }
-                Toggle { span: 130; text: "shadow"; on: root.r.gameShadow; onFlip: { root.r.gameShadow = !root.r.gameShadow; Theme.apply(); } }
-                Toggle { span: 130; text: "quiet"; on: root.r.gameDnd; onFlip: root.r.gameDnd = !root.r.gameDnd }
+            Lb { topPadding: 40; bottomPadding: 4; text: "effects" }
+            Opt {
+                title: "Blur"
+                hint: "Frosted glass behind see-through windows."
+                about: "What sits behind a see-through window is blurred so its text stays readable. Uses a little more graphics power."
+                value: root.r.blur ? "on" : "off"
+                Switch { on: root.r.blur; onFlip: win.flip("blur") }
+            }
+            Opt {
+                title: "Shadow"
+                hint: "A soft shadow under each window."
+                about: "Lifts windows off the wallpaper so their edges are easier to see."
+                value: root.r.shadow ? "on" : "off"
+                Switch { on: root.r.shadow; onFlip: win.flip("shadow") }
+            }
+            Opt {
+                title: "Animations"
+                hint: "Windows glide when they open, close or move."
+                about: "Off makes every change instant. The preview here follows it too."
+                value: root.r.motion ? "on" : "off"
+                preview: win.desk
+                Switch { on: root.r.motion; onFlip: win.flip("motion", true) }
+            }
+
+            Lb { topPadding: 40; bottomPadding: 4; text: "game mode" }
+            Opt {
+                title: "Start by itself"
+                hint: "Turns game mode on when a game goes fullscreen."
+                about: "Game mode trims the effects below to give the game more power, and puts everything back when the game closes."
+                value: Theme.state.autoGame ? "on" : "off"
+                Switch { on: Theme.state.autoGame; onFlip: Theme.state.autoGame = !Theme.state.autoGame }
+            }
+            Opt {
+                title: "Keep gaps in games"
+                hint: "Keeps gaps, border and corners while a game runs."
+                about: "Off makes windows flat and edge to edge during game mode."
+                value: root.r.gameGaps ? "kept" : "dropped"
+                Switch { on: root.r.gameGaps; onFlip: win.flip("gameGaps") }
+            }
+            Opt {
+                title: "Keep animations in games"
+                hint: "Windows still glide during game mode."
+                about: "Off makes window changes instant while a game runs."
+                value: root.r.gameMotion ? "kept" : "dropped"
+                Switch { on: root.r.gameMotion; onFlip: win.flip("gameMotion", true) }
+            }
+            Opt {
+                title: "Keep blur in games"
+                hint: "Frosted glass stays on during game mode."
+                about: "Off saves graphics power for the game."
+                value: root.r.gameBlur ? "kept" : "dropped"
+                Switch { on: root.r.gameBlur; onFlip: win.flip("gameBlur") }
+            }
+            Opt {
+                title: "Keep shadows in games"
+                hint: "Window shadows stay on during game mode."
+                about: "Off saves a little graphics power for the game."
+                value: root.r.gameShadow ? "kept" : "dropped"
+                Switch { on: root.r.gameShadow; onFlip: win.flip("gameShadow") }
+            }
+            Opt {
+                title: "Quiet while gaming"
+                hint: "Do not disturb turns on when a game starts by itself."
+                about: "Notifications wait until you finish. Only applies when game mode starts by itself."
+                value: root.r.gameDnd ? "on" : "off"
+                Switch { on: root.r.gameDnd; onFlip: root.r.gameDnd = !root.r.gameDnd }
             }
         }
 
