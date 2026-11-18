@@ -10,10 +10,23 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 ### Settings
 
+- New: every page in Prefs and System is laid out the same way. Settings are rows on the left, each with a one-line explanation in plain words. On the right, an inspector shows the value large, what the setting does, and a live preview where one helps (the repeat rate as a held key, idle times on a minute scale, the desktop recolored by a palette).
+- New: one way to move with the keyboard everywhere. ↑↓ go row to row, ←→ change the value, → or ↵ on a row without a control (Wi-Fi networks, Bluetooth devices, drives, default apps, BAR's buttons, HOME's grid) moves into its inspector, and esc goes back to the row, then to the sections, then closes.
+- New: lists in System are one row per item. A network's address, connect, settings and forget, a Bluetooth device's pairing, name and trust, and a drive's mount and safely remove are in its inspector. A network's full settings open in place of the list; esc closes them.
+- Fixed: Wi-Fi scanning, Bluetooth discovery or a notification sound no longer throw the keyboard focus out of the list you're in.
+- Fixed: ↑↓ no longer get stuck in a text box, such as the computer's name or a firewall port.
+- Removed: the "all" shortcut in LOOK. Every option it covered has its own row.
+
+### Home
+
+- New: put any widget in any cell of the 3 × 3 grid instead of a fixed order. In Prefs → HOME, drag a widget onto a cell, or select it and move it with Shift and the arrows. Landing on another widget swaps the two; a free cell is kept free. Layouts from before keep their order.
+
 - Fixed: long labels on switches in Prefs, the wallpaper picker and System dialogs ran out of the switch. A switch now widens to fit its label.
 
 ### Bar
 
+- New: auto-hide works with the bar on top too, not only on the sides.
+- New: **outline** and **glow** for the bar, like the windows' border and glow. Find them under outline in Prefs → BAR.
 - New: auto-hide can hide the bar only while the workspace has windows, so an empty desktop keeps it. Turn on **only over windows** under the hide toggles in Prefs → BAR. A panel opened by clicking the bar (launcher, quick settings, power, calendar) now keeps a hidden bar on screen until it closes. From #32 by malievo.
 - Fixed: with more than one monitor, each bar's workspace dots now show that monitor's own workspace instead of the focused one, and clicking a dot switches workspaces on that monitor. On workspaces 11 and up, the dots and the wheel follow that group of ten. From #21 by malievo.
 
