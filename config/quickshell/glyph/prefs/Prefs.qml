@@ -8,6 +8,7 @@ import qs
 import qs.components
 import qs.services
 import qs.settings
+import "../bento.js" as Bento
 
 // the glyph rice look: from System («customize the rice»; Super+I opens System). Not a form, but objects. On the left a column of Doto words, like in the power menu, — the selected one large, with a red
 // dot. On the right the section, live: home — a 3 × 3 bento layout, deck — a screen with a panel at the edge, windows — a desktop with gaps,
@@ -22,7 +23,7 @@ PanelWindow {
     signal wallRequested // wallpapers — their own screen (wall/Walls), shell.qml opens it
     readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
-    readonly property var hints: [moves, moves, moves, "", "", "", ""]
+    readonly property var hints: ["shift + arrows move · ↵ swap · del drop · drag", moves, moves, "", "", "", ""]
     readonly property var r: Rules.store
     // the shown page, when it's a rows page (Sheet: has owns())
     readonly property Item page: [home, deck, bar, look, tint, win, shl][sel] ?? null
@@ -118,22 +119,6 @@ PanelWindow {
         if (e.key === Qt.Key_Delete || e.key === Qt.Key_Backspace) return cut(key, cur);
         return -1;
     }
-    // bento layout, like home's (and like grid-auto-flow in the concept): left to right, top to bottom; doesn't fit in a row — from the next one,
-    // the hole stays; three rows, beyond that — skipped
-    function pack(ids) {
-        let row = 0, col = 0;
-        return ids.map((w, i) => {
-            const span = Theme.kinds[w] ?? 1;
-            if (col + span > 3) {
-                row++;
-                col = 0;
-            }
-            const c = { id: w, i, row, col, span, fits: row < 3 };
-            col += span;
-            return c;
-        });
-    }
-
     SystemClock { id: clock; enabled: root.visible; precision: SystemClock.Minutes }
     readonly property string hello: { const h = clock.date.getHours(); return h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; }
     readonly property string who: (Theme.state.name || Quickshell.env("USER")).replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -223,35 +208,95 @@ PanelWindow {
             id: home
             on: root.sel === 0
             caption: "home"
-            readonly property var cells: root.pack(Theme.state.widgets)
+            readonly property var cells: Bento.layout(Theme.state.widgets, Theme.state.widgetAt, Theme.kinds)
             readonly property var placed: cells.filter(c => c.fits)
             readonly property var off: cells.filter(c => !c.fits)
             readonly property int used: placed.reduce((a, c) => a + c.span, 0)
-            readonly property var cur_: cells[cur] ?? null
-            property int cur: 0
+            // which cell each grid cell belongs to (an index into cells, -1 — empty)
+            readonly property var occ: {
+                const g = Array(9).fill(-1);
+                cells.forEach((o, n) => { if (o.fits) for (let k = 0; k < o.span; k++) g[o.row * 3 + o.col + k] = n; });
+                return g;
+            }
+            property int cur: 0 // the selected grid cell, 0–8; a widget is selected when it covers it
+            readonly property var cur_: cells[occ[cur]] ?? null
+            readonly property var all: Object.keys(Theme.kinds)
+
+            // save the widgets and where they sit; everything placed is pinned, so later edits don't reflow it. `first` wins its cell
+            function save(ids, at, first) {
+                Theme.state.widgetAt = Bento.cellsOf(Bento.layout(ids, at, Theme.kinds, first));
+                if (ids !== Theme.state.widgets) Theme.state.widgets = ids;
+            }
+            function moveTo(id, c) {
+                const at = Bento.move(Theme.state.widgets, Theme.state.widgetAt, Theme.kinds, id, c);
+                Theme.state.widgetAt = at;
+                if (at[id] !== undefined) cur = at[id];
+            }
+            // put kind id into cell c (it flows elsewhere if it doesn't fit there)
+            function add(id, c) {
+                if (!id || Theme.state.widgets.includes(id)) return;
+                save(Theme.state.widgets.concat([id]), Object.assign(Bento.cellsOf(cells), { [id]: c }), id);
+                const at = Theme.state.widgetAt[id];
+                if (at !== undefined) cur = at;
+            }
+            function drop(id) { save(Theme.state.widgets.filter(w => w !== id), Bento.cellsOf(cells)); }
+            // ↵ or a second click: the next kind not on home yet, in the same cell
+            function swapKind(o) {
+                const a = Theme.state.widgets;
+                if (all.every(k => a.includes(k))) return;
+                let j = all.indexOf(o.id);
+                do j = (j + 1) % all.length; while (a.includes(all[j]));
+                const at = Bento.cellsOf(cells);
+                if (at[o.id] !== undefined) at[all[j]] = at[o.id];
+                delete at[o.id];
+                save(a.map(w => w === o.id ? all[j] : w), at, all[j]);
+            }
+            function tap(i) {
+                const o = cells.find(x => x.i === i);
+                grid?.forceActiveFocus();
+                if (!o?.fits) return;
+                if (cur_?.id === o.id) swapKind(o);
+                else cur = o.row * 3 + o.col;
+            }
+            function keys(e) {
+                const l = e.key === Qt.Key_Left, r = e.key === Qt.Key_Right, u = e.key === Qt.Key_Up, d = e.key === Qt.Key_Down;
+                const o = cur_, start = o ? o.row * 3 + o.col : cur;
+                if ((e.modifiers & Qt.ShiftModifier) && (l || r || u || d)) {
+                    // move the selected widget a cell or a row, never across a row's end
+                    if (o && !(l && o.col === 0) && !(r && o.col + o.span >= 3) && !(u && o.row === 0) && !(d && o.row === 2))
+                        moveTo(o.id, start + (l ? -1 : r ? 1 : u ? -3 : 3));
+                }
+                else if (r) cur = (o ? start + o.span : cur + 1) % 9;
+                else if (l) {
+                    const n = ((o ? start : cur) + 8) % 9, w = cells[occ[n]];
+                    cur = w ? w.row * 3 + w.col : n;
+                }
+                else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) {
+                    if (o) swapKind(o);
+                    else add(all.find(k => !Theme.state.widgets.includes(k)), cur);
+                }
+                else if (o && (e.key === Qt.Key_Delete || e.key === Qt.Key_Backspace)) drop(o.id);
+                else return;
+                e.accepted = true;
+            }
             property Item grid: null // the editor's grid, while the inspector shows it (Tile reaches it from outside that component)
             readonly property real cell: 104
             readonly property real gap: 12
             readonly property real u: cell + gap // one grid step
 
-            function tap(i) {
-                grid?.forceActiveFocus();
-                cur = cur === i ? root.cycle("widgets", i, Object.keys(Theme.kinds)) : i;
-            }
-            // dropped at grid point p: on a widget — its place, on an empty cell — after the last one before it; outside the grid — nothing
+            // dropped with its center at grid point p: its left end goes to the nearest cell (outside the grid — nothing)
             function land(i, p) {
-                if (p.x < 0 || p.y < 0 || p.x > grid.width || p.y > grid.height) return;
-                const at = Math.min(2, Math.floor(p.y / u)) * 3 + Math.min(2, Math.floor(p.x / u));
-                const hit = placed.find(c => c.row * 3 + c.col <= at && at < c.row * 3 + c.col + c.span);
-                const n = placed.filter(c => c.row * 3 + c.col < at).length; // the ones that fit — always the start of the list
-                cur = root.move("widgets", i, hit ? hit.i : i < n ? n - 1 : n);
+                const o = cells.find(x => x.i === i);
+                if (!o || p.x < -u / 2 || p.y < -u / 2 || p.x > grid.width + u / 2 || p.y > grid.height + u / 2) return;
+                const col = Math.round((p.x - (o.span * u - gap) / 2) / u), row = Math.round((p.y - cell / 2) / u);
+                moveTo(o.id, Math.max(0, Math.min(2, row)) * 3 + Math.max(0, Math.min(2, col)));
             }
 
             Lb { topPadding: 8; bottomPadding: 4; text: "layout" }
             Opt {
                 title: "Widgets"
                 hint: "Which widgets sit on home, and where. → to edit it on the right."
-                about: "Home is a 3 × 3 grid. Click a circle in the tray to add or remove a widget. Drag a tile, or Shift ←→, to move it. ↵ swaps it for the next kind, Del drops it. What doesn't fit waits beside the grid."
+                about: "Home is a 3 × 3 grid, and any widget can go in any cell. Drag a tile where you want it, or select it and use Shift with the arrows. Landing on another widget swaps the two. Pick an empty cell and press ↵, or click a circle in the tray, to add one there. Del removes it."
                 value: `${home.used}/9`
                 preview: Component {
                     Column {
@@ -265,12 +310,7 @@ PanelWindow {
                                 activeFocusOnTab: true
                                 Component.onCompleted: home.grid = g
                                 Component.onDestruction: if (home.grid === g) home.grid = null
-                                Keys.onPressed: e => {
-                                    const c = root.nav(e, "widgets", home.cur, Object.keys(Theme.kinds));
-                                    if (c < 0) return;
-                                    home.cur = c;
-                                    e.accepted = true;
-                                }
+                                Keys.onPressed: e => home.keys(e)
                                 Repeater {
                                     model: 9
                                     Dots {
@@ -279,7 +319,25 @@ PanelWindow {
                                         y: Math.floor(index / 3) * home.u
                                         scale: home.cell / 168 // Dots is drawn for a 168 cell
                                         transformOrigin: Item.TopLeft
+                                        // an empty cell: a click selects it, ↵ then adds a widget there
+                                        TapHandler {
+                                            onTapped: {
+                                                g.forceActiveFocus();
+                                                if (home.occ[parent.index] < 0) home.cur = parent.index;
+                                            }
+                                        }
                                     }
+                                }
+                                // the cursor on an empty cell
+                                Rectangle {
+                                    visible: !home.cur_
+                                    x: home.cur % 3 * home.u
+                                    y: Math.floor(home.cur / 3) * home.u
+                                    width: home.cell
+                                    height: home.cell
+                                    radius: Theme.corner(home.cell * 0.18)
+                                    color: "transparent"
+                                    border { width: g.activeFocus ? 2 : 1; color: g.activeFocus ? Theme.fg : Theme.mute }
                                 }
                                 Repeater {
                                     model: home.placed
@@ -297,7 +355,7 @@ PanelWindow {
                                 Lb {
                                     width: parent.width
                                     elide: Text.ElideRight
-                                    text: !home.cur_ ? "empty · ↵ adds one" : `${home.cur_.id} · ${home.cur_.span} cell${home.cur_.span > 1 ? "s" : ""}${home.cur_.fits ? "" : " · off grid"}`
+                                    text: !home.cur_ ? "empty cell · ↵ adds one" : `${home.cur_.id} · ${home.cur_.span} cell${home.cur_.span > 1 ? "s" : ""}${home.cur_.fits ? "" : " · off grid"}`
                                     color: Theme.fg
                                 }
                                 Lb { topPadding: 16; text: home.off.length ? `off grid · ${home.off.length}` : "everything fits" }
@@ -318,7 +376,7 @@ PanelWindow {
                             used: Theme.state.widgets
                             dim: home.off.map(c => c.id)
                             widths: Theme.kinds
-                            onToggled: key => home.cur = root.flip("widgets", key, home.cur)
+                            onToggled: key => Theme.state.widgets.includes(key) ? home.drop(key) : home.add(key, home.cur)
                         }
                     }
                 }
@@ -1424,7 +1482,7 @@ PanelWindow {
         required property var modelData // { id, i, row, col, span, fits }
         property real cell: 168
         property real gap: 16
-        readonly property bool on: home.cur === modelData.i
+        readonly property bool on: modelData.fits && home.cur_?.id === modelData.id
         readonly property bool hot: on && !!home.grid?.activeFocus
         readonly property bool round: root.rounds.includes(modelData.id)
         width: modelData.span * cell + (modelData.span - 1) * gap
@@ -1468,7 +1526,7 @@ PanelWindow {
             target: null
             onActiveChanged: {
                 if (active) {
-                    home.cur = tile.modelData.i;
+                    if (tile.modelData.fits) home.cur = tile.modelData.row * 3 + tile.modelData.col;
                     return;
                 }
                 if (!home.grid) return;

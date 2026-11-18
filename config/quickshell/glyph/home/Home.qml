@@ -8,6 +8,7 @@ import Quickshell.Wayland
 import qs
 import qs.components
 import qs.services
+import "../bento.js" as Bento
 
 // the «home screen» on the bottom layer, transparent: a Doto clock, the greeting and a bento of widgets. The grid, orb and wallpaper — under it, in Back.
 // A window opened — everything goes under it by itself. System polling and animations — only while the workspace is empty
@@ -94,25 +95,13 @@ PanelWindow {
             }
         }
 
-        // bento: 220 cells, a 20 gap, a 3×3 grid. Which widgets and in what order — Theme.state.widgets (settings), widths —
-        // Theme.kinds. Laid out left to right: doesn't fit in a row — from the next one, doesn't fit in three rows — not shown.
-        // A square with 40 rounding or a circle — no other shapes
+        // bento: 220 cells, a 20 gap, a 3×3 grid. Which widgets — Theme.state.widgets, in which cell — Theme.state.widgetAt (settings),
+        // widths — Theme.kinds; bento.js lays them out. Doesn't fit — not shown. A square with 40 rounding or a circle — no other shapes
         Repeater {
             id: bento
-            model: {
-                const out = [];
-                let r = 0, c = 0;
-                for (const id of Theme.state.widgets ?? []) {
-                    const w = Theme.kinds[id];
-                    if (!w) continue;
-                    if (c + w > 3) { r++; c = 0; }
-                    if (r > 2) break;
-                    // bar on the right — the grid moves left by the bar's width, otherwise the right column would go under it
-                    out.push({ id, x: (Theme.barRight ? 1060 : 1140) + c * 240, y: 150 + r * 240 });
-                    c += w;
-                }
-                return out;
-            }
+            // bar on the right — the grid moves left by the bar's width, otherwise the right column would go under it
+            model: Bento.layout(Theme.state.widgets ?? [], Theme.state.widgetAt, Theme.kinds).filter(o => o.fits)
+                .map(o => ({ id: o.id, x: (Theme.barRight ? 1060 : 1140) + o.col * 240, y: 150 + o.row * 240 }))
             Loader {
                 // hidden (prefs → LOOK → on home) — fades, then unloads
                 opacity: Theme.state.homeBento ? 1 : 0

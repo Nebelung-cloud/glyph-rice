@@ -197,6 +197,7 @@ Singleton {
             property int unread: 0    // for the lock
             // ---- what the settings (prefs) change ----
             property var widgets: ["weather", "calendar", "cpu", "player", "buds", "system"] // the home bento in order, see kinds
+            property var widgetAt: ({})    // … where each sits: id → cell 0–8 (bento.js); one without a cell flows in after the others
             property bool clock24: true
             property bool blink: true      // the clock colon blinks
             property string name: ""       // in the greeting; empty — $USER
