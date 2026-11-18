@@ -26,6 +26,9 @@ FocusScope {
     width: parent?.width ?? 620
     height: (wide ? words.height + 16 + slot.height : Math.max(words.height, slot.height)) + 36
     activeFocusOnTab: !slot.children.length
+    Keys.onPressed: e => {
+        if (!slot.children.length && [Qt.Key_Right, Qt.Key_Return, Qt.Key_Enter].includes(e.key) && host?.edit()) e.accepted = true;
+    }
 
     // the focused row: a white bar at its left
     Rectangle {
@@ -68,6 +71,6 @@ FocusScope {
     }
     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.s2 }
 
-    HoverHandler { id: hover; onHoveredChanged: if (hovered && root.host) root.host.hot = root }
+    HoverHandler { id: hover; onHoveredChanged: if (hovered && root.host && !root.host.editing) root.host.hot = root }
     TapHandler { onTapped: (slot.children[0] ?? root).forceActiveFocus() }
 }

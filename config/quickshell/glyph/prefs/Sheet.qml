@@ -24,6 +24,19 @@ Item {
     }
     onOnChanged: scroll = 0
     function back() { return false; }
+    // a row with no control of its own keeps its editor in the inspector (BAR's buttons, HOME's grid): → or ↵ moves into it, ↑↓ stay
+    // inside, esc goes back to the row. While editing, hovering other rows doesn't swap the editor away
+    readonly property bool editing: ins.activeFocus
+    function inEditor(it) {
+        for (; it; it = it.parent) if (it === ins) return true;
+        return false;
+    }
+    function edit() {
+        const it = ins.item, f = it?.activeFocusOnTab ? it : it?.nextItemInFocusChain(true);
+        if (!inEditor(f)) return false;
+        f.forceActiveFocus();
+        return true;
+    }
     function owns(it) {
         for (; it; it = it.parent) if (it === root) return true;
         return false;
@@ -70,6 +83,6 @@ Item {
             color: Theme.grey
         }
         Item { width: 1; height: 12 }
-        Loader { sourceComponent: root.shown?.preview ?? null }
+        Loader { id: ins; sourceComponent: root.shown?.preview ?? null }
     }
 }

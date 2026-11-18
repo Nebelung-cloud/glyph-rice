@@ -22,10 +22,10 @@ PanelWindow {
     signal wallRequested // wallpapers — their own screen (wall/Walls), shell.qml opens it
     readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
-    readonly property var hints: [moves, moves, "", "", "", "", ""]
+    readonly property var hints: [moves, moves, moves, "", "", "", ""]
     readonly property var r: Rules.store
     // the shown page, when it's a rows page (Sheet: has owns())
-    readonly property Item page: [null, null, bar, look, tint, win, shl][sel] ?? null
+    readonly property Item page: [home, deck, bar, look, tint, win, shl][sel] ?? null
     readonly property bool paged: !!page
 
     // glyphs for the home widgets, deck sections and the bar tray
@@ -176,6 +176,12 @@ PanelWindow {
                 // row to row: a row's own controls (swatches) are walked with ←→, so skip past them; going up, land on the row's first
                 const rowOf = it => { for (; it; it = it.parent) if (it.about !== undefined) return it; return null; };
                 const cur = stage.Window.activeFocusItem, row = rowOf(cur);
+                if (root.page.inEditor(cur)) { // inside an editor: stay in it
+                    const n = cur.nextItemInFocusChain(down);
+                    if (root.page.inEditor(n)) n.forceActiveFocus();
+                    e.accepted = true;
+                    return;
+                }
                 let next = cur?.nextItemInFocusChain(down);
                 while (next && row && next !== cur && rowOf(next) === row) next = next.nextItemInFocusChain(down);
                 const q = up ? rowOf(next) : null;
@@ -185,6 +191,7 @@ PanelWindow {
             else if (up) root.go(root.sel - 1);
             else if (down) root.go(root.sel + 1);
             else if ((e.key === Qt.Key_Right || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && stage.activeFocus) stage.nextItemInFocusChain(true)?.forceActiveFocus();
+            else if (e.key === Qt.Key_Escape && root.paged && root.page.editing && root.page.hot) root.page.hot.forceActiveFocus();
             else if (e.key === Qt.Key_Escape && root.paged && !stage.activeFocus) stage.forceActiveFocus();
             else if (e.key === Qt.Key_Escape) root.leave();
             else return;
@@ -204,299 +211,336 @@ PanelWindow {
             x: 72
             anchors { bottom: parent.bottom; bottomMargin: 70 }
             spacing: 34
-            Lb { text: root.paged && !stage.activeFocus ? "↑↓ setting · ←→ change" : "↑↓ section · → enter" }
-            Lb { visible: !root.paged; text: "tab · ←→ change" }
-            Lb { visible: !!text; text: root.hints[root.sel] }
-            Lb { text: root.paged && !stage.activeFocus ? "esc sections" : root.fromSystem ? "esc back" : "esc close"; TapHandler { onTapped: root.leave() } }
+            Lb { text: root.paged && root.page.editing ? "↑↓ part · ←→ pick" : root.paged && !stage.activeFocus ? "↑↓ setting · ←→ change" : "↑↓ section · → enter" }
+            Lb { visible: !!text && root.paged && root.page.editing; text: root.hints[root.sel] }
+            Lb { text: root.paged && root.page.editing ? "esc rows" : root.paged && !stage.activeFocus ? "esc sections" : root.fromSystem ? "esc back" : "esc close"; TapHandler { onTapped: root.leave() } }
         }
 
-        // ---- HOME: home at a 168/220 scale — the same kinds, order and layout. Click — select, another click or ↵ — the next kind,
-        // drag — take the place of the one it's dropped on. What doesn't fit in 3 × 3 — a faded outline on the right ----
-        Page {
+        // ---- HOME: rows for the layout and the widgets' own options. The layout's editor lives in the inspector: home at a 104/220
+        // scale, the same kinds, order and layout. Click — select, another click or ↵ — the next kind, drag — take the place of the one
+        // it's dropped on. What doesn't fit in 3 × 3 — faded, beside the grid; the tray under it adds and removes kinds ----
+        Sheet {
             id: home
-            k: 0
-            caption: `home · bento 3 × 3 · ${used} of 9 cells`
+            on: root.sel === 0
+            caption: "home"
             readonly property var cells: root.pack(Theme.state.widgets)
             readonly property var placed: cells.filter(c => c.fits)
             readonly property var off: cells.filter(c => !c.fits)
             readonly property int used: placed.reduce((a, c) => a + c.span, 0)
             readonly property var cur_: cells[cur] ?? null
             property int cur: 0
+            property Item grid: null // the editor's grid, while the inspector shows it (Tile reaches it from outside that component)
+            readonly property real cell: 104
+            readonly property real gap: 12
+            readonly property real u: cell + gap // one grid step
 
             function tap(i) {
-                grid.forceActiveFocus();
+                grid?.forceActiveFocus();
                 cur = cur === i ? root.cycle("widgets", i, Object.keys(Theme.kinds)) : i;
             }
             // dropped at grid point p: on a widget — its place, on an empty cell — after the last one before it; outside the grid — nothing
             function land(i, p) {
                 if (p.x < 0 || p.y < 0 || p.x > grid.width || p.y > grid.height) return;
-                const at = Math.min(2, Math.floor(p.y / 184)) * 3 + Math.min(2, Math.floor(p.x / 184));
+                const at = Math.min(2, Math.floor(p.y / u)) * 3 + Math.min(2, Math.floor(p.x / u));
                 const hit = placed.find(c => c.row * 3 + c.col <= at && at < c.row * 3 + c.col + c.span);
                 const n = placed.filter(c => c.row * 3 + c.col < at).length; // the ones that fit — always the start of the list
                 cur = root.move("widgets", i, hit ? hit.i : i < n ? n - 1 : n);
             }
 
-            Row {
-                spacing: 60
-
-                Item {
-                    id: grid
-                    width: 536
-                    height: 536
-                    activeFocusOnTab: true
-                    Keys.onPressed: e => {
-                        const c = root.nav(e, "widgets", home.cur, Object.keys(Theme.kinds));
-                        if (c < 0) return;
-                        home.cur = c;
-                        e.accepted = true;
-                    }
-                    Repeater {
-                        model: 9
-                        Dots {
-                            required property int index
-                            x: index % 3 * 184
-                            y: Math.floor(index / 3) * 184
-                        }
-                    }
-                    Repeater {
-                        model: home.placed
-                        Tile {
-                            x: modelData.col * 184
-                            y: modelData.row * 184
-                        }
-                    }
-                }
-
-                Column {
-                    width: 404
-                    spacing: 12
-                    Lb { text: "cells" }
-                    Row {
-                        spacing: 10
-                        Num { id: usedN; text: home.used; font.pixelSize: 150 }
-                        Num { anchors.baseline: usedN.baseline; text: "/9"; font.pixelSize: 54; color: Theme.mute }
-                    }
-                    Lb {
-                        width: parent.width
-                        elide: Text.ElideRight
-                        text: !home.cur_ ? "empty · ↵ adds one" : `${home.cur_.id} · ${home.cur_.span} cell${home.cur_.span > 1 ? "s" : ""}${home.cur_.fits ? "" : " · off grid"}`
-                    }
-                    // the cat's gif (services/Gifs) — while the cat is selected. A click or ←→ when focused
+            Lb { topPadding: 8; bottomPadding: 4; text: "layout" }
+            Opt {
+                title: "Widgets"
+                hint: "Which widgets sit on home, and where. → to edit it on the right."
+                about: "Home is a 3 × 3 grid. Click a circle in the tray to add or remove a widget. Drag a tile, or Shift ←→, to move it. ↵ swaps it for the next kind, Del drops it. What doesn't fit waits beside the grid."
+                value: `${home.used}/9`
+                preview: Component {
                     Column {
-                        id: gifPick
-                        visible: home.cur_?.id === "cat"
-                        topPadding: 28
-                        spacing: 12
-                        Lb {
-                            width: 404
-                            elide: Text.ElideRight
-                            text: `gif · ${Gifs.name(Gifs.cur)} · ${Gifs.sel + 1} of ${Gifs.list.length}`
-                            color: gifStrip.activeFocus ? Theme.fg : Theme.grey
-                        }
-                        ListView {
-                            id: gifStrip
-                            width: 404
-                            height: 58
-                            orientation: ListView.Horizontal
-                            spacing: (width - 6 * 58) / 5 // exactly six in a row
-                            clip: true
-                            snapMode: ListView.SnapToItem
-                            boundsBehavior: Flickable.StopAtBounds
-                            keyNavigationEnabled: false
-                            activeFocusOnTab: true
-                            model: Gifs.list
-                            currentIndex: Gifs.sel
-                            onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
-                            Keys.onPressed: e => {
-                                if (e.key === Qt.Key_Left) Gifs.step(-1);
-                                else if (e.key === Qt.Key_Right) Gifs.step(1);
-                                else return;
-                                e.accepted = true;
-                            }
-                            delegate: Rectangle {
-                                id: th
-                                required property string modelData
-                                required property int index
-                                readonly property bool on: index === Gifs.sel
-                                width: 58
-                                height: 58
-                                radius: Theme.corner(width * 0.18)
-                                color: Theme.s1
-                                border { width: on ? 2 : 1; color: on ? Theme.fg : Theme.s2 }
-                                GifDots { anchors { fill: parent; margins: 6 } path: th.modelData; bg: th.color; playing: gifPick.visible && root.visible }
-                                TapHandler {
-                                    onTapped: {
-                                        Gifs.pick(th.modelData);
-                                        gifStrip.forceActiveFocus();
+                        spacing: 16
+                        Row {
+                            spacing: 30
+                            Item {
+                                id: g
+                                width: 3 * home.u - home.gap
+                                height: width
+                                activeFocusOnTab: true
+                                Component.onCompleted: home.grid = g
+                                Component.onDestruction: if (home.grid === g) home.grid = null
+                                Keys.onPressed: e => {
+                                    const c = root.nav(e, "widgets", home.cur, Object.keys(Theme.kinds));
+                                    if (c < 0) return;
+                                    home.cur = c;
+                                    e.accepted = true;
+                                }
+                                Repeater {
+                                    model: 9
+                                    Dots {
+                                        required property int index
+                                        x: index % 3 * home.u
+                                        y: Math.floor(index / 3) * home.u
+                                        scale: home.cell / 168 // Dots is drawn for a 168 cell
+                                        transformOrigin: Item.TopLeft
                                     }
                                 }
-                                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                                Repeater {
+                                    model: home.placed
+                                    Tile {
+                                        cell: home.cell
+                                        gap: home.gap
+                                        x: modelData.col * home.u
+                                        y: modelData.row * home.u
+                                    }
+                                }
+                            }
+                            Column {
+                                width: 300
+                                spacing: 12
+                                Lb {
+                                    width: parent.width
+                                    elide: Text.ElideRight
+                                    text: !home.cur_ ? "empty · ↵ adds one" : `${home.cur_.id} · ${home.cur_.span} cell${home.cur_.span > 1 ? "s" : ""}${home.cur_.fits ? "" : " · off grid"}`
+                                    color: Theme.fg
+                                }
+                                Lb { topPadding: 16; text: home.off.length ? `off grid · ${home.off.length}` : "everything fits" }
+                                Flow {
+                                    width: parent.width
+                                    spacing: 10
+                                    Repeater {
+                                        model: home.off
+                                        Tile { cell: 84; gap: 8 }
+                                    }
+                                }
                             }
                         }
-                    }
-                    Item { width: 1; height: 40 }
-                    Lb { text: home.off.length ? `off grid · ${home.off.length}` : "everything fits" }
-                    Flow {
-                        width: parent.width
-                        spacing: 10
-                        Repeater {
-                            model: home.off
-                            Tile { cell: 84; gap: 8 }
+                        Tray {
+                            room: 740
+                            ids: Object.keys(Theme.kinds)
+                            icons: root.icons
+                            used: Theme.state.widgets
+                            dim: home.off.map(c => c.id)
+                            widths: Theme.kinds
+                            onToggled: key => home.cur = root.flip("widgets", key, home.cur)
                         }
-                    }
-                    // the photo widget: only when it's on home. The shots — the first five in the folder (services/Photos)
-                    Column {
-                        visible: Theme.state.widgets.includes("photo")
-                        topPadding: 28
-                        spacing: 12
-                        Lb { width: 404; elide: Text.ElideMiddle; text: `photo · ${Photos.list.length} of ${Photos.most} in ${Photos.dir.replace(Quickshell.env("HOME"), "~")}` }
-                        Pick { label: "shape"; opts: ["square", "circle"]; cur: Theme.state.photoRound ? 1 : 0; onPicked: i => Theme.state.photoRound = i === 1 }
-                        Pick { label: "look"; opts: ["dots", "color dots", "color"]; cur: [0, 3, 2].indexOf(Theme.state.photoLook); onPicked: i => Theme.state.photoLook = [0, 3, 2][i] }
                     }
                 }
             }
 
-            Tray {
-                ids: Object.keys(Theme.kinds)
-                icons: root.icons
-                used: Theme.state.widgets
-                dim: home.off.map(c => c.id)
-                widths: Theme.kinds
-                onToggled: key => home.cur = root.flip("widgets", key, home.cur)
+            Lb {
+                visible: Theme.state.widgets.includes("cat") || Theme.state.widgets.includes("photo")
+                topPadding: 40
+                bottomPadding: 4
+                text: "widgets"
+            }
+            // the cat's gif (services/Gifs). ←→ step, a click picks
+            Opt {
+                visible: Theme.state.widgets.includes("cat")
+                wide: true
+                title: "Cat animation"
+                hint: "What the cat widget plays."
+                about: "Your own GIFs show up here too, drawn in dots like the cat. ←→ steps through them, a click picks one."
+                value: Gifs.name(Gifs.cur)
+                preview: Component {
+                    Rectangle {
+                        width: 260
+                        height: 260
+                        radius: Theme.corner(46)
+                        color: Theme.s1
+                        GifDots { anchors { fill: parent; margins: 24 } path: Gifs.cur; bg: parent.color; playing: home.on && root.visible }
+                    }
+                }
+                ListView {
+                    id: gifStrip
+                    width: 404
+                    height: 58
+                    orientation: ListView.Horizontal
+                    spacing: (width - 6 * 58) / 5 // exactly six in a row
+                    clip: true
+                    snapMode: ListView.SnapToItem
+                    boundsBehavior: Flickable.StopAtBounds
+                    keyNavigationEnabled: false
+                    activeFocusOnTab: true
+                    model: Gifs.list
+                    currentIndex: Gifs.sel
+                    onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+                    Keys.onPressed: e => {
+                        if (e.key === Qt.Key_Left) Gifs.step(-1);
+                        else if (e.key === Qt.Key_Right) Gifs.step(1);
+                        else return;
+                        e.accepted = true;
+                    }
+                    delegate: Rectangle {
+                        id: th
+                        required property string modelData
+                        required property int index
+                        readonly property bool on: index === Gifs.sel
+                        width: 58
+                        height: 58
+                        radius: Theme.corner(width * 0.18)
+                        color: Theme.s1
+                        border { width: on ? 2 : gifStrip.activeFocus ? 1 : 1; color: on ? Theme.fg : Theme.s2 }
+                        GifDots { anchors { fill: parent; margins: 6 } path: th.modelData; bg: th.color; playing: home.on && root.visible }
+                        TapHandler {
+                            onTapped: {
+                                Gifs.pick(th.modelData);
+                                gifStrip.forceActiveFocus();
+                            }
+                        }
+                        HoverHandler { cursorShape: Qt.PointingHandCursor }
+                    }
+                }
+            }
+            // the photo widget: the shots — the first five in the folder (services/Photos)
+            Opt {
+                visible: Theme.state.widgets.includes("photo")
+                title: "Photo shape"
+                hint: `Shows ${Photos.list.length} of ${Photos.most} pictures from ${Photos.dir.replace(Quickshell.env("HOME"), "~")}.`
+                about: "The photo widget cycles through the first pictures in that folder. Square fills its tile, circle crops each picture round."
+                value: Theme.state.photoRound ? "circle" : "square"
+                Pick { opts: ["square", "circle"]; cur: Theme.state.photoRound ? 1 : 0; onPicked: i => Theme.state.photoRound = i === 1 }
+            }
+            Opt {
+                visible: Theme.state.widgets.includes("photo")
+                title: "Photo look"
+                hint: "Dots, colored dots, or the plain picture."
+                about: "Dots draws the picture in white dots like the rest of home. Color dots keeps its colors. Color shows the picture as it is."
+                value: ["dots", "color dots", "color"][Math.max(0, [0, 3, 2].indexOf(Theme.state.photoLook))]
+                Pick { opts: ["dots", "color dots", "color"]; cur: [0, 3, 2].indexOf(Theme.state.photoLook); onPicked: i => Theme.state.photoLook = [0, 3, 2][i] }
             }
         }
 
-        // ---- DECK: a screen, the deck at the bottom center, quick settings on the right; both slide out on hovering their edge.
-        // Deck sections in order, like in the panel; the tray — which ones exist ----
-        Page {
+        // ---- DECK: the sections as a row whose editor lives in the inspector: a screen with the deck at the bottom center, its
+        // sections in order like in the panel, the tray under it — which ones exist. Then the edges that open it and quick settings ----
+        Sheet {
             id: deck
-            k: 1
-            caption: `deck · ${Theme.state.deck.length} of ${Theme.decks.length} sections · bottom edge`
+            on: root.sel === 1
+            caption: "deck"
             property int cur: 0
             // dragging section from (-1 — none): dx — the cursor offset in layout px, at — where it is in the strip, to — where it'll land
             property int from: -1
             property real dx: 0
             readonly property real at: Math.max(10, Math.min(10 + (Theme.state.deck.length - 1) * 104, 10 + from * 104 + dx))
             readonly property int to: Math.round((at - 10) / 104)
+            readonly property Component edges: Component { Edges {} }
 
-            Row {
-                spacing: 40
-
-                Mini {
-                    // the edges that catch the cursor: bottom — the deck, right — quick settings
-                    Seg {
-                        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 8 }
-                        width: 320
-                        height: 4
-                        n: 24
-                        f: Theme.state.deckHover ? 1 : 0
-                    }
-                    Seg {
-                        anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
-                        width: 4
-                        height: 240
-                        n: 16
-                        vertical: true
-                        f: Theme.state.quickHover ? 1 : 0
-                    }
-
-                    Rectangle {
-                        id: strip
-                        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 30 }
-                        width: Math.max(1, Theme.state.deck.length) * 104 + 20
-                        height: 116
-                        radius: Theme.corner(40)
-                        color: Theme.s1
-                        border { width: 1; color: strip.activeFocus ? Theme.fg : Theme.s2 }
-                        Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-                        activeFocusOnTab: true
-                        Keys.onPressed: e => {
-                            const c = root.nav(e, "deck", deck.cur, Theme.decks);
-                            if (c < 0) return;
-                            deck.cur = c;
-                            e.accepted = true;
-                        }
-
-                        Lb { visible: !Theme.state.deck.length; anchors.centerIn: parent; text: "empty" }
-                        Repeater {
-                            model: Theme.state.deck
-                            Item {
-                                id: ds
-                                required property string modelData
-                                required property int index
-                                readonly property bool on: deck.cur === index
-                                readonly property bool hot: on && strip.activeFocus
-                                // while dragging: this one follows the cursor, the ones between it and the drop spot — a step toward its place
-                                readonly property int slot: deck.from < 0 ? index
-                                    : index > deck.from && index <= deck.to ? index - 1
-                                    : index < deck.from && index >= deck.to ? index + 1 : index
-                                x: dd.active ? deck.at : 10 + slot * 104
-                                width: 104
-                                height: strip.height
-                                z: dd.active ? 1 : 0
-                                Behavior on x {
-                                    enabled: !dd.active
-                                    NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
+            Lb { topPadding: 8; bottomPadding: 4; text: "sections" }
+            Opt {
+                title: "Sections"
+                hint: "What the deck holds, and in what order. → to edit it on the right."
+                about: "The deck is the panel at the bottom of the screen. Click a circle in the tray to add or remove a section. Drag along the deck, or Shift ←→, to reorder. ↵ swaps it for another, Del drops it."
+                value: `${Theme.state.deck.length}/${Theme.decks.length}`
+                preview: Component {
+                    Column {
+                        spacing: 30
+                        Edges {
+                            Rectangle {
+                                id: strip
+                                anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 30 }
+                                width: Math.max(1, Theme.state.deck.length) * 104 + 20
+                                height: 116
+                                radius: Theme.corner(40)
+                                color: Theme.s1
+                                border { width: 1; color: strip.activeFocus ? Theme.fg : Theme.s2 }
+                                Behavior on width { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
+                                activeFocusOnTab: true
+                                Keys.onPressed: e => {
+                                    const c = root.nav(e, "deck", deck.cur, Theme.decks);
+                                    if (c < 0) return;
+                                    deck.cur = c;
+                                    e.accepted = true;
                                 }
 
-                                Column {
-                                    anchors.centerIn: parent
-                                    spacing: 10
-                                    Rectangle {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        width: 56
-                                        height: 56
-                                        radius: 28
-                                        color: ds.hot ? Theme.fg : Theme.s2
-                                        border { width: ds.on && !ds.hot ? 1 : 0; color: Theme.fg }
-                                        Icon { anchors.centerIn: parent; text: root.icons[ds.modelData] ?? ""; font.pixelSize: 24; color: ds.hot ? Theme.ink : Theme.fg }
-                                    }
-                                    Lb { anchors.horizontalCenter: parent.horizontalCenter; text: ds.modelData; px: 10; color: ds.on ? Theme.fg : Theme.grey }
-                                }
-                                TapHandler {
-                                    onTapped: {
-                                        strip.forceActiveFocus();
-                                        deck.cur = deck.cur === ds.index ? root.cycle("deck", ds.index, Theme.decks) : ds.index;
-                                    }
-                                }
-                                DragHandler {
-                                    id: dd
-                                    target: null
-                                    yAxis.enabled: false
-                                    // without a target the offset is in scene px, and Stage is scaled
-                                    onActiveTranslationChanged: deck.dx = activeTranslation.x / Theme.s
-                                    onActiveChanged: {
-                                        if (active) {
-                                            deck.cur = ds.index;
-                                            deck.from = ds.index;
-                                            return;
+                                Lb { visible: !Theme.state.deck.length; anchors.centerIn: parent; text: "empty" }
+                                Repeater {
+                                    model: Theme.state.deck
+                                    Item {
+                                        id: ds
+                                        required property string modelData
+                                        required property int index
+                                        readonly property bool on: deck.cur === index
+                                        readonly property bool hot: on && strip.activeFocus
+                                        // while dragging: this one follows the cursor, the ones between it and the drop spot — a step toward its place
+                                        readonly property int slot: deck.from < 0 ? index
+                                            : index > deck.from && index <= deck.to ? index - 1
+                                            : index < deck.from && index >= deck.to ? index + 1 : index
+                                        x: dd.active ? deck.at : 10 + slot * 104
+                                        width: 104
+                                        height: strip.height
+                                        z: dd.active ? 1 : 0
+                                        Behavior on x {
+                                            enabled: !dd.active
+                                            NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide }
                                         }
-                                        // the drop — after the signal: changing the list recreates the sections, this one included
-                                        const from = deck.from, to = deck.to;
-                                        Qt.callLater(() => {
-                                            deck.from = -1;
-                                            deck.cur = root.move("deck", from, to);
-                                        });
+
+                                        Column {
+                                            anchors.centerIn: parent
+                                            spacing: 10
+                                            Rectangle {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                width: 56
+                                                height: 56
+                                                radius: 28
+                                                color: ds.hot ? Theme.fg : Theme.s2
+                                                border { width: ds.on && !ds.hot ? 1 : 0; color: Theme.fg }
+                                                Icon { anchors.centerIn: parent; text: root.icons[ds.modelData] ?? ""; font.pixelSize: 24; color: ds.hot ? Theme.ink : Theme.fg }
+                                            }
+                                            Lb { anchors.horizontalCenter: parent.horizontalCenter; text: ds.modelData; px: 10; color: ds.on ? Theme.fg : Theme.grey }
+                                        }
+                                        TapHandler {
+                                            onTapped: {
+                                                strip.forceActiveFocus();
+                                                deck.cur = deck.cur === ds.index ? root.cycle("deck", ds.index, Theme.decks) : ds.index;
+                                            }
+                                        }
+                                        DragHandler {
+                                            id: dd
+                                            target: null
+                                            yAxis.enabled: false
+                                            // without a target the offset is in scene px, and Stage is scaled
+                                            onActiveTranslationChanged: deck.dx = activeTranslation.x / Theme.s
+                                            onActiveChanged: {
+                                                if (active) {
+                                                    deck.cur = ds.index;
+                                                    deck.from = ds.index;
+                                                    return;
+                                                }
+                                                // the drop — after the signal: changing the list recreates the sections, this one included
+                                                const from = deck.from, to = deck.to;
+                                                Qt.callLater(() => {
+                                                    deck.from = -1;
+                                                    deck.cur = root.move("deck", from, to);
+                                                });
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
+                        Tray {
+                            room: 740
+                            ids: Theme.decks
+                            icons: root.icons
+                            used: Theme.state.deck
+                            onToggled: key => deck.cur = root.flip("deck", key, deck.cur)
+                        }
                     }
-                }
-
-                Column {
-                    spacing: 14
-                    Toggle { span: 200; text: "deck · hover"; on: Theme.state.deckHover; onFlip: Theme.state.deckHover = !Theme.state.deckHover }
-                    Toggle { span: 200; text: "quick · hover"; on: Theme.state.quickHover; onFlip: Theme.state.quickHover = !Theme.state.quickHover }
-                    Lb { topPadding: 6; text: "bottom edge · right edge"; px: 10 }
                 }
             }
 
-            Tray {
-                ids: Theme.decks
-                icons: root.icons
-                used: Theme.state.deck
-                onToggled: key => deck.cur = root.flip("deck", key, deck.cur)
+            Lb { topPadding: 40; bottomPadding: 4; text: "open by pointing" }
+            Opt {
+                title: "Deck on hover"
+                hint: "Rest the pointer on the bottom edge to open the deck."
+                about: "When on, pushing the pointer against the middle of the bottom edge slides the deck up. Off, that edge does nothing."
+                value: Theme.state.deckHover ? "on" : "off"
+                preview: deck.edges
+                Switch { on: Theme.state.deckHover; onFlip: Theme.state.deckHover = !Theme.state.deckHover }
+            }
+            Opt {
+                title: "Quick settings on hover"
+                hint: "Rest the pointer on the side edge to open quick settings."
+                about: "When on, pushing the pointer against the screen edge opens quick settings. With the bar on the right, this edge moves to the left."
+                value: Theme.state.quickHover ? "on" : "off"
+                preview: deck.edges
+                Switch { on: Theme.state.quickHover; onFlip: Theme.state.quickHover = !Theme.state.quickHover }
             }
         }
 
@@ -616,7 +660,7 @@ PanelWindow {
             Lb { topPadding: 40; bottomPadding: 4; text: "buttons" }
             Opt {
                 title: "Buttons in the bar"
-                hint: "What sits in the bar, and in what order. Edit it on the right."
+                hint: "What sits in the bar, and in what order. → to edit it on the right."
                 about: "Click a circle to add or remove it. Drag along the bar, or Shift ←→, to reorder. ↵ swaps the selected one for another, Del drops it."
                 value: `${Theme.state.bar.length}/${Theme.bars.length}`
                 preview: Component {
@@ -1280,19 +1324,24 @@ PanelWindow {
         }
     }
 
-    // the section on the right: only the selected one is visible (Tab goes only through visible ones), appears from the bottom up
-    component Page: Column {
-        required property int k
-        property string caption
-        x: 800
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: visible ? 0 : 24
-        visible: root.sel === k
-        opacity: visible ? 1 : 0
-        spacing: 28
-        Behavior on opacity { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-        Behavior on anchors.verticalCenterOffset { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
-        Lb { text: parent.caption }
+    // DECK: a screen with the edges that catch the pointer lit when they're on: bottom — the deck, right — quick settings
+    component Edges: Mini {
+        width: 700
+        Seg {
+            anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 8 }
+            width: 320
+            height: 4
+            n: 24
+            f: Theme.state.deckHover ? 1 : 0
+        }
+        Seg {
+            anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+            width: 4
+            height: 240
+            n: 16
+            vertical: true
+            f: Theme.state.quickHover ? 1 : 0
+        }
     }
 
     // a miniature of this screen in its real shape: the wallpaper as set, (apps) snapshots of the open windows where they sit, and the
@@ -1376,7 +1425,7 @@ PanelWindow {
         property real cell: 168
         property real gap: 16
         readonly property bool on: home.cur === modelData.i
-        readonly property bool hot: on && grid.activeFocus
+        readonly property bool hot: on && !!home.grid?.activeFocus
         readonly property bool round: root.rounds.includes(modelData.id)
         width: modelData.span * cell + (modelData.span - 1) * gap
         height: cell
@@ -1422,7 +1471,8 @@ PanelWindow {
                     home.cur = tile.modelData.i;
                     return;
                 }
-                const p = grid.mapFromItem(tile.parent, tile.x + tile.width / 2 + tile.dx, tile.y + tile.height / 2 + tile.dy);
+                if (!home.grid) return;
+                const p = home.grid.mapFromItem(tile.parent, tile.x + tile.width / 2 + tile.dx, tile.y + tile.height / 2 + tile.dy);
                 Qt.callLater(home.land, tile.modelData.i, p);
             }
         }
