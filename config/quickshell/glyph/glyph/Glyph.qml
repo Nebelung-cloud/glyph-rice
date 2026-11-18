@@ -14,8 +14,11 @@ import qs.components
 Scope {
     id: root
 
-    // вспышка и остров — под баром, если он сверху и есть на экране в фокусе (там они и встают)
+    // вспышка и остров — под баром, только пока он реально занимает место (autohide: скрытый бар не оставляет пустоты)
     readonly property bool underBar: Theme.state.barAt === "top" && Theme.scr(Hyprland.focusedMonitor?.name, "bar")
+        && (Sys.barVisible[Hyprland.focusedMonitor?.name] ?? true)
+    property real pad: underBar ? Math.ceil(78 * Theme.s) : 0
+    Behavior on pad { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
 
     // ---- справа: громкость и яркость ----
     property string kind: "vol"
@@ -104,7 +107,7 @@ Scope {
         id: top
         shown: !!root.note && Theme.state.edges
         anchors.top: true
-        margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
+        margins.top: root.pad
         implicitWidth: Math.ceil(640 * Theme.s)
         implicitHeight: Math.ceil(30 * Theme.s)
         Seg {
@@ -133,7 +136,7 @@ Scope {
     PanelWindow {
         visible: stack.count > 0
         anchors.top: true
-        margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
+        margins.top: root.pad
         implicitWidth: Math.ceil(600 * Theme.s)
         implicitHeight: Math.ceil((24 + root.most * 132) * Theme.s)
         exclusionMode: ExclusionMode.Ignore

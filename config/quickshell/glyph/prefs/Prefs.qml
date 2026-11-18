@@ -653,6 +653,8 @@ PanelWindow {
                     }
                     Item { width: 1; height: 12 }
                     Toggle { width: 200; text: "window title"; on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
+                    Pick { label: "auto-hide"; opts: ["always", "hidden"]; cur: ["always", "hidden"].indexOf(Theme.state.barMode); onPicked: i => Theme.state.barMode = ["always", "hidden"][i] }
+                    Dial { label: "hold · ms"; from: 200; to: 2000; step: 100; value: Theme.state.barHoldMs; onMoved: v => Theme.state.barHoldMs = v }
                     Lb { topPadding: 6; text: bar.onTop ? "left of the clock" : "above the clock"; px: 10 }
                 }
             }
