@@ -557,9 +557,27 @@ PanelWindow {
                 Switch { on: Theme.state.barTitle; onFlip: Theme.state.barTitle = !Theme.state.barTitle }
             }
 
-            Lb { visible: !bar.onTop; topPadding: 40; bottomPadding: 4; text: "auto-hide · experimental" }
+            Lb { topPadding: 40; bottomPadding: 4; text: "outline" }
+            Opt {
+                title: "Outline"
+                hint: "A bright edge around the bar, like a focused window's."
+                about: "Draws the bar's edge in the same white as the focused window's border. 0 keeps the faint grey hairline."
+                value: `${bOut.v} px`
+                preview: bar.mini
+                Dial { id: bOut; size: 72; to: 6; n: 24; value: Theme.state.barBorder; onMoved: v => Theme.state.barBorder = v }
+            }
+            Opt {
+                title: "Glow"
+                hint: "A soft light around the bar."
+                about: "The same soft white halo the windows get from their shadow, so the bar stands out over the wallpaper and windows."
+                value: Theme.state.barGlow ? "on" : "off"
+                preview: bar.mini
+                Switch { on: Theme.state.barGlow; onFlip: Theme.state.barGlow = !Theme.state.barGlow }
+            }
+
+            Lb { topPadding: 40; bottomPadding: 4; text: "auto-hide · experimental" }
             Repeater {
-                model: bar.onTop ? [] : Quickshell.screens
+                model: Quickshell.screens
                 Opt {
                     id: hideRow
                     required property var modelData
@@ -580,7 +598,7 @@ PanelWindow {
                 }
             }
             Opt {
-                visible: !bar.onTop && Theme.state.barHide.length > 0
+                visible: Theme.state.barHide.length > 0
                 title: "Only over windows"
                 hint: "Keeps the bar on an empty desktop."
                 about: "Hiding only starts once the workspace has a window on it. With nothing open, the bar stays where it is."
@@ -1306,9 +1324,10 @@ PanelWindow {
             width: onTop ? parent.width - 28 * u : 64 * u
             height: onTop ? 64 * u : parent.height - 28 * u
             radius: Theme.corner(Math.min(width, height) / 2)
-            color: Theme.s1 // like the real bar; the glowing edge makes it read over wallpaper and windows
-            border { width: 1; color: Theme.fg }
+            color: Theme.s1 // like the real bar: its outline and glow as set (BAR)
+            border { width: Theme.state.barBorder ? Math.max(1, Theme.state.barBorder * parent.k * Theme.s) : 1; color: Theme.state.barBorder ? Theme.fg : Theme.s3 }
             Rectangle {
+                visible: Theme.state.barGlow
                 anchors { fill: parent; margins: -2 }
                 radius: parent.radius + 2
                 color: "transparent"

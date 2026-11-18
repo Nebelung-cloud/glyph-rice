@@ -32,7 +32,7 @@ PanelWindow {
     // auto-hide, experimental, for OLEDs (burn-in): Theme.state.barHide lists the screens. Hidden: no exclusive zone, input only on a 2 px strip at the
     // edge. Rest there and the pill slides in over the windows; leave it and it slides back out. From Isaqdn03/glyph-rice
     // barHideBusy: hide only while this monitor's workspace has windows (from malievo, Nebelung-cloud/glyph-rice#32)
-    readonly property bool autoHide: vert && Theme.state.barHide.includes(screen?.name ?? "")
+    readonly property bool autoHide: Theme.state.barHide.includes(screen?.name ?? "")
         && (!Theme.state.barHideBusy || Hyprland.toplevels.values.some(t => t.workspace?.id === active))
     property bool hov: false
     readonly property bool shown: !autoHide || hov || powOpen || pop.visible || Sys.barMenu
@@ -43,7 +43,7 @@ PanelWindow {
     onAutoHideChanged: hov = false
     Timer { id: showT; interval: 150; onTriggered: root.hov = true }
     Timer { id: hideT; interval: 500; onTriggered: root.hov = false }
-    Item { id: hitEdge; x: root.right_ ? root.width - 2 : 0; width: 2; height: parent.height }
+    Item { id: hitEdge; x: root.right_ ? root.width - 2 : 0; width: root.vert ? 2 : parent.width; height: root.vert ? parent.height : 2 }
     Item { id: hitAll; anchors.fill: parent }
     color: "transparent"
     WlrLayershell.namespace: "glyph-bar"
@@ -97,17 +97,36 @@ PanelWindow {
                 else { showT.stop(); hideT.restart(); }
             }
         }
+        // the glow: its own shape under the pill, so the pill's text isn't rendered through a layer (blurry under Stage's scale)
+        Rectangle {
+            visible: Theme.state.barGlow && pill.visible
+            x: pill.x
+            y: pill.y
+            width: pill.width
+            height: pill.height
+            radius: pill.radius
+            color: Theme.s1
+            layer.enabled: visible
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: Theme.glow
+                shadowBlur: 0.7
+                blurMax: 20
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: 0
+            }
+        }
         Rectangle {
             id: pill
             // a 14 gap — on the screen-edge side; auto-hide slides it off that edge
             x: (root.right_ ? 0 : 14) + (root.vert ? (root.right_ ? 80 : -80) * (1 - root.slide) : 0)
             visible: root.slide > 0
-            y: 14
+            y: 14 + (root.vert ? 0 : -80 * (1 - root.slide))
             width: root.vert ? 64 : parent.width - 28
             height: root.vert ? parent.height - 28 : 64
             radius: Theme.corner(32)
             color: Theme.s1
-            border { width: 1; color: Theme.s2 }
+            border { width: Theme.state.barBorder || 1; color: Theme.state.barBorder ? Theme.fg : Theme.s2 }
 
             // the mark: a ring of dots, the center — red while something is recording
             Item {
