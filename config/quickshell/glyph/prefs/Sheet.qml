@@ -23,6 +23,18 @@ Item {
         else if (y + row.height > scroll + room) clampTo(y + row.height - room);
     }
     onOnChanged: scroll = 0
+    // hover picks the inspector's row only once the pointer really moves: rows scrolling under a resting pointer keep their scene
+    // position still, so they don't count. Keyboard focus on a row turns it off again (Opt)
+    property bool pointer: false
+    property point seen: Qt.point(-1, -1)
+    HoverHandler {
+        onPointChanged: {
+            const p = point.scenePosition;
+            if (p.x === root.seen.x && p.y === root.seen.y) return;
+            if (root.seen.x >= 0) root.pointer = true;
+            root.seen = p;
+        }
+    }
     // rows reveal themselves (Opt); anything else focused in the list — a form's fields (Network) — is scrolled to here
     Connections {
         target: root.Window.window
@@ -56,6 +68,9 @@ Item {
         while (next && next !== cur && (row && rowOf(next) === row || inEditor(next))) next = next.nextItemInFocusChain(down);
         const q = down ? null : rowOf(next);
         for (let p = next?.nextItemInFocusChain(false); q && p && p !== next && rowOf(p) === q; p = next.nextItemInFocusChain(false)) next = p;
+        // the focus chain is a loop: past the last row it would wrap to the first. Stop at the ends instead
+        const y = it => it.mapToItem(list, 0, 0).y;
+        if (next && cur && owns(cur) && (down ? y(next) < y(cur) : y(next) > y(cur))) return null;
         return ok(next) && !inEditor(next) ? next : null;
     }
     function edit() {

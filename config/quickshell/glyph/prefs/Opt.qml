@@ -18,7 +18,7 @@ FocusScope {
 
     readonly property bool lit: activeFocus || hover.hovered
     // each arrival, not `lit`: hovered and focused at once keeps lit true, so returning focus would leave the inspector on another row
-    onActiveFocusChanged: if (activeFocus && host) { host.hot = root; host.reveal(root); }
+    onActiveFocusChanged: if (activeFocus && host) { host.pointer = false; host.hot = root; host.reveal(root); }
     Component.onCompleted: {
         for (let p = parent; p; p = p.parent) if (p.hot !== undefined) { host = p; break; }
     }
@@ -71,6 +71,6 @@ FocusScope {
     }
     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.s2 }
 
-    HoverHandler { id: hover; onHoveredChanged: if (hovered && root.host && !root.host.editing) root.host.hot = root }
+    HoverHandler { id: hover; onHoveredChanged: if (hovered && root.host?.pointer && !root.host.editing) root.host.hot = root }
     TapHandler { onTapped: (slot.children[0] ?? root).forceActiveFocus() }
 }
