@@ -4,6 +4,10 @@ The newest changes come first. To get them, press **update everything** in Syste
 
 ## November 2026
 
+### Bluetooth
+
+- Fixed: earbuds paired from Quick could connect and drop at once, then show as unpaired again. Pairing now turns the adapter's pairable setting on for the attempt so the bond is kept, a paired device is only connected (never paired again), and after a first pairing Quick waits a moment and connects only if the buds didn't connect by themselves. Paired devices now sit in their own group above nearby ones. From #31 by rawnullbyte.
+
 ### Bar
 
 - Fixed: with more than one monitor, each bar's workspace dots now show that monitor's own workspace instead of the focused one, and clicking a dot switches workspaces on that monitor. On workspaces 11 and up, the dots and the wheel follow that group of ten. From #21 by malievo.
