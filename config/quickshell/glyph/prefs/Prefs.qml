@@ -25,7 +25,7 @@ PanelWindow {
     readonly property var hints: [moves, moves, "", "", "hover to preview · ↵ or click sets it", "", ""]
     readonly property var r: Rules.store
     // the shown page, when it's a rows page (Sheet: has owns())
-    readonly property Item page: [null, null, bar, look, null, win][sel] ?? null
+    readonly property Item page: [null, null, bar, look, null, win, shl][sel] ?? null
     readonly property bool paged: !!page
 
     // glyphs for the home widgets, deck sections and the bar tray
@@ -1188,40 +1188,55 @@ PanelWindow {
             }
         }
 
-        // ---- SHELL: the rice mark and the live shell's name; the switcher — the Rice app ----
-        Page {
-            k: 6
+        // ---- SHELL: the live shell's name and mark, reload, switch (the Rice app), do not disturb ----
+        Sheet {
+            id: shl
+            on: root.sel === 6
             caption: "shell · quickshell"
-
-            Row {
-                spacing: 50
+            readonly property Component mark: Component {
                 Item {
                     width: 260
                     height: 260
                     Ring { anchors.fill: parent; n: 16; dot: 14; f: 1 }
                     Rectangle { anchors.centerIn: parent; width: 52; height: 52; radius: 26; color: Theme.fg }
                 }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 18
-                    Lb { text: "running now" }
-                    Num { text: root.meta.name ?? "GLYPH"; font.pixelSize: 140 }
-                    Lb { text: root.meta.tagline ?? "" }
-                }
             }
-            Row {
-                spacing: 20
+
+            Opt {
+                title: "Running now"
+                hint: root.meta.tagline ?? "The desktop shell drawing the bar, panels and this screen."
+                about: "The shell is the program that draws the bar, the panels and this settings screen. Your apps run on their own and don't depend on it."
+                value: root.meta.name ?? "GLYPH"
+                preview: shl.mark
+            }
+            Opt {
+                title: "Reload"
+                hint: "Restart the shell to pick up changes."
+                about: "Reloads the bar and panels from their files. Open windows stay as they are. Handy after editing the shell by hand."
+                preview: shl.mark
+                Act { icon: "\u{F0450}"; text: "reload"; onHit: Quickshell.reload(false) }
+            }
+            Opt {
+                visible: root.shells > 1
+                title: "Switch shell"
+                hint: "Pick another installed shell."
+                about: "Opens the Rice app, where you choose which shell to run. This panel closes first."
+                preview: shl.mark
                 Act {
-                    visible: root.shells > 1
                     icon: "\u{F04E1}"
-                    text: "switch shell"
+                    text: "switch"
                     onHit: {
                         root.close();
                         Quickshell.execDetached(["qs", "-c", "rice"]);
                     }
                 }
-                Act { icon: "\u{F0450}"; text: "reload"; onHit: Quickshell.reload(false) }
-                Toggle { text: "do not disturb"; on: Theme.state.dnd; onFlip: Theme.state.dnd = !Theme.state.dnd }
+            }
+            Opt {
+                title: "Do not disturb"
+                hint: "Hold notifications instead of showing them."
+                about: "New notifications don't pop up while this is on. They still collect, so you can read them later. Urgent ones, like a low battery, still show."
+                value: Theme.state.dnd ? "on" : "off"
+                Switch { on: Theme.state.dnd; onFlip: Theme.state.dnd = !Theme.state.dnd }
             }
         }
     }

@@ -16,8 +16,8 @@ FocusScope {
     property Item host: null // the Sheet: the nearest ancestor with `hot`
 
     readonly property bool lit: activeFocus || hover.hovered
-    onLitChanged: if (lit && host) host.hot = root
-    onActiveFocusChanged: if (activeFocus && host) host.reveal(root)
+    // each arrival, not `lit`: hovered and focused at once keeps lit true, so returning focus would leave the inspector on another row
+    onActiveFocusChanged: if (activeFocus && host) { host.hot = root; host.reveal(root); }
     Component.onCompleted: {
         for (let p = parent; p; p = p.parent) if (p.hot !== undefined) { host = p; break; }
     }
@@ -66,6 +66,6 @@ FocusScope {
     }
     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.s2 }
 
-    HoverHandler { id: hover }
+    HoverHandler { id: hover; onHoveredChanged: if (hovered && root.host) root.host.hot = root }
     TapHandler { onTapped: (slot.children[0] ?? root).forceActiveFocus() }
 }
