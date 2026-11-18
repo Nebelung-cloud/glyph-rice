@@ -25,9 +25,8 @@ PanelWindow {
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property var hints: ["shift + arrows move · ↵ swap · del drop · drag", moves, moves, "", "", "", ""]
     readonly property var r: Rules.store
-    // the shown page, when it's a rows page (Sheet: has owns())
+    // the shown page (each is a Sheet); none while it loads
     readonly property Item page: [home, deck, bar, look, tint, win, shl][sel] ?? null
-    readonly property bool paged: !!page
 
     // glyphs for the home widgets, deck sections and the bar tray
     readonly property var icons: ({
@@ -153,18 +152,17 @@ PanelWindow {
         id: stage
         opacity: root.t
         focus: true
-        // the rail has the keys while the stage itself is focused; inside a rows page ↑↓ walk its rows and esc comes back here.
-        // Pages not yet in rows keep ↑↓ for sections
+        // the rail has the keys while the stage itself is focused; inside a page ↑↓ walk its rows and esc comes back here
         Keys.onPressed: e => {
             const up = e.key === Qt.Key_Up || e.key === Qt.Key_K, down = e.key === Qt.Key_Down || e.key === Qt.Key_J;
-            if ((up || down) && root.paged && !stage.activeFocus) {
+            if ((up || down) && root.page && !stage.activeFocus) {
                 root.page.walk(stage.Window.activeFocusItem, down)?.forceActiveFocus();
             }
             else if (up) root.go(root.sel - 1);
             else if (down) root.go(root.sel + 1);
             else if ((e.key === Qt.Key_Right || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && stage.activeFocus) stage.nextItemInFocusChain(true)?.forceActiveFocus();
-            else if (e.key === Qt.Key_Escape && root.paged && root.page.editing && root.page.hot) root.page.hot.forceActiveFocus();
-            else if (e.key === Qt.Key_Escape && root.paged && !stage.activeFocus) stage.forceActiveFocus();
+            else if (e.key === Qt.Key_Escape && root.page?.editing && root.page.hot) root.page.hot.forceActiveFocus();
+            else if (e.key === Qt.Key_Escape && root.page && !stage.activeFocus) stage.forceActiveFocus();
             else if (e.key === Qt.Key_Escape) root.leave();
             else return;
             e.accepted = true;
@@ -183,9 +181,9 @@ PanelWindow {
             x: 72
             anchors { bottom: parent.bottom; bottomMargin: 70 }
             spacing: 34
-            Lb { text: root.paged && root.page.editing ? "↑↓ part · ←→ pick" : root.paged && !stage.activeFocus ? "↑↓ setting · ←→ change" : "↑↓ section · → enter" }
-            Lb { visible: !!text && root.paged && root.page.editing; text: root.hints[root.sel] }
-            Lb { text: root.paged && root.page.editing ? "esc rows" : root.paged && !stage.activeFocus ? "esc sections" : root.fromSystem ? "esc back" : "esc close"; TapHandler { onTapped: root.leave() } }
+            Lb { text: root.page?.editing ? "↑↓ part · ←→ pick" : root.page && !stage.activeFocus ? "↑↓ setting · ←→ change" : "↑↓ section · → enter" }
+            Lb { visible: !!text && !!root.page?.editing; text: root.hints[root.sel] }
+            Lb { text: root.page?.editing ? "esc rows" : root.page && !stage.activeFocus ? "esc sections" : root.fromSystem ? "esc back" : "esc close"; TapHandler { onTapped: root.leave() } }
         }
 
         // ---- HOME: rows for the layout and the widgets' own options. The layout's editor lives in the inspector: home at a 104/220

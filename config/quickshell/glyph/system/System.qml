@@ -10,7 +10,7 @@ import "../prefs"
 // the system, like «Settings» on android: network, bluetooth, sound, display, power, battery, input, idle, firewall, apps,
 // about. Super+I; the rice look — Prefs, «customize the rice» leads there. Built like Prefs: Doto words on the left, the selected one
 // large with a red dot, the section on the right. Battery — if there is one, firewall — if ufw is installed.
-// ↑↓ — sections, Tab — through the objects, esc — back out of details, then close
+// ↑↓ — sections, → into a page: ↑↓ its rows, esc — out of an editor, then the page, then close
 PanelWindow {
     id: root
 
@@ -25,8 +25,8 @@ PanelWindow {
     readonly property var sections: ["NETWORK", "BLUETOOTH", "SOUND", "DISPLAY", "DRIVES", "WORKSPACES", "POWER"]
         .concat(UPower.displayDevice?.isLaptopBattery ? ["BATTERY"] : [], ["INPUT", "IDLE"], hasUfw ? ["FIREWALL"] : [], ["APPS", "ABOUT"])
     readonly property string cur: sections[sel] ?? ""
-    // the shown page when it's a rows page (Sheet: has walk()); the others keep ↑↓ for sections and Tab for their objects
-    readonly property Item page: pages[cur]?.walk ? pages[cur] : null
+    // the shown page (each is a Sheet); none while it loads
+    readonly property Item page: pages[cur] ?? null
     readonly property var pages: ({ NETWORK: net, BLUETOOTH: bt, SOUND: sound, DISPLAY: disp, DRIVES: drv, WORKSPACES: wsp, POWER: power, BATTERY: battery, INPUT: input, IDLE: idle, FIREWALL: fw, APPS: apps, ABOUT: about })
 
     property bool shown: false
@@ -105,8 +105,7 @@ PanelWindow {
             anchors { bottom: parent.bottom; bottomMargin: 70 }
             spacing: 34
             readonly property bool inside: !!root.page && !stage.activeFocus
-            Lb { text: parent.inside && root.page.editing ? "↑↓ part · ←→ pick" : parent.inside ? "↑↓ setting · ←→ change" : root.page ? "↑↓ section · → enter" : "↑↓ section" }
-            Lb { visible: !root.page; text: "tab · ↵ pick" }
+            Lb { text: parent.inside && root.page.editing ? "↑↓ part · ←→ pick" : parent.inside ? "↑↓ setting · ←→ change" : "↑↓ section · → enter" }
             Lb { text: parent.inside && root.page.editing ? "esc rows" : parent.inside ? "esc sections" : "esc back"; TapHandler { onTapped: root.back() } }
         }
 
