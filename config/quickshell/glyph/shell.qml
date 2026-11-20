@@ -12,6 +12,7 @@ import "deck"
 import "glyph"
 import "home"
 import "launcher"
+import "note"
 import "power"
 import "prefs"
 import "quick"
@@ -39,6 +40,7 @@ ShellRoot {
     Buds {}
     Cal { id: cal }
     Clip { id: clip }
+    Note { id: note }
     Charms { id: charms }
     Deck { id: deck }
     Shot { id: shot }
@@ -146,6 +148,7 @@ ShellRoot {
     Shortcut { name: "shot"; description: "screenshot"; onPressed: shot.open() }
     Shortcut { name: "pact"; description: "vpn: clash verge"; onPressed: vpn.toggle() }
     Shortcut { name: "clip"; description: "clipboard"; onPressed: clip.toggle() }
+    Shortcut { name: "note"; description: "quick note"; onPressed: note.toggle() }
     Shortcut { name: "charms"; description: "emoji, kaomoji, symbols"; onPressed: charms.toggle() }
     Shortcut { name: "wall"; description: "wallpapers"; onPressed: walls.toggle() }
     Shortcut { name: "game"; description: "game mode"; onPressed: Rules.store.game = !Rules.store.game }
