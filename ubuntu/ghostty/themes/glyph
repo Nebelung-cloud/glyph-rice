@@ -1,0 +1,23 @@
+# Glyph (Nothing OS) palette, from glyph-rice Theme.qml
+background = #0E0E0E
+foreground = #F2F2F2
+cursor-color = #F2F2F2
+cursor-text = #0E0E0E
+selection-background = #2A2A2A
+selection-foreground = #F2F2F2
+palette = 0=#0E0E0E
+palette = 1=#D71921
+palette = 2=#9BB59A
+palette = 3=#D9C38A
+palette = 4=#8EA3C2
+palette = 5=#B79BC2
+palette = 6=#8FB8B8
+palette = 7=#C9C9C9
+palette = 8=#4A4A4A
+palette = 9=#F0434B
+palette = 10=#B5CCB4
+palette = 11=#E8D6A8
+palette = 12=#AABBD4
+palette = 13=#CDB6D6
+palette = 14=#ABCDCD
+palette = 15=#F2F2F2

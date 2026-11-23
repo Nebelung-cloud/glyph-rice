@@ -110,6 +110,16 @@ hl.bind("SUPER + G", hl.dsp.global("shell:game"))  -- game mode has no key by de
 From the AUR only `qtengine`, `darkly`, Bibata and Zen, plus Spicetify and Clash Verge if picked; all optional. The VPN panel expects Clash Verge in English.
 NixOS: change the `/usr/lib` agent paths in `hypr/hyprland/execs.lua` and the Papirus path in `quickshell/rice/rice`.
 
+**Ubuntu (GNOME).** Ubuntu 24.04 ships neither Hyprland 0.56 nor Qt 6.9, so the shell itself doesn't run there. `ubuntu/install.sh` brings over the look instead: a GNOME Shell extension for the top bar (Glyph clock, pill buttons, white-on-black quick settings), GTK colours, the dot wallpaper, the fonts, a black Ubuntu Dock with red running dots, and the terminal side: Ghostty, fish, starship, fastfetch, btop, cava. Everything Quickshell draws (edges, island, launcher, Deck, Prefs) stays Arch-only.
+
+```sh
+ubuntu/install.sh           # apt packages, links, GNOME settings
+ubuntu/install.sh --links   # no sudo: links and GNOME settings only
+ubuntu/install.sh --fish    # also make fish the login shell
+```
+
+Replaced files and the old GNOME settings go to `~/.dots-backup-<date>`, and its `undo.sh` puts them back. Log out and in once for the top bar.
+
 <div align="center"><img src="assets/divider-dots.svg" width="720" alt=""></div>
 
 <h2 align="center">Colours</h2>

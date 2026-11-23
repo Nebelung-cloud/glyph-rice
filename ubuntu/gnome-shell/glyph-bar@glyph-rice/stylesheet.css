@@ -1,0 +1,293 @@
+/* Glyph palette: #000 bg, #0E0E0E bar and panels, #1A1A1A tiles, #2A2A2A lines,
+   #4A4A4A inactive, #8C8C8C labels, #F2F2F2 text, #D71921 the one live thing */
+
+/* ---- bar: the Glyph pill, 14px off the edges, 64px tall (Bar.qml, top layout) ---- */
+#panelBox.glyph-box { padding: 14px 14px 0 14px; }
+#panel.glyph-bar {
+  background-color: #0E0E0E;
+  border: 1px solid #1A1A1A;
+  border-radius: 32px;
+  height: 62px;
+  font-family: "Space Mono", monospace;
+  font-weight: normal;
+}
+/* lock and login: no pill, as before */
+#panel.glyph-bar.unlock-screen, #panel.glyph-bar.login-screen,
+#panel.glyph-bar.lock-screen { background-color: transparent; border-color: transparent; }
+
+/* buttons: no hover slabs, the rice has none; open menus get a quiet ring */
+#panel.glyph-bar .panel-button {
+  color: #F2F2F2; background-color: transparent; border: none; box-shadow: none;
+  border-radius: 999px; margin: 0; -natural-hpadding: 10px; -minimum-hpadding: 6px;
+}
+#panel.glyph-bar .panel-button:hover,
+#panel.glyph-bar .panel-button:active,
+#panel.glyph-bar .panel-button:focus { background-color: transparent; color: #F2F2F2; box-shadow: none; }
+#panel.glyph-bar .panel-button:checked { background-color: transparent; box-shadow: inset 0 0 0 1px #2A2A2A; }
+
+#panel.glyph-bar .system-status-icon { icon-size: 18px; color: #F2F2F2; padding: 0; }
+#panel.glyph-bar .glyph-icon.off { color: #8C8C8C; }
+
+/* labels: Space Mono caps, tracking .14em, grey (Lb.qml) */
+#panel.glyph-bar .glyph-label { font-family: "Space Mono", monospace; font-size: 10px; color: #8C8C8C; }
+
+/* ---- left ---- */
+#panel.glyph-bar .glyph-mark { margin-left: 18px; padding: 0; border-radius: 999px; }
+#panel.glyph-bar .glyph-ws { spacing: 8px; margin-left: 24px; padding: 8px 0; }
+#panel.glyph-bar .glyph-ws-dot { border-radius: 4px; background-color: #2A2A2A; padding: 0; }
+#panel.glyph-bar .glyph-ws-dot.occ { background-color: #8C8C8C; }
+#panel.glyph-bar .glyph-ws-dot.on { background-color: #F2F2F2; }
+#panel.glyph-bar .glyph-title {
+  margin-left: 24px; margin-right: 24px;
+  font-family: "Space Mono", monospace; font-size: 11px; color: #8C8C8C;
+}
+
+/* ---- centre: Doto time drawn as dots, then the day ---- */
+#panel.glyph-bar .glyph-datemenu { -natural-hpadding: 0; -minimum-hpadding: 0; }
+#panel.glyph-bar .glyph-clock { spacing: 12px; }
+#panel.glyph-bar .glyph-clock-date { font-family: "Space Mono", monospace; font-size: 10px; color: #8C8C8C; }
+
+/* ---- right: tray 20px apart, the pin 22px from the edge ---- */
+#panel.glyph-bar .glyph-qs { -natural-hpadding: 0; -minimum-hpadding: 0; margin-left: 20px; }
+#panel.glyph-bar .glyph-tray { spacing: 20px; }
+#panel.glyph-bar .glyph-bell { padding: 0; }
+#panel.glyph-bar .glyph-battery { spacing: 8px; }
+#panel.glyph-bar .glyph-battery-pct { min-width: 22px; text-align: center; }
+#panel.glyph-bar .glyph-mode { margin-left: 20px; padding: 0; }
+#panel.glyph-bar .glyph-autohide { margin-left: 20px; margin-right: 22px; padding: 0; }
+#panel.glyph-bar .glyph-autohide .glyph-icon { color: #F2F2F2; }
+#panel.glyph-bar .glyph-autohide:checked .glyph-icon { color: #4A4A4A; }
+#panel.glyph-bar .glyph-autohide:hover .glyph-icon { color: #D71921; }
+
+/* red = live: recording / screencast / screen sharing */
+#panel .screencast-indicator,
+#panel .screen-recording-indicator,
+#panel .screen-sharing-indicator { color: #D71921; }
+#panel .screen-recording-indicator, #panel .screen-sharing-indicator { background-color: rgba(215,25,33,0.18); }
+
+/* ---- menus ---- */
+.popup-menu-content, .candidate-popup-content {
+  background-color: #0E0E0E;
+  color: #F2F2F2;
+  border: 1px solid #2A2A2A;
+  border-radius: 24px;
+  box-shadow: none;
+}
+.popup-menu-item { border-radius: 14px; font-family: "Space Grotesk", sans-serif; }
+.popup-menu-item:hover, .popup-menu-item:focus, .popup-menu-item:selected { background-color: #1A1A1A; color: #F2F2F2; }
+.popup-menu-item:active { background-color: #2A2A2A; }
+.popup-separator-menu-item .popup-separator-menu-item-separator { background-color: #2A2A2A; }
+.popup-sub-menu { background-color: #000000; border-radius: 14px; }
+
+/* calendar / notifications */
+.datemenu-today-button .date-label { font-family: "Doto", "Space Mono", monospace; font-weight: 900; color: #F2F2F2; }
+.datemenu-today-button .day-label { font-family: "Space Mono", monospace; color: #8C8C8C; }
+.calendar-today, .calendar-today:selected { background-color: #F2F2F2; color: #000000; font-weight: bold; }
+.calendar-day:hover { background-color: #1A1A1A; }
+.calendar-weekend { color: #8C8C8C; }
+.events-button, .world-clocks-button, .weather-button, .message-list .message {
+  background-color: #1A1A1A; border-radius: 18px; color: #F2F2F2;
+}
+
+/* ---- quick settings: off = dark tile, on = white tile ---- */
+.quick-settings { padding: 18px; }
+.quick-toggle, .quick-menu-toggle .quick-toggle {
+  background-color: #1A1A1A; color: #F2F2F2; border-radius: 999px; box-shadow: none;
+}
+.quick-toggle:hover { background-color: #2A2A2A; }
+.quick-toggle:checked, .quick-menu-toggle .quick-toggle:checked,
+.quick-menu-toggle .quick-toggle-arrow:checked {
+  background-color: #F2F2F2; color: #000000;
+}
+.quick-toggle:checked:hover, .quick-menu-toggle .quick-toggle-arrow:checked:hover { background-color: #FFFFFF; }
+.quick-toggle-menu { background-color: #0E0E0E; border: 1px solid #2A2A2A; border-radius: 22px; }
+.quick-settings-system-item .icon-button, .quick-settings .icon-button {
+  background-color: #1A1A1A; color: #F2F2F2; border-radius: 999px;
+}
+.quick-settings-system-item .icon-button:hover { background-color: #2A2A2A; }
+.quick-slider .slider { color: #F2F2F2; -slider-handle-radius: 8px; -barlevel-height: 4px;
+  -barlevel-background-color: #2A2A2A; -barlevel-active-background-color: #F2F2F2; }
+.quick-settings .power-item .power-status { font-family: "Space Mono", monospace; }
+
+
+/* ---- overview: black stage, hairline tiles, mono type ---- */
+#overviewGroup, .overview-controls { background-color: #000000; }
+.search-entry {
+  background-color: #0E0E0E; color: #F2F2F2;
+  border: 1px solid #2A2A2A; border-radius: 999px; box-shadow: none;
+  font-family: "Space Mono", monospace; font-size: 10pt; letter-spacing: 1px;
+  padding: 10px 18px; caret-color: #D71921; selection-background-color: #F2F2F2; selected-color: #000000;
+}
+.search-entry:hover { background-color: #1A1A1A; border-color: #4A4A4A; }
+.search-entry:focus { background-color: #0E0E0E; border-color: #F2F2F2; box-shadow: none; }
+.search-entry .search-entry-icon { color: #8C8C8C; }
+.search-entry StLabel.hint-text { color: #4A4A4A; }
+
+/* app grid + dock icons: no fills until touched, round-rect focus like the launcher */
+.app-well-app .overview-icon, .grid-search-result .overview-icon,
+.show-apps .overview-icon, .app-folder .overview-icon {
+  background-color: transparent; border: 1px solid transparent; border-radius: 28px; box-shadow: none;
+  font-family: "Space Mono", monospace; font-size: 9pt; color: #8C8C8C; letter-spacing: 0.5px;
+}
+.app-well-app:hover .overview-icon, .grid-search-result:hover .overview-icon,
+.show-apps:hover .overview-icon, .app-folder:hover .overview-icon {
+  background-color: #000000; border-color: #2A2A2A; color: #F2F2F2;
+}
+.app-well-app:focus .overview-icon, .grid-search-result:focus .overview-icon,
+.app-well-app:selected .overview-icon, .app-folder:focus .overview-icon,
+.show-apps:checked .overview-icon, .show-apps:focus .overview-icon {
+  background-color: #000000; border-color: #F2F2F2; color: #F2F2F2;
+}
+.app-well-app:active .overview-icon, .app-well-app:checked .overview-icon { background-color: #000000; border-color: #4A4A4A; }
+.app-folder .overview-icon { background-color: #000000; border-color: #2A2A2A; }
+.app-well-app-running-dot { background-color: #D71921; width: 5px; height: 5px; border-radius: 999px; }
+
+.app-folder-dialog {
+  background-color: #0E0E0E; border: 1px solid #2A2A2A; border-radius: 36px; box-shadow: none;
+}
+.app-folder-dialog .folder-name-label, .app-folder-dialog .folder-name-entry {
+  font-family: "Space Grotesk", sans-serif; font-weight: bold; color: #F2F2F2;
+}
+.app-folder-dialog .edit-folder-button { background-color: #1A1A1A; color: #F2F2F2; border-radius: 999px; }
+.app-folder-dialog .edit-folder-button:hover { background-color: #2A2A2A; }
+
+/* page dots: white = here, grey = elsewhere */
+.page-indicator .page-indicator-icon { background-color: #4A4A4A; width: 6px; height: 6px; border-radius: 999px; }
+.page-indicator:checked .page-indicator-icon { background-color: #F2F2F2; }
+.page-navigation-arrow { color: #8C8C8C; background-color: transparent; border-radius: 999px; }
+.page-navigation-arrow:hover { color: #F2F2F2; background-color: #1A1A1A; }
+
+/* workspaces + window previews */
+.workspace-thumbnail { border: 1px solid #2A2A2A; border-radius: 14px; }
+.workspace-thumbnail-indicator { border: 2px solid #F2F2F2; border-radius: 14px; }
+.window-caption {
+  background-color: #0E0E0E; color: #F2F2F2; border: 1px solid #2A2A2A; border-radius: 999px;
+  font-family: "Space Mono", monospace; font-size: 9pt; padding: 4px 12px;
+}
+.window-close { background-color: #1A1A1A; color: #F2F2F2; border: 1px solid #2A2A2A; box-shadow: none; }
+.window-close:hover { background-color: #D71921; }
+
+/* search results */
+.search-section-content, .list-search-result { border-radius: 24px; }
+.list-search-result:hover, .list-search-result:focus { background-color: #1A1A1A; }
+.list-search-result .list-search-result-title { font-family: "Space Grotesk", sans-serif; color: #F2F2F2; }
+.list-search-result .list-search-result-description { font-family: "Space Mono", monospace; color: #8C8C8C; }
+.search-statustext, .search-provider-icon-more { font-family: "Space Mono", monospace; color: #4A4A4A; }
+
+/* ---- Ubuntu Dock: black rail, hairline edge, red running dots ---- */
+#dashtodockContainer .dash-background, #dashtodockContainer #dash .dash-background {
+  background-color: #000000; border: none; border-right: 1px solid #1A1A1A; border-radius: 0; box-shadow: none;
+}
+#dashtodockContainer .dash-separator { background-color: #2A2A2A; }
+#dashtodockContainer .app-well-app .overview-icon, #dashtodockContainer .show-apps .overview-icon { border-radius: 18px; }
+#dashtodockContainer .show-apps .overview-icon { color: #F2F2F2; }
+.dash-label {
+  background-color: #0E0E0E; color: #F2F2F2; border: 1px solid #2A2A2A; border-radius: 999px;
+  font-family: "Space Mono", monospace; font-size: 9pt; padding: 6px 14px;
+}
+/* show apps: dot grid on the same round tile as the dock apps */
+#dashtodockContainer .show-apps .show-apps-icon, .show-apps .show-apps-icon {
+  color: #F2F2F2; background-color: #000000; border: 1px solid #2A2A2A; border-radius: 999px;
+}
+#dashtodockContainer .show-apps:checked .show-apps-icon { background-color: #F2F2F2; color: #000000; border-color: #F2F2F2; }
+
+/* GNOME 46 grid items are .overview-tile: drop Yaru's grey squares */
+.overview-tile, .grid-search-result {
+  background-color: transparent; border-radius: 28px; color: #8C8C8C;
+  font-family: "Space Mono", monospace; font-size: 9pt;
+}
+.overview-tile:hover, .grid-search-result:hover,
+.overview-tile:active, .grid-search-result:active,
+.overview-tile:active:hover, .grid-search-result:active:hover { background-color: #000000; color: #F2F2F2; }
+.overview-tile:focus, .grid-search-result:focus,
+.overview-tile:focus:hover, .grid-search-result:focus:hover,
+.overview-tile:active:focus, .grid-search-result:active:focus,
+.overview-tile:selected, .overview-tile:checked, .overview-tile:highlighted,
+.overview-tile:selected:hover, .overview-tile:checked:hover, .overview-tile:highlighted:hover {
+  background-color: #1A1A1A; color: #F2F2F2; box-shadow: inset 0 0 0 1px #F2F2F2 !important;
+}
+.overview-tile:drop { background-color: rgba(215,25,33,0.15); box-shadow: inset 0 0 0 1px #D71921 !important; }
+.app-folder, .app-folder:hover, .app-folder:active, .app-folder:active:hover,
+.app-folder:highlighted, .app-folder:selected, .app-folder:checked {
+  background-color: #0E0E0E; box-shadow: inset 0 0 0 1px #2A2A2A;
+}
+.app-folder:focus, .app-folder:focus:hover, .app-folder:active:focus {
+  background-color: #1A1A1A; box-shadow: inset 0 0 0 1px #F2F2F2 !important;
+}
+.app-grid-running-dot { background-color: #D71921; }
+
+/* ---- Glyph Media: Spotify in the bar ---- */
+#panel.glyph-bar .glyph-media { margin-left: 24px; }
+#panel .glyph-media-box { spacing: 8px; }
+#panel .glyph-media-dot { width: 7px; height: 7px; border-radius: 999px; background-color: #4A4A4A; }
+#panel .glyph-media-dot.playing { background-color: #D71921; }
+#panel .glyph-media-label {
+  font-family: "Space Mono", monospace; font-size: 9pt; color: #F2F2F2; max-width: 220px;
+}
+#panel .glyph-media-bar-play { border-radius: 999px; padding: 4px; background-color: #1A1A1A; }
+#panel .glyph-media-bar-play:hover { background-color: #F2F2F2; color: #000000; }
+#panel .glyph-media-bar-play .glyph-media-icon { icon-size: 12px; }
+
+.glyph-media-menu .popup-menu-content { min-width: 300px; }
+.glyph-media-card, .glyph-media-card:hover { background-color: transparent; padding: 10px 12px; }
+.glyph-media-col { spacing: 6px; }
+.glyph-media-art { border-radius: 20px; margin-bottom: 8px; }
+.glyph-media-title {
+  font-family: "Space Grotesk", sans-serif; font-weight: bold; font-size: 13pt; color: #F2F2F2; max-width: 260px;
+}
+.glyph-media-artist {
+  font-family: "Space Mono", monospace; font-size: 8.5pt; letter-spacing: 1px; color: #8C8C8C; max-width: 260px;
+}
+.glyph-media-controls { spacing: 14px; margin-top: 10px; }
+.glyph-media-btn { border-radius: 999px; padding: 12px; background-color: #1A1A1A; color: #F2F2F2; }
+.glyph-media-btn:hover { background-color: #2A2A2A; }
+.glyph-media-btn-main { background-color: #F2F2F2; color: #000000; padding: 16px; }
+.glyph-media-btn-main:hover { background-color: #FFFFFF; }
+.glyph-media-btn .glyph-media-icon { icon-size: 16px; }
+
+/* no grey squares behind icons anywhere: focus/selected/checked tiles and dash items stay black */
+.overview-tile:focus, .overview-tile:selected, .overview-tile:checked,
+.grid-search-result:focus, .grid-search-result:selected,
+.dash-item-container .overview-tile, .dash-item-container .overview-tile:hover,
+.dash-item-container .app-well-app, .dash-item-container .app-well-app:hover,
+.dash-item-container .show-apps, .dash-item-container .show-apps:hover {
+  background-color: #000000;
+}
+
+/* ---- overview dash (the dock while Ubuntu Dock is off): slim floating pill ----
+   Yaru paints a #1d1d1d square behind every dash icon; these match its selectors to replace it. */
+#dash { margin-top: 8px; margin-bottom: 14px; }
+#dash .dash-background {
+  background-color: #000000; border: 1px solid rgba(255,255,255,0.07); border-radius: 999px;
+  padding: 6px 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+#dash .dash-separator { width: 1px; height: 28px; margin: 0 8px; background-color: rgba(255,255,255,0.08); }
+#dash .dash-item-container .show-apps,
+#dash .dash-item-container .overview-tile,
+#dash .dash-item-container .grid-search-result { margin: 0 1px; padding: 0 0 6px 0; background: none; }
+#dash .dash-item-container .show-apps .overview-icon,
+#dash .dash-item-container .overview-tile .overview-icon,
+#dash .dash-item-container .grid-search-result .overview-icon,
+#dash .dash-item-container .show-apps:focus .overview-icon,
+#dash .dash-item-container .overview-tile:focus .overview-icon,
+#dash .dash-item-container .grid-search-result:focus .overview-icon {
+  background-color: transparent; border: none; border-radius: 999px; padding: 4px;
+  box-shadow: none !important; transition-duration: 150ms;
+}
+/* hover: a soft round glow instead of a square */
+#dash .dash-item-container .show-apps:hover .overview-icon,
+#dash .dash-item-container .overview-tile:hover .overview-icon,
+#dash .dash-item-container .grid-search-result:hover .overview-icon,
+#dash .dash-item-container .show-apps:focus .overview-icon:hover,
+#dash .dash-item-container .overview-tile:focus .overview-icon:hover,
+#dash .dash-item-container .grid-search-result:focus .overview-icon:hover {
+  background-color: rgba(255,255,255,0.07); box-shadow: none !important;
+}
+#dash .dash-item-container .overview-tile:active .overview-icon,
+#dash .dash-item-container .overview-tile:checked .overview-icon,
+#dash .dash-item-container .show-apps:checked .overview-icon { background-color: rgba(255,255,255,0.12); }
+/* running apps: a short red line under the icon */
+#dash .app-well-app-running-dot { width: 12px; height: 3px; border-radius: 999px; background-color: #D71921; margin-bottom: 1px; }
+/* show apps: the dot grid on a plain disc like the app tiles */
+#dash .show-apps .show-apps-icon { background-color: #000000; border: 1px solid rgba(255,255,255,0.10); color: #E8E8E8; }
+#dash .show-apps:checked .show-apps-icon { background-color: #F2F2F2; color: #000000; border-color: #F2F2F2; }

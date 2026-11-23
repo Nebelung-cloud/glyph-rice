@@ -1,0 +1,12 @@
+# ---- Glyph look ----
+theme = glyph
+font-family = Space Mono
+font-size = 12
+window-padding-x = 30
+window-padding-y = 26
+window-padding-balance = true
+cursor-style = block
+cursor-style-blink = false
+shell-integration-features = no-cursor
+window-theme = ghostty
+unfocused-split-opacity = 0.85
