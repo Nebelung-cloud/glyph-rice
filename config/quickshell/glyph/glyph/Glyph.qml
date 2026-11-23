@@ -15,7 +15,25 @@ Scope {
     id: root
 
     // вспышка и остров — под баром, если он сверху и есть на экране в фокусе (там они и встают)
-    readonly property bool underBar: Theme.state.barAt === "top" && Theme.scr(Hyprland.focusedMonitor?.name, "bar")
+    readonly property var monitor: Hyprland.focusedMonitor
+    readonly property var noteScreen: Quickshell.screens.find(s => s.name === monitor?.name) ?? null
+    readonly property bool underBar: Theme.state.barAt === "top" && Theme.scr(monitor?.name, "bar")
+    readonly property bool popupsAllowed: {
+        if (Theme.state.notifyFullscreen) return true;
+        const active = monitor?.activeWorkspace;
+        const focused = Hyprland.activeToplevel?.workspace;
+        return !fullscreen(active) && !(focused !== active && focused?.monitor === monitor && fullscreen(focused));
+    }
+    function fullscreen(workspace) {
+        return workspace?.toplevels.values.some(t => t.wayland?.fullscreen) ?? false;
+    }
+    onPopupsAllowedChanged: {
+        if (popupsAllowed) return;
+        note = null;
+        noteT.stop();
+        stack.clear();
+        refs = {};
+    }
 
     // ---- справа: громкость и яркость ----
     property string kind: "vol"
@@ -49,6 +67,7 @@ Scope {
     readonly property int most: 4
     // плашка в стопку: c — { app, summary, body, icon (тема иконок), glyph (nerd font), crit }; ref — уведомление, ради действия
     function push(c, ref) {
+        if (!popupsAllowed) return;
         root.note = { urgency: c.crit ? NotificationUrgency.Critical : NotificationUrgency.Normal };
         noteT.restart();
         const key = String(++root.seq);
@@ -66,21 +85,40 @@ Scope {
         }
     }
 
+    // Состояние клавиатуры берём из Hyprland, как и для индикатора раскладки в баре.
+    property string previousLayout: ""
+    Connections {
+        target: Sys
+        function onKbdChanged() {
+            const previous = root.previousLayout;
+            root.previousLayout = Sys.kbd;
+            if (previous && Sys.kbd && Theme.state.notifyLayout) root.keyboardNotice("Keyboard layout", Sys.kbd);
+        }
+        function onKeyboardLockChanged(key, enabled) {
+            if (key === "Caps Lock" ? Theme.state.notifyCapsLock : Theme.state.notifyNumLock)
+                root.keyboardNotice(key, enabled ? "On" : "Off");
+        }
+    }
+    function keyboardNotice(summary, body) {
+        if (armed && !Theme.state.dnd) push({ app: "keyboard", summary, body, glyph: "\u{F030C}" });
+    }
+
     // ---- питание: зарядку включили/выдернули, зарядилась, садится (15% — предупредить, 5% — красным). Плашкой в остров,
     // мимо истории уведомлений. armed — не на старте ----
     readonly property var bat: UPower.displayDevice
     readonly property int pct: Math.round((bat?.percentage ?? 0) * 100)
     property int warned: 100
     function hm(s) { const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} m` : `${m} m`; }
-    function power(summary, glyph, crit, time) {
-        if (root.armed && root.bat?.isLaptopBattery) root.push({ app: "power", summary, body: `${root.pct}%` + (time ? ` · ${time}` : ""), glyph, crit: !!crit });
+    function power(summary, glyph, time, warning = false, crit = false) {
+        const enabled = warning ? (Theme.state.notifyLowBattery ?? Theme.state.notifyPower) : Theme.state.notifyPower;
+        if (root.armed && enabled && root.bat?.isLaptopBattery) root.push({ app: "power", summary, body: `${root.pct}%` + (time ? ` · ${time}` : ""), glyph, crit });
     }
     Connections {
         target: UPower
         function onOnBatteryChanged() {
             root.warned = 100;
-            if (UPower.onBattery) root.power("On battery", "\u{F0079}", false, root.bat.timeToEmpty ? `${root.hm(root.bat.timeToEmpty)} left` : "");
-            else root.power("Charging", "\u{F0084}", false, root.bat.timeToFull ? `full in ${root.hm(root.bat.timeToFull)}` : "");
+            if (UPower.onBattery) root.power("On battery", "\u{F0079}", root.bat.timeToEmpty ? `${root.hm(root.bat.timeToEmpty)} left` : "");
+            else root.power("Charging", "\u{F0084}", root.bat.timeToFull ? `full in ${root.hm(root.bat.timeToFull)}` : "");
         }
     }
     Connections {
@@ -88,8 +126,8 @@ Scope {
         function onStateChanged() { if (root.bat.state === UPowerDeviceState.FullyCharged && !UPower.onBattery) root.power("Fully charged", "\u{F0079}"); }
         function onPercentageChanged() {
             if (!UPower.onBattery) return;
-            if (root.pct <= 5 && root.warned > 5) { root.warned = 5; root.power("Battery critical", "\u{F0083}", true, "plug in now"); }
-            else if (root.pct <= 15 && root.warned > 15) { root.warned = 15; root.power("Battery low", "\u{F0083}", false, "plug in soon"); }
+            if (root.pct <= 5 && root.warned > 5) { root.warned = 5; root.power("Battery critical", "\u{F0083}", "plug in now", true, true); }
+            else if (root.pct <= 15 && root.warned > 15) { root.warned = 15; root.power("Battery low", "\u{F0083}", "plug in soon", true); }
         }
     }
     function dismiss(key) { for (let i = 0; i < stack.count; i++) if (stack.get(i).key === key) return stack.setProperty(i, "leaving", true); }
@@ -102,7 +140,8 @@ Scope {
 
     Edge {
         id: top
-        shown: !!root.note && Theme.state.edges
+        shown: root.popupsAllowed && !!root.note && Theme.state.edges
+        screen: root.noteScreen
         anchors.top: true
         margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
         implicitWidth: Math.ceil(640 * Theme.s)
@@ -131,7 +170,8 @@ Scope {
     // схлопывается — нижние подтягиваются. Своя жизнь у каждой 4 с, наведение на стопку держит все.
     // Окно постоянного размера (под most плашек), мышь ловит только сама стопка
     PanelWindow {
-        visible: stack.count > 0
+        visible: root.popupsAllowed && stack.count > 0
+        screen: root.noteScreen
         anchors.top: true
         margins.top: root.underBar ? Math.ceil(78 * Theme.s) : 0
         implicitWidth: Math.ceil(600 * Theme.s)
@@ -285,7 +325,7 @@ Scope {
     }
 
     // ---- снизу: прогресс задачи, без неё — идущий фокус-таймер (одной полосой, без капсулы: висит десятки минут) ----
-    readonly property var task: Notes.task
+    readonly property var task: popupsAllowed ? Notes.task : null
     readonly property real progress: task ? Math.max(0, Math.min(100, task.hints.value ?? 0)) / 100 : Focus.f
     Connections {
         target: Focus
@@ -293,6 +333,7 @@ Scope {
     }
     Edge {
         shown: (!!root.task || Focus.running) && Theme.state.edges
+        screen: root.noteScreen
         anchors.bottom: true
         implicitWidth: Math.ceil(1100 * Theme.s)
         implicitHeight: Math.ceil(110 * Theme.s)

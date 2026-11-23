@@ -25,6 +25,9 @@ for _, key in ipairs({
 end
 
 -- Misc
+for _, key in ipairs({ "Caps_Lock", "Num_Lock" }) do
+    hl.bind(key, hl.dsp.global("shell:keyboardLocks"), { release = true, ignore_mods = true, non_consuming = true })
+end
 hl.bind(vars.kbAltar, hl.dsp.global("shell:altar"))
 hl.bind("SUPER + I", hl.dsp.global("shell:settings"))
 hl.bind("SUPER + N", hl.dsp.global("shell:ward"))

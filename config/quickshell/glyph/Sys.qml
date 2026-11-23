@@ -44,14 +44,36 @@ Singleton {
 
     // ---- раскладка: старт — main-клавиатура из hyprctl, дальше событие activelayout ----
     property string kbd: ""
+    property var capsLock: null
+    property var numLock: null
+    signal keyboardLockChanged(string key, bool enabled)
+    function refreshKeyboard() { keyboardRead.restart(); }
+    Timer { id: keyboardRead; interval: 30; onTriggered: if (!keyboard.running) keyboard.running = true; else restart() }
     Process {
+        id: keyboard
         running: true
         command: ["hyprctl", "devices", "-j"]
-        stdout: StdioCollector { onStreamFinished: root.kbd = JSON.parse(this.text).keyboards.find(k => k.main)?.active_keymap ?? "" }
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let keys;
+                try { keys = JSON.parse(text).keyboards; } catch (e) { return; }
+                const main = keys?.find(k => k.main) ?? keys?.[0];
+                if (!main) return;
+                if (!root.kbd) root.kbd = main.active_keymap ?? "";
+                const caps = root.capsLock;
+                const num = root.numLock;
+                root.capsLock = main.capsLock ?? null;
+                root.numLock = main.numLock ?? null;
+                if (caps !== null && root.capsLock !== null && caps !== root.capsLock)
+                    root.keyboardLockChanged("Caps Lock", root.capsLock);
+                if (num !== null && root.numLock !== null && num !== root.numLock)
+                    root.keyboardLockChanged("Num Lock", root.numLock);
+            }
+        }
     }
     Connections {
         target: Hyprland
-        function onRawEvent(e) { if (e.name === "activelayout") root.kbd = e.data.slice(e.data.lastIndexOf(",") + 1); }
+        function onRawEvent(e) { if (e.name === "activelayout") root.kbd = e.data.slice(e.data.indexOf(",") + 1); }
     }
     readonly property string layout: kbd.slice(0, 2).toLowerCase() // "English (US)" → en
 

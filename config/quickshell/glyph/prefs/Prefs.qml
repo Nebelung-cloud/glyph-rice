@@ -20,10 +20,10 @@ PanelWindow {
 
     property int sel: 0
     signal wallRequested // обои — свой экран (wall/Walls), его открывает shell.qml
-    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "IDLE", "SHELL"]
+    readonly property var sections: ["HOME", "DECK", "BAR", "LOOK", "STYLE", "WINDOWS", "DISPLAY", "AUDIO", "POWER", "INPUT", "NOTIFICATIONS", "IDLE", "SHELL"]
     readonly property string moves: "shift ←→ move · ↵ swap · del drop · drag"
     readonly property string rings: "drag round the rings · scroll"
-    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, "drag a screen to move it · " + rings, "click or ←→ a device", "↵ or click a mode", rings, "drag the marks", ""]
+    readonly property var hints: [moves, moves, moves, "", "hover to preview · ↵ or click sets it", rings, "drag a screen to move it · " + rings, "click or ←→ a device", "↵ or click a mode", rings, "", "drag the marks", ""]
     readonly property var r: Rules.store
 
     // глифы видов дома, секций deck и трея бара
@@ -175,7 +175,7 @@ PanelWindow {
         Column {
             x: 150 - 30 * (1 - root.t)
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 22
+            spacing: 15
             Repeater {
                 model: root.sections
                 Row {
@@ -194,7 +194,7 @@ PanelWindow {
                     }
                     Num {
                         text: word.modelData
-                        font.pixelSize: word.on ? 112 : 46
+                        font.pixelSize: word.on ? (word.modelData === "NOTIFICATIONS" ? 72 : 112) : 46
                         color: word.on ? Theme.fg : Theme.mute
                         Behavior on font.pixelSize { NumberAnimation { duration: Theme.t; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.glide } }
                         Behavior on color { ColorAnimation { duration: Theme.t } }
@@ -1189,10 +1189,16 @@ PanelWindow {
             Pick { label: "layout switch"; opts: Rules.switches.map(s => s[0]); cur: root.r.kbSwitch; onPicked: i => { root.r.kbSwitch = i; Rules.input(); } }
         }
 
+        Page {
+            k: 10
+            caption: "notifications"
+            NoticePrefs { active: root.shown && root.sel === 10 }
+        }
+
         // ---- IDLE: шкала минут без ввода. Точки тускнеют на каждом событии: бодр → заперт → экран погас → спит.
         // Метки тянутся вдоль, правее 60 — never ----
         Page {
-            k: 10
+            k: 11
             caption: "idle · minutes without input · hypridle"
 
             Item {
@@ -1247,7 +1253,7 @@ PanelWindow {
 
         // ---- SHELL: знак райса и имя живого шелла; переключатель — приложение Rice ----
         Page {
-            k: 11
+            k: 12
             caption: "shell · quickshell"
 
             Row {
@@ -1278,7 +1284,6 @@ PanelWindow {
                     }
                 }
                 Act { icon: "\u{F0450}"; text: "reload"; onHit: Quickshell.reload(false) }
-                Toggle { text: "do not disturb"; on: Theme.state.dnd; onFlip: Theme.state.dnd = !Theme.state.dnd }
             }
         }
     }

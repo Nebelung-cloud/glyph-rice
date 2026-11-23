@@ -142,6 +142,7 @@ ShellRoot {
     Shortcut { name: "quick"; description: "quick settings"; onPressed: quick.toggle() }
     Shortcut { name: "ward"; description: "quick settings"; onPressed: quick.toggle() } // Super+N у demonshot — те же тумблеры
     Shortcut { name: "settings"; description: "settings"; onPressed: prefs.toggle() }
+    Shortcut { name: "keyboardLocks"; description: "refresh Caps Lock and Num Lock"; onReleased: Sys.refreshKeyboard() }
     Shortcut { name: "power"; description: "power menu"; onPressed: power.visible ? power.close() : power.open() }
     Shortcut { name: "shot"; description: "screenshot"; onPressed: shot.open() }
     Shortcut { name: "pact"; description: "vpn: clash verge"; onPressed: vpn.toggle() }

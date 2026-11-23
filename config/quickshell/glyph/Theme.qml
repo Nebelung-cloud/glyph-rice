@@ -178,6 +178,13 @@ Singleton {
             property var tones: []        // тона обоев, их пишет квантайзер; пусто — серые обои или нет картинки
             property string variant: "tonalspot" // как тон обоев становится палитрой, id из schemes.js (VARIANTS)
             property bool dnd: false  // новые не показываются, критические — всегда
+            property bool notifyCapsLock: true
+            property bool notifyNumLock: true
+            property bool notifyLayout: true
+            property bool notifyPower: true
+            property var notifyLowBattery: null // у старых настроек берём прежний общий флаг питания
+            property bool notifyFullscreen: true
+            property var mutedNoteApps: ({}) // ключ → {name, mode}; прежнее значение-строка означает off
             property int unread: 0    // для лока
             // ---- то, что крутят настройки (prefs) ----
             property var widgets: ["weather", "calendar", "cpu", "player", "buds", "system"] // бенто дома по порядку, см. kinds
