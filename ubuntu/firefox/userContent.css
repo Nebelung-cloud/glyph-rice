@@ -1,0 +1,96 @@
+/* Glyph home page: the rice's black, greys and one red on Firefox's new tab / home.
+   Palette: #000000 base · #0E0E0E raised · #1A1A1A hairline · #2A2A2A edge · #4A4A4A dim ·
+   #8C8C8C muted · #F2F2F2 text · #D71921 accent. Type: Space Grotesk, Space Mono, Doto. */
+@-moz-document url("about:home"), url("about:newtab"), url("about:privatebrowsing") {
+  :root, body {
+    --newtab-background-color: #000000 !important;
+    --newtab-background-color-secondary: #0E0E0E !important;
+    --newtab-text-primary-color: #F2F2F2 !important;
+    --newtab-text-secondary-color: #8C8C8C !important;
+    --newtab-element-hover-color: #0E0E0E !important;
+    --newtab-element-active-color: #1A1A1A !important;
+    --newtab-border-color: #1A1A1A !important;
+    --newtab-primary-action-background: #D71921 !important;
+    --newtab-wordmark-color: #F2F2F2 !important;
+    --newtab-search-icon-color: #8C8C8C !important;
+    color-scheme: dark !important;
+  }
+  body {
+    background-color: #000000 !important;
+    /* the rice's dot wallpaper */
+    background-image: radial-gradient(circle, #1A1A1A 1.2px, transparent 1.6px) !important;
+    background-size: 26px 26px !important;
+    background-position: center !important;
+    font-family: "Space Grotesk", sans-serif !important;
+  }
+  .wallpaper-attribution, .logo-and-wordmark, .logo-and-wordmark-wrapper, .weather,
+  .ds-outer-wrapper-breakpoint-override .ds-layout, .sponsored-label, .top-site-outer .pinned-indicator,
+  .newtab-wallpaper, .asrouter-banner, .message-wrapper { display: none !important; }
+
+  /* center everything a little higher than Firefox does */
+  .outer-wrapper, .outer-wrapper.ds-outer-wrapper-breakpoint-override { padding-top: 22vh !important; }
+
+  /* the one red dot above the search, like the bar's live indicator */
+  .search-wrapper { position: relative !important; padding-top: 40px !important; }
+  .search-wrapper::before {
+    content: "" !important; position: absolute !important; top: 0; left: 50%;
+    width: 8px; height: 8px; margin-left: -4px; border-radius: 999px; background: #D71921;
+  }
+
+  /* search: black pill, hairline edge, white edge on focus (same as the shell search) */
+  .search-wrapper .search-inner-wrapper { max-width: 560px !important; min-height: 52px !important; }
+  .search-handoff-button, .search-wrapper input, #newtab-search-text {
+    background-color: #0E0E0E !important; color: #F2F2F2 !important;
+    border: 1px solid #2A2A2A !important; border-radius: 999px !important; box-shadow: none !important;
+    font-family: "Space Mono", monospace !important; font-size: 13px !important; letter-spacing: 0.4px;
+    background-position: 20px center !important; padding-inline-start: 52px !important;
+    fill: #8C8C8C !important; -moz-context-properties: fill;
+  }
+  .search-handoff-button:hover, .search-wrapper input:hover { background-color: #141414 !important; border-color: #4A4A4A !important; }
+  .search-handoff-button.focused, .search-handoff-button:focus, .search-wrapper input:focus,
+  .search-wrapper.fake-focus .search-handoff-button {
+    border-color: #F2F2F2 !important; background-color: #0E0E0E !important; box-shadow: none !important;
+  }
+  .search-handoff-button .fake-textbox, .search-wrapper input::placeholder {
+    color: #4A4A4A !important; font-family: "Space Mono", monospace !important;
+  }
+  .search-handoff-button .fake-caret { background: #F2F2F2 !important; }
+  .search-wrapper .search-button { display: none !important; }
+
+  /* shortcuts: round black tiles with a hairline ring, mono labels */
+  .top-sites-list { gap: 4px !important; }
+  .top-site-outer, .top-site-outer:hover, .top-site-outer:focus-within { background: transparent !important; box-shadow: none !important; }
+  .top-site-outer .top-site-inner > a, .top-site-outer .tile { background: transparent !important; box-shadow: none !important; }
+  .top-site-outer .tile {
+    width: 64px !important; height: 64px !important; border-radius: 999px !important;
+    background-color: #000000 !important; border: 1px solid #1A1A1A !important; box-shadow: none !important;
+    transition: border-color 150ms, background-color 150ms !important;
+  }
+  .top-site-outer:hover .tile, .top-site-outer:focus-within .tile { background-color: #0E0E0E !important; border-color: #4A4A4A !important; }
+  .top-site-outer .tile .icon-wrapper, .top-site-outer .tile .top-site-icon,
+  .top-site-outer .default-icon, .top-site-outer .tile .rich-icon { border-radius: 999px !important; box-shadow: none !important; background-color: transparent !important; }
+  .top-site-outer .tile .icon-wrapper { filter: grayscale(1) brightness(1.15); transition: filter 150ms; }
+  .top-site-outer:hover .tile .icon-wrapper { filter: none; }
+  .top-site-outer .title, .top-site-outer .title span {
+    color: #8C8C8C !important; font-family: "Space Mono", monospace !important; font-size: 10px !important;
+    letter-spacing: 0.5px; text-transform: lowercase;
+  }
+  .top-site-outer:hover .title, .top-site-outer:hover .title span { color: #F2F2F2 !important; }
+  .top-site-outer .context-menu-button { background-color: #0E0E0E !important; border-radius: 999px !important; }
+  .top-site-outer.add-button .tile { border-style: dashed !important; border-color: #2A2A2A !important; }
+
+  /* menus, dialogs, the customize panel */
+  .context-menu, .customize-menu, #customize-menu {
+    background-color: #0E0E0E !important; border: 1px solid #2A2A2A !important; border-radius: 18px !important;
+    color: #F2F2F2 !important; box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+  }
+  .context-menu > ul > li > button:hover, .context-menu > ul > li > button:focus { background-color: #1A1A1A !important; }
+  .personalize-button, .customize-menu-button, button.icon.icon-settings {
+    background-color: transparent !important; border: 1px solid #1A1A1A !important; border-radius: 999px !important;
+    fill: #4A4A4A !important; opacity: 0.8;
+  }
+  .personalize-button:hover, button.icon.icon-settings:hover { border-color: #4A4A4A !important; fill: #F2F2F2 !important; opacity: 1; }
+  .modalOverlayInner, .topsite-form { background-color: #0E0E0E !important; border: 1px solid #2A2A2A !important; border-radius: 24px !important; }
+  button.done, .actions button.done { background-color: #D71921 !important; color: #F2F2F2 !important; border-radius: 999px !important; border: none !important; }
+  ::selection { background: #D71921; color: #F2F2F2; }
+}

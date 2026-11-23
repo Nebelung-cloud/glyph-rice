@@ -1,0 +1,8 @@
+{
+  "uuid": "glyph-bar@glyph-rice",
+  "name": "Glyph Bar",
+  "description": "Restyles the top bar, menus and quick settings in the Glyph (Nothing OS) look: black, white dots, one red.",
+  "shell-version": ["46"],
+  "url": "https://github.com/Nebelung-cloud/glyph-rice",
+  "version": 1
+}

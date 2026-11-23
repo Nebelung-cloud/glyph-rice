@@ -1,0 +1,62 @@
+/* Glyph app colours for Ubuntu GNOME: the palette and shapes of config/quickshell/glyph/term/gtk-4.0/gtk.css, Thunar rules swapped for Nautilus. Linked to ~/.config/gtk-{3,4}.0/gtk.css by ubuntu/install.sh */
+@define-color accent_color #F2F2F2;
+@define-color accent_bg_color #F2F2F2;
+@define-color accent_fg_color #000000;
+@define-color destructive_color #D71921;
+@define-color destructive_bg_color #D71921;
+@define-color destructive_fg_color #F2F2F2;
+@define-color window_bg_color #000000;
+@define-color window_fg_color #F2F2F2;
+@define-color view_bg_color #0E0E0E;
+@define-color view_fg_color #F2F2F2;
+@define-color headerbar_bg_color #000000;
+@define-color headerbar_fg_color #F2F2F2;
+@define-color headerbar_border_color #000000;
+@define-color headerbar_backdrop_color #000000;
+@define-color popover_bg_color #0E0E0E;
+@define-color popover_fg_color #F2F2F2;
+@define-color dialog_bg_color #0E0E0E;
+@define-color dialog_fg_color #F2F2F2;
+@define-color card_bg_color #1A1A1A;
+@define-color card_fg_color #F2F2F2;
+@define-color sidebar_bg_color #000000;
+@define-color sidebar_fg_color #F2F2F2;
+@define-color sidebar_border_color #000000;
+@define-color sidebar_backdrop_color #000000;
+@define-color borders #2A2A2A;
+
+/* gtk3 (adw-gtk3) */
+@define-color theme_bg_color #000000;
+@define-color theme_fg_color #F2F2F2;
+@define-color theme_base_color #0E0E0E;
+@define-color theme_text_color #F2F2F2;
+@define-color theme_selected_bg_color #F2F2F2;
+@define-color theme_selected_fg_color #000000;
+@define-color insensitive_fg_color #4A4A4A;
+
+window, popover, menu { font-family: "Space Grotesk"; }
+
+/* ---- пилюли; в склеенных группах внутренние углы прямые ---- */
+button, entry { border-radius: 999px; }
+entry { padding-left: 14px; padding-right: 14px; }
+.linked:not(.vertical) > button:not(:first-child), .linked:not(.vertical) > entry:not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.linked:not(.vertical) > button:not(:last-child), .linked:not(.vertical) > entry:not(:last-child) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.linked.vertical > button, .linked.vertical > entry { border-radius: 12px; }
+popover > contents, popover.background { border-radius: 24px; }
+
+/* вкл — белая дорожка, чёрный бегунок (белый на белом пропал бы) */
+switch:checked slider { background-color: #000000; }
+
+scrollbar slider { border-radius: 999px; background-color: #4A4A4A; }
+scrollbar slider:hover, scrollbar slider:active { background-color: #8C8C8C; }
+
+/* ---- Files (Nautilus): white selection, pill sidebar rows, mono path bar ---- */
+.nautilus-window .view:selected, .nautilus-window gridview > child:selected, .nautilus-window columnview > listview > row:selected { background-color: #F2F2F2; color: #000000; }
+.nautilus-window .navigation-sidebar > row { border-radius: 999px; }
+.nautilus-window .navigation-sidebar > row:selected { background-color: #F2F2F2; color: #000000; }
+.nautilus-window .path-bar button, .nautilus-window .path-bar label { font-family: "Space Mono"; letter-spacing: 1px; }
+
+/* ---- libadwaita: selected sidebar rows and suggested buttons go white ---- */
+.navigation-sidebar > row:selected { background-color: #F2F2F2; color: #000000; border-radius: 999px; }
+button.suggested-action { background-color: #F2F2F2; color: #000000; }
+button.destructive-action { background-color: #D71921; color: #F2F2F2; }
