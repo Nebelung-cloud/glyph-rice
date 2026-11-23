@@ -155,6 +155,7 @@ hl.bind(vars.kbTodoWs, fn.toggle_special("todo"))
 hl.bind(vars.kbTerminal, function() hl.exec_cmd(vars.terminal) end) -- при нажатии: user.lua может сменить vars.terminal
 hl.bind(vars.kbBrowser, hl.dsp.exec_cmd(vars.browser))
 hl.bind(vars.kbEditor, function() if vars.apps.editor then hl.exec_cmd(vars.apps.editor) end end)
+hl.bind(vars.kbQuickNote, hl.dsp.global("shell:note")) -- панель быстрых заметок
 hl.bind(vars.kbFileExplorer, hl.dsp.exec_cmd(vars.fileExplorer))
 hl.bind("CTRL + ALT + V", hl.dsp.exec_cmd(vars.audioSettings))
 

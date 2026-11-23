@@ -117,6 +117,7 @@ return {
     kbTerminal                 = "SUPER + Q",
     kbBrowser                  = "SUPER + W",
     kbEditor                   = "SUPER + SHIFT + K",
+    kbQuickNote                = "SUPER + T", -- быстрый блокнот (glyph/note/Note.qml)
     kbFileExplorer             = "SUPER + E",
 
     -- Misc

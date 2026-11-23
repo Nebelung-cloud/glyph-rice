@@ -25,6 +25,7 @@ Black, white dots, one red. A sibling of [Demon's Shot](https://github.com/Nebel
 | **Prefs** | settings, bar and home layout, audio devices | `Super` `I` |
 | **Shot** | screenshots, editor, recording | `Print` |
 | **Clip** | clipboard history | `Super` `V` |
+| **Note** | quick notes: markdown files in Documents/Notes, search, history, autosave, per-note reminders, trash via `gio` | `Super` `T` |
 | **Charms** | emoji, kaomoji, symbols | `Super` `.` |
 | **Walls** | wallpapers as dots | `Super` `Shift` `W` |
 | **VPN** | Clash Verge panel | `Super` `P` |
